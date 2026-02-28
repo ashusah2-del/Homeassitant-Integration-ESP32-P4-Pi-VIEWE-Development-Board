@@ -56,6 +56,7 @@
 #define BSP_BL_LCD3V3             (GPIO_NUM_5)
 
 /* Display */
+#define DISPLAY_JD9165        (1)  //The default is 1
 #define BSP_LCD_BACKLIGHT     (GPIO_NUM_23)
 #define BSP_LCD_RST           (GPIO_NUM_22)
 #define BSP_LCD_TOUCH_RST     (GPIO_NUM_NC)
