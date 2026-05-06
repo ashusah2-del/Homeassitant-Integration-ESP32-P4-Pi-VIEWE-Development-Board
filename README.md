@@ -1,4 +1,4 @@
-# ESP32-P4-SmartDisplay
+# ESP32-P4-C6-Touch-DISPLAY
 [中文](/README_CN.md)
 
 <div align="center">
