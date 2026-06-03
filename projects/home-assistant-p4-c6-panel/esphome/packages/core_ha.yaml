@@ -3,11 +3,11 @@ logger:
 
 api:
   encryption:
-    key: "CHANGE_ME_32_BYTE_BASE64_KEY"
+    key: !secret api_encryption_key
 
 ota:
   - platform: esphome
-    password: "CHANGE_ME_OTA_PASSWORD"
+    password: !secret ota_password
 
 time:
   - platform: homeassistant

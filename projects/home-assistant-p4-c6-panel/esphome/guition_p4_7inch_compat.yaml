@@ -46,10 +46,10 @@ packages:
   audio_voice: !include packages/audio_voice_board.yaml
 
 wifi:
-  ssid: "CHANGE_ME"
-  password: "CHANGE_ME"
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
   ap:
-    ssid: "${friendly_name} Fallback"
-    password: "change-this-password"
+    ssid: !secret fallback_ap_ssid
+    password: !secret fallback_ap_password
 
 captive_portal:
