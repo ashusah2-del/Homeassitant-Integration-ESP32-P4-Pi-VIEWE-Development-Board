@@ -1,0 +1,29 @@
+micro_wake_word:
+  models:
+    - model: okay_nabu
+
+voice_assistant:
+  id: panel_va
+  microphone: panel_mic
+  speaker: panel_spk
+
+microphone:
+  - platform: i2s_audio
+    id: panel_mic
+    i2s_audio_id: panel_i2s
+    adc_type: external
+    pdm: true
+
+speaker:
+  - platform: i2s_audio
+    id: panel_spk
+    i2s_audio_id: panel_i2s
+    dac_type: external
+
+i2s_audio:
+  - id: panel_i2s
+
+switch:
+  - platform: template
+    name: "Panel Voice Assistant Enabled"
+    optimistic: true

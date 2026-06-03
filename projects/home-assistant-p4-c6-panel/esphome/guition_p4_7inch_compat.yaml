@@ -1,0 +1,31 @@
+substitutions:
+  node_name: guition-p4-7inch-ha
+  friendly_name: Guition P4 7inch HA Panel
+  board_type: esp32-p4-evboard
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  project:
+    name: local.home_assistant_p4_c6_panel
+    version: "0.1.0"
+
+esp32:
+  board: ${board_type}
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+packages:
+  core: !include packages/core_ha.yaml
+  display_touch: !include packages/display_touch_stub.yaml
+  audio_voice: !include packages/audio_voice_stub.yaml
+
+wifi:
+  ssid: "CHANGE_ME"
+  password: "CHANGE_ME"
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: "change-this-password"
+
+captive_portal:
