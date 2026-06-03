@@ -38,6 +38,7 @@ voice_assistant:
   id: panel_va
   microphone: panel_mic
   speaker: panel_spk
+  use_wake_word: true
 
 sensor:
   - platform: adc

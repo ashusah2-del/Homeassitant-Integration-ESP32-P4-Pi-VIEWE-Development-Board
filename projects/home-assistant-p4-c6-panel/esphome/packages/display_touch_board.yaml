@@ -10,6 +10,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: immich_base_url_runtime
+    type: std::string
+    restore_value: no
+    initial_value: '"${immich_url}"'
 
 online_image:
   - id: immich_panel_image
@@ -32,7 +36,8 @@ script:
     mode: restart
     then:
       - http_request.get:
-          url: ${immich_url}/api/assets/random?count=1
+          url: !lambda |-
+            return id(immich_base_url_runtime) + "/api/assets/random?count=1";
           request_headers:
             Accept: application/json
             x-api-key: !secret immich_api_key
@@ -63,7 +68,7 @@ script:
                           - online_image.set_url:
                               id: immich_panel_image
                               url: !lambda |-
-                                return std::string("${immich_url}/api/assets/") + id(immich_current_asset_id) + "/thumbnail?size=preview";
+                                return id(immich_base_url_runtime) + "/api/assets/" + id(immich_current_asset_id) + "/thumbnail?size=preview&format=JPEG";
                               update: true
                   else:
                     - logger.log:

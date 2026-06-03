@@ -1,5 +1,5 @@
 logger:
-  level: INFO
+  level: DEBUG
 
 json:
 
@@ -18,6 +18,10 @@ i2c:
 api:
   encryption:
     key: !secret api_encryption_key
+  on_client_connected:
+    - voice_assistant.start_continuous:
+  on_client_disconnected:
+    - voice_assistant.stop:
 
 ota:
   - platform: esphome
@@ -33,6 +37,17 @@ text_sensor:
       name: "Panel IP Address"
     ssid:
       name: "Panel Wi-Fi SSID"
+  - platform: homeassistant
+    id: ha_immich_url
+    entity_id: input_text.panel_immich_url
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty()) {
+              id(immich_base_url_runtime) = x.c_str();
+            }
+        - script.execute: refresh_immich_slideshow
 
 sensor:
   - platform: uptime
