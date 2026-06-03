@@ -3,6 +3,8 @@ substitutions:
   friendly_name: Guition P4 7inch HA Panel
   board_type: esp32-p4-evboard
   rotate_display: "0"
+  immich_url: "http://192.168.55.59:2283"
+  immich_slideshow_interval: 10min
 
 esphome:
   name: ${node_name}
@@ -48,6 +50,9 @@ packages:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  use_address: 192.168.55.94
+  on_connect:
+    - script.execute: refresh_immich_slideshow
   ap:
     ssid: !secret fallback_ap_ssid
     password: !secret fallback_ap_password
