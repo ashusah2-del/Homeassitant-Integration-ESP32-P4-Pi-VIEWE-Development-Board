@@ -1,0 +1,64 @@
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO10
+    i2s_bclk_pin: GPIO12
+    i2s_mclk_pin: GPIO13
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    i2c_id: bus_a
+
+audio_adc:
+  - platform: es7210
+    id: es7210_adc
+    i2c_id: bus_a
+    address: 0x36
+
+switch:
+  - platform: gpio
+    name: "Speaker Enable"
+    icon: mdi:speaker
+    pin: GPIO11
+    restore_mode: ALWAYS_ON
+
+microphone:
+  - platform: i2s_audio
+    id: panel_mic
+    i2s_audio_id: i2s_audio_bus
+    i2s_din_pin: GPIO48
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    adc_type: external
+
+speaker:
+  - platform: i2s_audio
+    id: panel_spk
+    i2s_audio_id: i2s_audio_bus
+    i2s_dout_pin: GPIO9
+    audio_dac: es8311_dac
+    dac_type: external
+    channel: mono
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+micro_wake_word:
+  models:
+    - model: okay_nabu
+
+voice_assistant:
+  id: panel_va
+  microphone: panel_mic
+  speaker: panel_spk
+
+sensor:
+  - platform: adc
+    pin: GPIO53
+    name: "Battery Voltage"
+    id: panel_battery_voltage
+    attenuation: 12db
+    accuracy_decimals: 2
+    update_interval: 15s
+    unit_of_measurement: "V"
+    filters:
+      - multiply: 2.0

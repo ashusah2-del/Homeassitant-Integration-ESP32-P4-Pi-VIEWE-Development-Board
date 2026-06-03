@@ -57,7 +57,7 @@ If you want to test an ESPHome-first workflow:
 cd projects/home-assistant-p4-c6-panel/esphome
 ```
 
-Use `guition_p4_7inch_compat.yaml` as your node configuration, update all `CHANGE_ME` values, then replace stub package content with board-verified display/touch/audio config.
+Use `guition_p4_7inch_compat.yaml` as your node configuration, update all `CHANGE_ME` values, then adjust the board-mapped package files if your PCB revision differs.
 
 This allows side-by-side validation:
 
