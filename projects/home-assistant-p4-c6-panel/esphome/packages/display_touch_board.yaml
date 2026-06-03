@@ -1,0 +1,134 @@
+image:
+  - file: mdi:image-outline
+    id: immich_placeholder_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 160x160
+
+globals:
+  - id: immich_current_asset_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+online_image:
+  - id: immich_panel_image
+    url: ${immich_url}/api/assets/placeholder/thumbnail
+    format: JPEG
+    type: RGB565
+    resize: 1024x600
+    buffer_size: 65536
+    update_interval: 15min
+    request_headers:
+      Accept: image/jpeg
+      x-api-key: !secret immich_api_key
+    on_download_finished:
+      - component.update: main_display
+    on_error:
+      - component.update: main_display
+
+script:
+  - id: refresh_immich_slideshow
+    mode: restart
+    then:
+      - http_request.get:
+          url: ${immich_url}/api/assets/random?count=1
+          request_headers:
+            Accept: application/json
+            x-api-key: !secret immich_api_key
+          capture_response: true
+          max_response_buffer_size: 8192
+          on_response:
+            then:
+              - if:
+                  condition:
+                    lambda: return response->status_code == 200;
+                  then:
+                    - lambda: |-
+                        auto doc = json::parse_json(body);
+                        if (!doc.is<JsonArray>()) {
+                          ESP_LOGW("immich", "Unable to parse random asset response");
+                          return;
+                        }
+                        JsonArray root = doc.as<JsonArray>();
+                        if (root.size() == 0 || !root[0]["id"].is<const char *>()) {
+                          ESP_LOGW("immich", "Random asset response was empty");
+                          return;
+                        }
+                        id(immich_current_asset_id) = root[0]["id"].as<const char *>();
+                    - if:
+                        condition:
+                          lambda: return !id(immich_current_asset_id).empty();
+                        then:
+                          - online_image.set_url:
+                              id: immich_panel_image
+                              url: !lambda |-
+                                return std::string("${immich_url}/api/assets/") + id(immich_current_asset_id) + "/thumbnail?size=preview";
+                              update: true
+                  else:
+                    - logger.log:
+                        format: "Immich random asset request failed: HTTP %d"
+                        args:
+                          - response->status_code
+          on_error:
+            then:
+              - logger.log: "Immich random asset request failed"
+
+interval:
+  - interval: ${immich_slideshow_interval}
+    then:
+      - script.execute: refresh_immich_slideshow
+
+display:
+  - platform: mipi_dsi
+    id: main_display
+    model: JC1060P470
+    update_interval: 1s
+    auto_clear_enabled: true
+    reset_pin:
+      number: GPIO05
+    hsync_pulse_width: 20
+    rotation: ${rotate_display}
+    lambda: |-
+      it.image(432, 220, id(immich_placeholder_icon));
+      it.image(0, 0, id(immich_panel_image));
+
+touchscreen:
+  - platform: gt911
+    id: main_touch
+    display: main_display
+    i2c_id: bus_a
+    interrupt_pin: GPIO21
+    reset_pin: GPIO22
+    on_touch:
+      then:
+        - binary_sensor.template.publish:
+            id: panel_touch_input
+            state: ON
+    on_release:
+      then:
+        - binary_sensor.template.publish:
+            id: panel_touch_input
+            state: OFF
+
+binary_sensor:
+  - platform: template
+    name: "Panel Touch Input"
+    id: panel_touch_input
+
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: GPIO23
+    frequency: 100Hz
+    min_power: 0.0
+    max_power: 0.8
+
+light:
+  - platform: monochromatic
+    id: panel_backlight
+    name: "Panel Backlight"
+    icon: mdi:television
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+    default_transition_length: 250ms
