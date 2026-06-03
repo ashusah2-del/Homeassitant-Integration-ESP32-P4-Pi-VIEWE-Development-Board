@@ -95,8 +95,12 @@ display:
     hsync_pulse_width: 20
     rotation: ${rotate_display}
     lambda: |-
-      it.image(432, 220, id(immich_placeholder_icon));
-      it.image(0, 0, id(immich_panel_image));
+      const int placeholder_x = (it.get_width() - id(immich_placeholder_icon).get_width()) / 2;
+      const int placeholder_y = (it.get_height() - id(immich_placeholder_icon).get_height()) / 2;
+      const int image_x = (it.get_width() - id(immich_panel_image).get_width()) / 2;
+      const int image_y = (it.get_height() - id(immich_panel_image).get_height()) / 2;
+      it.image(placeholder_x, placeholder_y, id(immich_placeholder_icon));
+      it.image(image_x, image_y, id(immich_panel_image));
 
 touchscreen:
   - platform: gt911
