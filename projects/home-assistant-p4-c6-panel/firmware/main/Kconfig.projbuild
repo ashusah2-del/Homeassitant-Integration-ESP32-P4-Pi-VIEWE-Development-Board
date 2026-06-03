@@ -1,0 +1,27 @@
+menu "Home Assistant Panel Settings"
+
+config HA_PANEL_WIFI_SSID
+    string "WiFi SSID"
+    default ""
+
+config HA_PANEL_WIFI_PASSWORD
+    string "WiFi Password"
+    default ""
+
+config HA_PANEL_MQTT_URI
+    string "MQTT Broker URI"
+    default "mqtt://homeassistant.local:1883"
+
+config HA_PANEL_DEVICE_NAME
+    string "MQTT Device Name"
+    default "esp32p4_panel"
+
+config HA_PANEL_TOPIC_PREFIX
+    string "MQTT Topic Prefix"
+    default "home/panel/esp32p4"
+
+config HA_PANEL_CAMERA_STREAM_URL
+    string "Camera Stream URL"
+    default "http://esp32p4-panel.local:8080/stream"
+
+endmenu
