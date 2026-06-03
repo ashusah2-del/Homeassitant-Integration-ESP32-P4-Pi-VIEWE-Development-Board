@@ -25,6 +25,7 @@ sensor:
     name: "Panel Uptime"
   - platform: wifi_signal
     name: "Panel Wi-Fi RSSI"
+    id: panel_wifi_rssi
     update_interval: 30s
 
 binary_sensor:

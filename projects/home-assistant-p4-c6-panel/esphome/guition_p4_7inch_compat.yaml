@@ -2,6 +2,7 @@ substitutions:
   node_name: guition-p4-7inch-ha
   friendly_name: Guition P4 7inch HA Panel
   board_type: esp32-p4-evboard
+  rotate_display: "0"
 
 esphome:
   name: ${node_name}
@@ -13,13 +14,36 @@ esphome:
 esp32:
   board: ${board_type}
   flash_size: 16MB
+  cpu_frequency: 360MHz
   framework:
     type: esp-idf
+    advanced:
+      enable_idf_experimental_features: yes
+    sdkconfig_options:
+      CONFIG_SPIRAM_XIP_FROM_PSRAM: y
+
+psram:
+  speed: 200MHz
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+esp32_hosted:
+  active_high: true
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
 
 packages:
   core: !include packages/core_ha.yaml
-  display_touch: !include packages/display_touch_stub.yaml
-  audio_voice: !include packages/audio_voice_stub.yaml
+  display_touch: !include packages/display_touch_board.yaml
+  audio_voice: !include packages/audio_voice_board.yaml
 
 wifi:
   ssid: "CHANGE_ME"

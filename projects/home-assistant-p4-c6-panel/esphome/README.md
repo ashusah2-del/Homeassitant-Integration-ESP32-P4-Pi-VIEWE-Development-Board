@@ -12,14 +12,14 @@ This folder provides a compatibility profile so you can test an ESPHome-first pa
 
 - `guition_p4_7inch_compat.yaml` main ESPHome node file
 - `packages/core_ha.yaml` HA API, OTA, logger, and baseline entities
-- `packages/display_touch_stub.yaml` display/touch placeholders for large panel workflows
-- `packages/audio_voice_stub.yaml` audio and voice assistant placeholders
+- `packages/display_touch_board.yaml` board-mapped MIPI DSI display + GT911 touch config
+- `packages/audio_voice_board.yaml` board-mapped I2S/audio codec + wake-word/voice config
 
 ## How to use
 
 1. Copy these files into your ESPHome config directory, or use this directory directly as your project root.
 2. Edit Wi-Fi, API key, OTA password, and board value in `guition_p4_7inch_compat.yaml`.
-3. Replace stub packages with your board-verified display, touch, and audio pin mappings.
+3. Review and adjust board mappings if your PCB revision differs.
 4. Install from ESPHome and adopt the node in Home Assistant.
 
 ## Important
