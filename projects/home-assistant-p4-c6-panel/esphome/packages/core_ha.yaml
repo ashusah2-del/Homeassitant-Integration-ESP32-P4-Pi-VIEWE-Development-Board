@@ -1,0 +1,32 @@
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: "CHANGE_ME_32_BYTE_BASE64_KEY"
+
+ota:
+  - platform: esphome
+    password: "CHANGE_ME_OTA_PASSWORD"
+
+time:
+  - platform: homeassistant
+    id: ha_time
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "Panel IP Address"
+    ssid:
+      name: "Panel Wi-Fi SSID"
+
+sensor:
+  - platform: uptime
+    name: "Panel Uptime"
+  - platform: wifi_signal
+    name: "Panel Wi-Fi RSSI"
+    update_interval: 30s
+
+binary_sensor:
+  - platform: status
+    name: "Panel Online"

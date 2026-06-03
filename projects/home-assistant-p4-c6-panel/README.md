@@ -10,6 +10,7 @@ This project is a starter for the 7.0-inch 1024x600 IPS capacitive touch ESP32-P
   - Home Assistant MQTT discovery messages
   - Device heartbeat and camera status topics
 - Home Assistant package template
+- ESPHome compatibility profile (Guition P4 7.0 style modular layout)
 - OpenSCAD housing starter model with display and camera cutout
 - Git helper scripts for frequent commit/push workflows
 
@@ -17,6 +18,7 @@ This project is a starter for the 7.0-inch 1024x600 IPS capacitive touch ESP32-P
 
 - `firmware/` ESP-IDF application
 - `home_assistant/` Home Assistant YAML templates
+- `esphome/` ESPHome compatibility profile and package fragments
 - `mechanical/housing/` OpenSCAD housing model
 - `scripts/` helper scripts
 
@@ -46,6 +48,21 @@ In `menuconfig` set:
 ## 2) Add Home Assistant package
 
 Copy `home_assistant/packages/esp32p4_panel.yaml` into your HA `packages` folder and adjust the topic prefix if needed.
+
+## 2b) Optional ESPHome profile path
+
+If you want to test an ESPHome-first workflow:
+
+```bash
+cd projects/home-assistant-p4-c6-panel/esphome
+```
+
+Use `guition_p4_7inch_compat.yaml` as your node configuration, update all `CHANGE_ME` values, then replace stub package content with board-verified display/touch/audio config.
+
+This allows side-by-side validation:
+
+- ESP-IDF path for low-level board bring-up certainty
+- ESPHome path for rapid Home Assistant entity and automation iteration
 
 ## 3) Housing
 
