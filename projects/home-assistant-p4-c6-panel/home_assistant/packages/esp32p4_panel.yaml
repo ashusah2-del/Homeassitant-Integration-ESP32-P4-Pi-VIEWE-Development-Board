@@ -1,0 +1,28 @@
+homeassistant:
+  customize:
+    sensor.esp32p4_panel_status:
+      friendly_name: ESP32-P4 Panel Status
+    sensor.esp32p4_panel_uptime:
+      friendly_name: ESP32-P4 Panel Uptime
+    sensor.esp32p4_panel_camera_stream_url:
+      friendly_name: ESP32-P4 Camera URL
+
+automation:
+  - alias: ESP32-P4 Panel Touch Event Log
+    mode: queued
+    trigger:
+      - platform: event
+        event_type: esp32p4_panel_touch_event
+    action:
+      - service: logbook.log
+        data:
+          name: ESP32-P4 Panel
+          message: "Touch event received"
+
+template:
+  - trigger:
+      - platform: mqtt
+        topic: home/panel/esp32p4/touch
+    sensor:
+      - name: esp32p4_panel_last_touch
+        state: "{{ trigger.payload }}"
