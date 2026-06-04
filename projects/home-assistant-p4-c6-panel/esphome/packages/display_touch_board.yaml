@@ -319,7 +319,7 @@ lvgl:
             height: 600
             align: TOP_LEFT
             bg_color: 0x0A0005
-            bg_opa: 210
+            bg_opa: 82%
             border_width: 0
             pad_all: 0
             widgets:
@@ -353,7 +353,7 @@ lvgl:
             height: 46
             align: BOTTOM_LEFT
             bg_color: 0x7B0000
-            bg_opa: 230
+            bg_opa: 90%
             border_width: 0
             hidden: true
             widgets:
@@ -395,7 +395,7 @@ lvgl:
             width: 1024
             height: 600
             align: TOP_LEFT
-            opa: 80
+            opa: 31%
 
         # Readability overlay
         - obj:
@@ -403,7 +403,7 @@ lvgl:
             height: 600
             align: TOP_LEFT
             bg_color: 0x05050F
-            bg_opa: 150
+            bg_opa: 59%
             border_width: 0
             pad_all: 0
 
@@ -413,7 +413,7 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x12192E
-            bg_opa: 245
+            bg_opa: 96%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x1E3A6E
@@ -638,7 +638,7 @@ lvgl:
             height: 50
             align: BOTTOM_LEFT
             bg_color: 0x12192E
-            bg_opa: 235
+            bg_opa: 92%
             border_width: 0
             border_side: TOP
             border_color: 0x1E3A6E
