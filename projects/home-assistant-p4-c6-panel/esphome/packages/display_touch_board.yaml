@@ -1,11 +1,9 @@
 image:
-  # Shown when Immich is offline
   - file: mdi:image-outline
     id: img_no_photo
     type: grayscale
     resize: 128x128
     transparency: alpha_channel
-  # Shown when Home Assistant is disconnected
   - file: mdi:home-off
     id: img_ha_offline
     type: grayscale
@@ -29,9 +27,14 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Tracks whether we are showing a stock fallback image instead of Immich.
+  # When true, on_error shows the static placeholder; when false, it tries stock first.
+  - id: g_using_fallback
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
-# Low-resolution thumbnail download (size=thumbnail ~20–50 KB vs preview ~300 KB).
-# ESPHome upscales to 1024x600 on-device — bandwidth is kept minimal.
+# Shared online_image component used for both Immich photos and stock fallback images.
 online_image:
   - id: immich_photo
     url: "${immich_url}/api/assets/placeholder/thumbnail?size=thumbnail"
@@ -49,28 +52,57 @@ online_image:
           value: 'true'
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: slideshow_placeholder_obj
-      - lvgl.widget.hide: error_bar
-      - lvgl.label.update:
-          id: dash_error_lbl
-          text: ""
+      - if:
+          condition:
+            lambda: return id(g_using_fallback);
+          then:
+            # Immich offline but stock loaded — keep error visible so user knows
+            - lvgl.widget.show: error_bar
+            - lvgl.label.update:
+                id: error_lbl
+                text: "Immich offline - showing stock image"
+            - lvgl.label.update:
+                id: dash_error_lbl
+                text: "Immich offline - stock image"
+          else:
+            - lvgl.widget.hide: error_bar
+            - lvgl.label.update:
+                id: dash_error_lbl
+                text: ""
     on_error:
-      - globals.set:
-          id: g_immich_ok
-          value: 'false'
-      - lvgl.widget.hide: slideshow_img
-      - lvgl.widget.show: slideshow_placeholder_obj
-      - lvgl.widget.show: error_bar
-      - lvgl.label.update:
-          id: error_lbl
-          text: "Immich unavailable - showing placeholder"
-      - lvgl.label.update:
-          id: dash_error_lbl
-          text: "Immich unavailable"
+      - if:
+          condition:
+            lambda: return !id(g_using_fallback);
+          then:
+            # Immich download failed — try a stock image from the internet
+            - lvgl.widget.show: error_bar
+            - lvgl.label.update:
+                id: error_lbl
+                text: "Immich unavailable - loading stock image"
+            - script.execute: try_fallback_image
+          else:
+            # Stock image also failed — nothing to show, use static placeholder
+            - globals.set:
+                id: g_immich_ok
+                value: 'false'
+            - lvgl.widget.hide: slideshow_img
+            - lvgl.widget.show: slideshow_placeholder_obj
+            - lvgl.widget.show: error_bar
+            - lvgl.label.update:
+                id: error_lbl
+                text: "Immich & internet unavailable"
+            - lvgl.label.update:
+                id: dash_error_lbl
+                text: "No photos available"
 
 script:
+  # Fetches a random Immich asset and loads it. Always resets to Immich-first mode.
   - id: refresh_immich_slideshow
     mode: restart
     then:
+      - globals.set:
+          id: g_using_fallback
+          value: 'false'
       - http_request.get:
           url: !lambda return id(immich_base_url) + "/api/assets/random?count=1";
           request_headers:
@@ -86,15 +118,9 @@ script:
                   then:
                     - lambda: |-
                         auto doc = json::parse_json(body);
-                        if (!doc.is<JsonArray>()) {
-                          ESP_LOGW("immich", "Cannot parse random asset response");
-                          return;
-                        }
+                        if (!doc.is<JsonArray>()) return;
                         JsonArray arr = doc.as<JsonArray>();
-                        if (arr.size() == 0 || !arr[0]["id"].is<const char *>()) {
-                          ESP_LOGW("immich", "Empty asset response");
-                          return;
-                        }
+                        if (arr.size() == 0 || !arr[0]["id"].is<const char *>()) return;
                         id(immich_asset_id) = arr[0]["id"].as<const char *>();
                     - if:
                         condition:
@@ -102,39 +128,40 @@ script:
                         then:
                           - online_image.set_url:
                               id: immich_photo
-                              # thumbnail size keeps each download under ~50 KB
                               url: !lambda |-
                                 return id(immich_base_url) + "/api/assets/" + id(immich_asset_id) + "/thumbnail?size=thumbnail";
                               update: true
                   else:
-                    - globals.set:
-                        id: g_immich_ok
-                        value: 'false'
-                    - lvgl.widget.hide: slideshow_img
-                    - lvgl.widget.show: slideshow_placeholder_obj
+                    # Immich returned an error status — try stock fallback
                     - lvgl.widget.show: error_bar
                     - lvgl.label.update:
                         id: error_lbl
                         text: !lambda |-
-                          return std::string("Immich HTTP ") + std::to_string(response->status_code);
-                    - lvgl.label.update:
-                        id: dash_error_lbl
-                        text: !lambda |-
-                          return std::string("Immich HTTP ") + std::to_string(response->status_code);
+                          return std::string("Immich HTTP ") + std::to_string(response->status_code) + " - loading stock";
+                    - script.execute: try_fallback_image
           on_error:
             then:
-              - globals.set:
-                  id: g_immich_ok
-                  value: 'false'
-              - lvgl.widget.hide: slideshow_img
-              - lvgl.widget.show: slideshow_placeholder_obj
+              # Network request to Immich failed — try stock fallback
               - lvgl.widget.show: error_bar
               - lvgl.label.update:
                   id: error_lbl
-                  text: "Immich: connection failed"
-              - lvgl.label.update:
-                  id: dash_error_lbl
-                  text: "Immich: connection failed"
+                  text: "Immich connection failed - loading stock image"
+              - script.execute: try_fallback_image
+
+  # Loads a stock image from picsum.photos as a fallback when Immich is offline.
+  # Cycles through 10 seeds based on millis so images vary over time.
+  - id: try_fallback_image
+    mode: single
+    then:
+      - globals.set:
+          id: g_using_fallback
+          value: 'true'
+      - online_image.set_url:
+          id: immich_photo
+          url: !lambda |-
+            int idx = (millis() / 1000) % 10 + 1;
+            return std::string("https://picsum.photos/seed/homepanel") + std::to_string(idx) + "/1024/600";
+          update: true
 
 interval:
   - interval: "${immich_slideshow_interval}"
@@ -250,11 +277,14 @@ lvgl:
   pages:
     # ═══════════════════════════════════════════════════════════
     # PAGE 1 — SLIDESHOW  (idle / lock screen)
+    # Layout: full 1024x600
+    #   Left  0-339px  : calendar panel (70% opaque dark bg)
+    #   Right 340-1023px: Immich photo, clock pill (top-right)
     # ═══════════════════════════════════════════════════════════
     - id: slideshow_page
       bg_color: 0x000000
       widgets:
-        # Immich photo — hidden until first download succeeds
+        # ── Background image (Immich or stock) ─────────────────
         - image:
             id: slideshow_img
             src: immich_photo
@@ -263,7 +293,7 @@ lvgl:
             align: TOP_LEFT
             hidden: true
 
-        # Shown when Immich is offline (stock dark placeholder)
+        # ── Static placeholder (shown when both Immich and stock fail) ──
         - obj:
             id: slideshow_placeholder_obj
             width: 1024
@@ -290,7 +320,60 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x333355
 
-        # Clock — top-right corner
+        # ── Calendar panel (left side, 70% opaque) ─────────────
+        - obj:
+            id: calendar_panel
+            x: 0
+            y: 0
+            width: 340
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x050510
+            bg_opa: 70%
+            border_width: 0
+            radius: 0
+            pad_left: 16
+            pad_right: 14
+            pad_top: 18
+            pad_bottom: 16
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  text: "This Week"
+                  text_font: montserrat_22
+                  text_color: 0x69F0AE
+              - obj:
+                  # divider line
+                  align: TOP_LEFT
+                  y: 36
+                  width: 308
+                  height: 2
+                  bg_color: 0x1E3A6E
+                  border_width: 0
+                  radius: 0
+              - label:
+                  id: calendar_events_lbl
+                  align: TOP_LEFT
+                  y: 52
+                  width: 308
+                  text: "Loading..."
+                  text_font: montserrat_18
+                  text_color: 0xEEEEEE
+                  long_mode: WRAP
+
+        # ── Clock background pill (top-right, ensures readability) ──
+        - obj:
+            width: 220
+            height: 110
+            align: TOP_RIGHT
+            x: -10
+            y: 8
+            bg_color: 0x000000
+            bg_opa: 50%
+            radius: 14
+            border_width: 0
+
+        # ── Clock (top-right, above pill) ──────────────────────
         - label:
             id: slideshow_clock
             align: TOP_RIGHT
@@ -301,7 +384,7 @@ lvgl:
             text_color: 0xFFFFFF
             bg_opa: TRANSP
 
-        # Date — below clock
+        # ── Date (below clock) ─────────────────────────────────
         - label:
             id: slideshow_date_lbl
             align: TOP_RIGHT
@@ -309,10 +392,10 @@ lvgl:
             y: 80
             text: "---"
             text_font: montserrat_20
-            text_color: 0xDDDDDD
+            text_color: 0xEEEEEE
             bg_opa: TRANSP
 
-        # HA disconnected overlay — visible on boot until HA connects
+        # ── HA disconnected overlay (full screen, visible at boot) ──
         - obj:
             id: ha_disconnected_overlay
             width: 1024
@@ -346,7 +429,7 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x777777
 
-        # Error bar — bottom strip, shown on Immich / network errors
+        # ── Error bar (bottom, shown on Immich / network errors) ──
         - obj:
             id: error_bar
             width: 1024
@@ -365,7 +448,7 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0xFFCDD2
 
-        # Tap anywhere to open dashboard — hidden until HA connects
+        # ── Tap zone (opens dashboard, hidden until HA connects) ──
         - button:
             id: tap_zone_btn
             width: 1024
@@ -380,15 +463,13 @@ lvgl:
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 2 — DASHBOARD
-    # Layout: top bar 58px | tiles 3×2 | bottom bar 50px
-    # Tile positions (x,y,w,h): col gap=12 row gap=10 margin=20
-    #   col1 x=20   col2 x=352  col3 x=684
-    #   row1 y=70   row2 y=308  tile size 320×228
+    # Layout: top bar 58px | tiles 3x2 | bottom bar 50px
+    #   col1 x=20  col2 x=352  col3 x=684   (width=320 each)
+    #   row1 y=70  row2 y=308               (height=228 each)
     # ═══════════════════════════════════════════════════════════
     - id: dashboard_page
       bg_color: 0x090916
       widgets:
-        # Dimmed Immich background image
         - image:
             id: dash_bg_img
             src: immich_photo
@@ -397,7 +478,6 @@ lvgl:
             align: TOP_LEFT
             opa: 31%
 
-        # Readability overlay
         - obj:
             width: 1024
             height: 600
@@ -407,7 +487,7 @@ lvgl:
             border_width: 0
             pad_all: 0
 
-        # ── TOP BAR ────────────────────────────────────────────
+        # ── Top bar ────────────────────────────────────────────
         - obj:
             width: 1024
             height: 58
@@ -440,7 +520,7 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0x69F0AE
 
-        # ── TILE 1 ─────────────────────────────────────────────
+        # ── Tiles ──────────────────────────────────────────────
         - button:
             id: tile_btn_1
             x: 20
@@ -472,7 +552,6 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x888888
 
-        # ── TILE 2 ─────────────────────────────────────────────
         - button:
             id: tile_btn_2
             x: 352
@@ -504,7 +583,6 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x888888
 
-        # ── TILE 3 ─────────────────────────────────────────────
         - button:
             id: tile_btn_3
             x: 684
@@ -536,7 +614,6 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x888888
 
-        # ── TILE 4 ─────────────────────────────────────────────
         - button:
             id: tile_btn_4
             x: 20
@@ -568,7 +645,6 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x888888
 
-        # ── TILE 5 ─────────────────────────────────────────────
         - button:
             id: tile_btn_5
             x: 352
@@ -600,7 +676,6 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x888888
 
-        # ── TILE 6 ─────────────────────────────────────────────
         - button:
             id: tile_btn_6
             x: 684
@@ -632,7 +707,7 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x888888
 
-        # ── BOTTOM BAR ─────────────────────────────────────────
+        # ── Bottom bar ─────────────────────────────────────────
         - obj:
             width: 1024
             height: 50

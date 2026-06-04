@@ -18,6 +18,12 @@ input_text:
     max: 120
     icon: mdi:image-multiple
 
+  panel_calendar_events:
+    name: Panel Calendar Events
+    initial: ""
+    max: 255
+    icon: mdi:calendar-week
+
 automation:
   - alias: ESP32-P4 Panel Touch Log
     mode: queued
@@ -29,6 +35,51 @@ automation:
         data:
           name: ESP32-P4 Panel
           message: "Touch: {{ trigger.payload }}"
+
+  - alias: Refresh Panel Calendar Events
+    mode: single
+    trigger:
+      - platform: time_pattern
+        hours: "/1"
+      - platform: homeassistant
+        event: start
+    action:
+      - variables:
+          week_start: "{{ now().date() - timedelta(days=now().weekday()) }}"
+          week_end: "{{ (now().date() - timedelta(days=now().weekday()) + timedelta(days=6)).isoformat() + 'T23:59:59' }}"
+      - service: calendar.get_events
+        target:
+          entity_id: >
+            {{ states.calendar | map(attribute='entity_id') | list | join(', ') }}
+        data:
+          start_date_time: "{{ week_start.isoformat() + 'T00:00:00' }}"
+          end_date_time: "{{ week_end }}"
+        response_variable: cal_response
+      - variables:
+          lines: >
+            {% set ns = namespace(out=[]) %}
+            {% for cal_id, cal_data in cal_response.items() %}
+              {% for event in cal_data.get('events', []) %}
+                {% set start = event.start %}
+                {% if 'T' in start %}
+                  {% set dt = strptime(start[:16], '%Y-%m-%dT%H:%M') %}
+                  {% set day = dt.strftime('%a') %}
+                  {% set time = dt.strftime('%H:%M') %}
+                  {% set line = day ~ ' ' ~ time ~ ' ' ~ event.summary %}
+                {% else %}
+                  {% set dt = strptime(start, '%Y-%m-%d') %}
+                  {% set day = dt.strftime('%a') %}
+                  {% set line = day ~ ' All Day: ' ~ event.summary %}
+                {% endif %}
+                {% set ns.out = ns.out + [line[:40]] %}
+              {% endfor %}
+            {% endfor %}
+            {{ ns.out | sort | join('\n') }}
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.panel_calendar_events
+        data:
+          value: "{{ lines[:254] if lines else 'No events' }}"
 
 template:
   - trigger:
