@@ -5,13 +5,29 @@ substitutions:
   rotate_display: "0"
   immich_url: "http://192.168.55.59:2283"
   immich_slideshow_interval: 10min
+  idle_timeout: 30s
+
+  # Dashboard tiles — replace entity IDs with your own HA entities.
+  # For scenes, change homeassistant.toggle → scene.turn_on in display_touch_board.yaml.
+  tile1_entity: light.living_room
+  tile1_label: Living Room
+  tile2_entity: light.bedroom
+  tile2_label: Bedroom
+  tile3_entity: switch.fan
+  tile3_label: Fan
+  tile4_entity: switch.tv
+  tile4_label: TV
+  tile5_entity: scene.evening
+  tile5_label: Evening Scene
+  tile6_entity: scene.morning
+  tile6_label: Morning Scene
 
 esphome:
   name: ${node_name}
   friendly_name: ${friendly_name}
   project:
     name: local.home_assistant_p4_c6_panel
-    version: "0.1.0"
+    version: "0.2.0"
 
 esp32:
   board: ${board_type}

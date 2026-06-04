@@ -1,43 +1,78 @@
 image:
+  # Shown when Immich is offline
   - file: mdi:image-outline
-    id: immich_placeholder_icon
+    id: img_no_photo
     type: grayscale
+    resize: 128x128
     transparency: alpha_channel
-    resize: 160x160
+  # Shown when Home Assistant is disconnected
+  - file: mdi:home-off
+    id: img_ha_offline
+    type: grayscale
+    resize: 128x128
+    transparency: alpha_channel
 
 globals:
-  - id: immich_current_asset_id
+  - id: immich_asset_id
     type: std::string
     restore_value: no
     initial_value: '""'
-  - id: immich_base_url_runtime
+  - id: immich_base_url
     type: std::string
     restore_value: no
     initial_value: '"${immich_url}"'
+  - id: g_immich_ok
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_ha_connected
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
+# Low-resolution thumbnail download (size=thumbnail ~20–50 KB vs preview ~300 KB).
+# ESPHome upscales to 1024x600 on-device — bandwidth is kept minimal.
 online_image:
-  - id: immich_panel_image
-    url: ${immich_url}/api/assets/placeholder/thumbnail
+  - id: immich_photo
+    url: "${immich_url}/api/assets/placeholder/thumbnail?size=thumbnail"
     format: JPEG
     type: RGB565
     resize: 1024x600
-    buffer_size: 65536
-    update_interval: 15min
+    buffer_size: 32768
+    update_interval: never
     request_headers:
       Accept: image/jpeg
       x-api-key: !secret immich_api_key
     on_download_finished:
-      - component.update: main_display
+      - globals.set:
+          id: g_immich_ok
+          value: 'true'
+      - lvgl.widget.show: slideshow_img
+      - lvgl.widget.hide: slideshow_placeholder_obj
+      - lvgl.widget.hide: error_bar
+      - lvgl.label.update:
+          id: dash_error_lbl
+          text: ""
     on_error:
-      - component.update: main_display
+      - globals.set:
+          id: g_immich_ok
+          value: 'false'
+      - lvgl.widget.hide: slideshow_img
+      - lvgl.widget.show: slideshow_placeholder_obj
+      - lvgl.widget.show: error_bar
+      - lvgl.label.update:
+          id: error_lbl
+          text: "Immich unavailable — showing placeholder"
+      - lvgl.label.update:
+          id: dash_error_lbl
+          text: "Immich unavailable"
 
 script:
   - id: refresh_immich_slideshow
     mode: restart
     then:
       - http_request.get:
-          url: !lambda |-
-            return id(immich_base_url_runtime) + "/api/assets/random?count=1";
+          url: !lambda return id(immich_base_url) + "/api/assets/random?count=1";
           request_headers:
             Accept: application/json
             x-api-key: !secret immich_api_key
@@ -52,55 +87,113 @@ script:
                     - lambda: |-
                         auto doc = json::parse_json(body);
                         if (!doc.is<JsonArray>()) {
-                          ESP_LOGW("immich", "Unable to parse random asset response");
+                          ESP_LOGW("immich", "Cannot parse random asset response");
                           return;
                         }
-                        JsonArray root = doc.as<JsonArray>();
-                        if (root.size() == 0 || !root[0]["id"].is<const char *>()) {
-                          ESP_LOGW("immich", "Random asset response was empty");
+                        JsonArray arr = doc.as<JsonArray>();
+                        if (arr.size() == 0 || !arr[0]["id"].is<const char *>()) {
+                          ESP_LOGW("immich", "Empty asset response");
                           return;
                         }
-                        id(immich_current_asset_id) = root[0]["id"].as<const char *>();
+                        id(immich_asset_id) = arr[0]["id"].as<const char *>();
                     - if:
                         condition:
-                          lambda: return !id(immich_current_asset_id).empty();
+                          lambda: return !id(immich_asset_id).empty();
                         then:
                           - online_image.set_url:
-                              id: immich_panel_image
+                              id: immich_photo
+                              # thumbnail size keeps each download under ~50 KB
                               url: !lambda |-
-                                return id(immich_base_url_runtime) + "/api/assets/" + id(immich_current_asset_id) + "/thumbnail?size=preview&format=JPEG";
+                                return id(immich_base_url) + "/api/assets/" + id(immich_asset_id) + "/thumbnail?size=thumbnail";
                               update: true
                   else:
-                    - logger.log:
-                        format: "Immich random asset request failed: HTTP %d"
-                        args:
-                          - response->status_code
+                    - globals.set:
+                        id: g_immich_ok
+                        value: 'false'
+                    - lvgl.widget.hide: slideshow_img
+                    - lvgl.widget.show: slideshow_placeholder_obj
+                    - lvgl.widget.show: error_bar
+                    - lvgl.label.update:
+                        id: error_lbl
+                        text: !lambda |-
+                          return std::string("Immich HTTP ") + std::to_string(response->status_code);
+                    - lvgl.label.update:
+                        id: dash_error_lbl
+                        text: !lambda |-
+                          return std::string("Immich HTTP ") + std::to_string(response->status_code);
           on_error:
             then:
-              - logger.log: "Immich random asset request failed"
+              - globals.set:
+                  id: g_immich_ok
+                  value: 'false'
+              - lvgl.widget.hide: slideshow_img
+              - lvgl.widget.show: slideshow_placeholder_obj
+              - lvgl.widget.show: error_bar
+              - lvgl.label.update:
+                  id: error_lbl
+                  text: "Immich: connection failed"
+              - lvgl.label.update:
+                  id: dash_error_lbl
+                  text: "Immich: connection failed"
 
 interval:
-  - interval: ${immich_slideshow_interval}
+  - interval: "${immich_slideshow_interval}"
     then:
       - script.execute: refresh_immich_slideshow
+
+  - interval: 1s
+    then:
+      - lvgl.label.update:
+          id: slideshow_clock
+          text: !lambda |-
+            auto t = id(ha_time).now();
+            if (!t.is_valid()) return std::string("--:--");
+            char b[6];
+            snprintf(b, sizeof(b), "%02d:%02d", t.hour, t.minute);
+            return std::string(b);
+      - lvgl.label.update:
+          id: slideshow_date_lbl
+          text: !lambda |-
+            auto t = id(ha_time).now();
+            if (!t.is_valid()) return std::string("---");
+            static const char *wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+            static const char *mo[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+            char b[20];
+            snprintf(b, sizeof(b), "%s %02d %s", wd[t.day_of_week], t.day_of_month, mo[t.month - 1]);
+            return std::string(b);
+      - lvgl.label.update:
+          id: dash_clock
+          text: !lambda |-
+            auto t = id(ha_time).now();
+            if (!t.is_valid()) return std::string("--:--");
+            char b[6];
+            snprintf(b, sizeof(b), "%02d:%02d", t.hour, t.minute);
+            return std::string(b);
+      - lvgl.label.update:
+          id: dash_date
+          text: !lambda |-
+            auto t = id(ha_time).now();
+            if (!t.is_valid()) return std::string("---");
+            static const char *wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+            static const char *mo[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+            char b[24];
+            snprintf(b, sizeof(b), "%s %02d %s %04d", wd[t.day_of_week], t.day_of_month, mo[t.month - 1], t.year);
+            return std::string(b);
+      - lvgl.label.update:
+          id: dash_rssi
+          text: !lambda |-
+            char b[12];
+            snprintf(b, sizeof(b), "%.0f dBm", id(panel_wifi_rssi).state);
+            return std::string(b);
 
 display:
   - platform: mipi_dsi
     id: main_display
     model: JC1060P470
-    update_interval: 1s
-    auto_clear_enabled: true
     reset_pin:
       number: GPIO05
     hsync_pulse_width: 20
-    rotation: ${rotate_display}
-    lambda: |-
-      const int placeholder_x = (it.get_width() - id(immich_placeholder_icon).get_width()) / 2;
-      const int placeholder_y = (it.get_height() - id(immich_placeholder_icon).get_height()) / 2;
-      const int image_x = (it.get_width() - id(immich_panel_image).get_width()) / 2;
-      const int image_y = (it.get_height() - id(immich_panel_image).get_height()) / 2;
-      it.image(placeholder_x, placeholder_y, id(immich_placeholder_icon));
-      it.image(image_x, image_y, id(immich_panel_image));
+    rotation: "${rotate_display}"
 
 touchscreen:
   - platform: gt911
@@ -141,3 +234,436 @@ light:
     output: backlight_output
     restore_mode: ALWAYS_ON
     default_transition_length: 250ms
+
+lvgl:
+  displays:
+    - main_display
+  touchscreens:
+    - main_touch
+  color_depth: 16
+  bg_color: 0x000000
+  on_idle:
+    timeout: "${idle_timeout}"
+    then:
+      - lvgl.page.show: slideshow_page
+
+  pages:
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 1 — SLIDESHOW  (idle / lock screen)
+    # ═══════════════════════════════════════════════════════════
+    - id: slideshow_page
+      bg_color: 0x000000
+      widgets:
+        # Immich photo — hidden until first download succeeds
+        - image:
+            id: slideshow_img
+            src: immich_photo
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            hidden: true
+
+        # Shown when Immich is offline (stock dark placeholder)
+        - obj:
+            id: slideshow_placeholder_obj
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x0D0D2B
+            border_width: 0
+            pad_all: 0
+            widgets:
+              - image:
+                  src: img_no_photo
+                  align: CENTER
+                  y: -30
+              - label:
+                  align: CENTER
+                  y: 72
+                  text: "Photos Unavailable"
+                  text_font: montserrat_24
+                  text_color: 0x444466
+              - label:
+                  align: CENTER
+                  y: 108
+                  text: "Check Immich connection"
+                  text_font: montserrat_18
+                  text_color: 0x333355
+
+        # Clock — top-right corner
+        - label:
+            id: slideshow_clock
+            align: TOP_RIGHT
+            x: -24
+            y: 16
+            text: "--:--"
+            text_font: montserrat_48
+            text_color: 0xFFFFFF
+            bg_opa: TRANSP
+
+        # Date — below clock
+        - label:
+            id: slideshow_date_lbl
+            align: TOP_RIGHT
+            x: -24
+            y: 80
+            text: "---"
+            text_font: montserrat_20
+            text_color: 0xDDDDDD
+            bg_opa: TRANSP
+
+        # HA disconnected overlay — visible on boot until HA connects
+        - obj:
+            id: ha_disconnected_overlay
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x0A0005
+            bg_opa: 210
+            border_width: 0
+            pad_all: 0
+            widgets:
+              - image:
+                  src: img_ha_offline
+                  align: CENTER
+                  y: -72
+              - label:
+                  align: CENTER
+                  y: 28
+                  text: "Home Assistant"
+                  text_font: montserrat_36
+                  text_color: 0xFFFFFF
+              - label:
+                  align: CENTER
+                  y: 80
+                  text: "Not Connected"
+                  text_font: montserrat_28
+                  text_color: 0xFF5252
+              - label:
+                  align: CENTER
+                  y: 128
+                  text: "Reconnecting automatically..."
+                  text_font: montserrat_18
+                  text_color: 0x777777
+
+        # Error bar — bottom strip, shown on Immich / network errors
+        - obj:
+            id: error_bar
+            width: 1024
+            height: 46
+            align: BOTTOM_LEFT
+            bg_color: 0x7B0000
+            bg_opa: 230
+            border_width: 0
+            hidden: true
+            widgets:
+              - label:
+                  id: error_lbl
+                  align: LEFT_MID
+                  x: 16
+                  text: ""
+                  text_font: montserrat_16
+                  text_color: 0xFFCDD2
+
+        # Tap anywhere to open dashboard — hidden until HA connects
+        - button:
+            id: tap_zone_btn
+            width: 1024
+            height: 554
+            align: TOP_LEFT
+            bg_opa: TRANSP
+            border_width: 0
+            shadow_width: 0
+            hidden: true
+            on_click:
+              - lvgl.page.show: dashboard_page
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 2 — DASHBOARD
+    # Layout: top bar 58px | tiles 3×2 | bottom bar 50px
+    # Tile positions (x,y,w,h): col gap=12 row gap=10 margin=20
+    #   col1 x=20   col2 x=352  col3 x=684
+    #   row1 y=70   row2 y=308  tile size 320×228
+    # ═══════════════════════════════════════════════════════════
+    - id: dashboard_page
+      bg_color: 0x090916
+      widgets:
+        # Dimmed Immich background image
+        - image:
+            id: dash_bg_img
+            src: immich_photo
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            opa: 80
+
+        # Readability overlay
+        - obj:
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x05050F
+            bg_opa: 150
+            border_width: 0
+            pad_all: 0
+
+        # ── TOP BAR ────────────────────────────────────────────
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x12192E
+            bg_opa: 245
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label:
+                  id: dash_clock
+                  align: LEFT_MID
+                  x: 20
+                  text: "--:--"
+                  text_font: montserrat_32
+                  text_color: 0xFFFFFF
+              - label:
+                  id: dash_date
+                  align: CENTER
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0xAAAAAA
+              - label:
+                  id: dash_rssi
+                  align: RIGHT_MID
+                  x: -20
+                  text: "---"
+                  text_font: montserrat_16
+                  text_color: 0x69F0AE
+
+        # ── TILE 1 ─────────────────────────────────────────────
+        - button:
+            id: tile_btn_1
+            x: 20
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            on_click:
+              - homeassistant.service:
+                  service: homeassistant.toggle
+                  data:
+                    entity_id: "${tile1_entity}"
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 22
+                  text: "${tile1_label}"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tile1_state_lbl
+                  align: BOTTOM_MID
+                  y: -22
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0x888888
+
+        # ── TILE 2 ─────────────────────────────────────────────
+        - button:
+            id: tile_btn_2
+            x: 352
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            on_click:
+              - homeassistant.service:
+                  service: homeassistant.toggle
+                  data:
+                    entity_id: "${tile2_entity}"
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 22
+                  text: "${tile2_label}"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tile2_state_lbl
+                  align: BOTTOM_MID
+                  y: -22
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0x888888
+
+        # ── TILE 3 ─────────────────────────────────────────────
+        - button:
+            id: tile_btn_3
+            x: 684
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            on_click:
+              - homeassistant.service:
+                  service: homeassistant.toggle
+                  data:
+                    entity_id: "${tile3_entity}"
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 22
+                  text: "${tile3_label}"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tile3_state_lbl
+                  align: BOTTOM_MID
+                  y: -22
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0x888888
+
+        # ── TILE 4 ─────────────────────────────────────────────
+        - button:
+            id: tile_btn_4
+            x: 20
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            on_click:
+              - homeassistant.service:
+                  service: homeassistant.toggle
+                  data:
+                    entity_id: "${tile4_entity}"
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 22
+                  text: "${tile4_label}"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tile4_state_lbl
+                  align: BOTTOM_MID
+                  y: -22
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0x888888
+
+        # ── TILE 5 ─────────────────────────────────────────────
+        - button:
+            id: tile_btn_5
+            x: 352
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            on_click:
+              - homeassistant.service:
+                  service: homeassistant.toggle
+                  data:
+                    entity_id: "${tile5_entity}"
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 22
+                  text: "${tile5_label}"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tile5_state_lbl
+                  align: BOTTOM_MID
+                  y: -22
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0x888888
+
+        # ── TILE 6 ─────────────────────────────────────────────
+        - button:
+            id: tile_btn_6
+            x: 684
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            on_click:
+              - homeassistant.service:
+                  service: homeassistant.toggle
+                  data:
+                    entity_id: "${tile6_entity}"
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 22
+                  text: "${tile6_label}"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tile6_state_lbl
+                  align: BOTTOM_MID
+                  y: -22
+                  text: "---"
+                  text_font: montserrat_18
+                  text_color: 0x888888
+
+        # ── BOTTOM BAR ─────────────────────────────────────────
+        - obj:
+            width: 1024
+            height: 50
+            align: BOTTOM_LEFT
+            bg_color: 0x12192E
+            bg_opa: 235
+            border_width: 0
+            border_side: TOP
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label:
+                  id: dash_error_lbl
+                  align: LEFT_MID
+                  x: 16
+                  text: ""
+                  text_font: montserrat_16
+                  text_color: 0xFF5252
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 110
+                  height: 34
+                  bg_color: 0x1E3A6E
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "< Back"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF

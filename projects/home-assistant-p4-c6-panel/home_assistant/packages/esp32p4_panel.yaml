@@ -1,23 +1,34 @@
 homeassistant:
   customize:
-    sensor.esp32p4_panel_status:
-      friendly_name: ESP32-P4 Panel Status
-    sensor.esp32p4_panel_uptime:
-      friendly_name: ESP32-P4 Panel Uptime
-    sensor.esp32p4_panel_camera_stream_url:
-      friendly_name: ESP32-P4 Camera URL
+    sensor.guition_p4_7inch_ha_panel_uptime:
+      friendly_name: Panel Uptime
+    sensor.guition_p4_7inch_ha_panel_wi_fi_rssi:
+      friendly_name: Panel Wi-Fi RSSI
+    binary_sensor.guition_p4_7inch_ha_panel_online:
+      friendly_name: Panel Online
+    light.guition_p4_7inch_ha_panel_backlight:
+      friendly_name: Panel Backlight
+
+# Allows changing Immich URL from HA UI without reflashing the device.
+# The panel reads this at startup and whenever the value changes.
+input_text:
+  panel_immich_url:
+    name: Panel Immich URL
+    initial: "http://192.168.55.59:2283"
+    max: 120
+    icon: mdi:image-multiple
 
 automation:
-  - alias: ESP32-P4 Panel Touch Event Log
+  - alias: ESP32-P4 Panel Touch Log
     mode: queued
     trigger:
-      - platform: event
-        event_type: esp32p4_panel_touch_event
+      - platform: mqtt
+        topic: home/panel/esp32p4/touch
     action:
       - service: logbook.log
         data:
           name: ESP32-P4 Panel
-          message: "Touch event received"
+          message: "Touch: {{ trigger.payload }}"
 
 template:
   - trigger:

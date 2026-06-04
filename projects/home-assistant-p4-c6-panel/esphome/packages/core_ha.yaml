@@ -6,7 +6,7 @@ json:
 http_request:
   timeout: 10s
   follow_redirects: true
-  useragent: GuitionP4ImmichPanel/1.0
+  useragent: GuitionP4Panel/1.0
 
 i2c:
   sda: GPIO7
@@ -19,8 +19,25 @@ api:
   encryption:
     key: !secret api_encryption_key
   on_client_connected:
+    - globals.set:
+        id: g_ha_connected
+        value: 'true'
+    - lvgl.widget.hide: ha_disconnected_overlay
+    - lvgl.widget.show: tap_zone_btn
+    - lvgl.label.update:
+        id: dash_error_lbl
+        text: ""
     - voice_assistant.start_continuous:
   on_client_disconnected:
+    - globals.set:
+        id: g_ha_connected
+        value: 'false'
+    - lvgl.widget.show: ha_disconnected_overlay
+    - lvgl.widget.hide: tap_zone_btn
+    - lvgl.page.show: slideshow_page
+    - lvgl.label.update:
+        id: dash_error_lbl
+        text: "Home Assistant disconnected"
     - voice_assistant.stop:
 
 ota:
@@ -37,17 +54,73 @@ text_sensor:
       name: "Panel IP Address"
     ssid:
       name: "Panel Wi-Fi SSID"
+
+  # Allows overriding the Immich base URL from HA without reflashing
   - platform: homeassistant
-    id: ha_immich_url
+    id: ha_immich_url_sensor
     entity_id: input_text.panel_immich_url
     internal: true
     on_value:
       then:
         - lambda: |-
-            if (!x.empty()) {
-              id(immich_base_url_runtime) = x.c_str();
-            }
+            if (!x.empty()) id(immich_base_url) = x.c_str();
         - script.execute: refresh_immich_slideshow
+
+  # Tile entity states — update dashboard tile labels when HA state changes
+  - platform: homeassistant
+    id: tile1_ha_state
+    entity_id: "${tile1_entity}"
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: tile1_state_lbl
+            text: !lambda return x;
+  - platform: homeassistant
+    id: tile2_ha_state
+    entity_id: "${tile2_entity}"
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: tile2_state_lbl
+            text: !lambda return x;
+  - platform: homeassistant
+    id: tile3_ha_state
+    entity_id: "${tile3_entity}"
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: tile3_state_lbl
+            text: !lambda return x;
+  - platform: homeassistant
+    id: tile4_ha_state
+    entity_id: "${tile4_entity}"
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: tile4_state_lbl
+            text: !lambda return x;
+  - platform: homeassistant
+    id: tile5_ha_state
+    entity_id: "${tile5_entity}"
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: tile5_state_lbl
+            text: !lambda return x;
+  - platform: homeassistant
+    id: tile6_ha_state
+    entity_id: "${tile6_entity}"
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: tile6_state_lbl
+            text: !lambda return x;
 
 sensor:
   - platform: uptime
