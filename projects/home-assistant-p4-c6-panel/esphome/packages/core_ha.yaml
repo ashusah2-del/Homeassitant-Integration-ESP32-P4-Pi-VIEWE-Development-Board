@@ -4,8 +4,9 @@ logger:
 json:
 
 http_request:
-  timeout: 10s
+  timeout: 15s
   follow_redirects: true
+  verify_ssl: false
   useragent: GuitionP4Panel/1.0
 
 i2c:
@@ -27,6 +28,7 @@ api:
     - lvgl.label.update:
         id: dash_error_lbl
         text: ""
+    - script.execute: refresh_immich_slideshow
     - voice_assistant.start_continuous:
   on_client_disconnected:
     - globals.set:
@@ -73,10 +75,32 @@ text_sensor:
     internal: true
     on_value:
       then:
-        - lvgl.label.update:
-            id: calendar_events_lbl
-            text: !lambda |-
-              return x.empty() ? std::string("No events") : x;
+        - lambda: |-
+            lv_obj_t* labels[8] = {
+              id(cal_evt_0), id(cal_evt_1), id(cal_evt_2), id(cal_evt_3),
+              id(cal_evt_4), id(cal_evt_5), id(cal_evt_6), id(cal_evt_7)
+            };
+            lv_obj_t* row_objs[8] = {
+              id(cal_row_0), id(cal_row_1), id(cal_row_2), id(cal_row_3),
+              id(cal_row_4), id(cal_row_5), id(cal_row_6), id(cal_row_7)
+            };
+            std::string text = x.empty() ? "No events this week" : x;
+            // Show first row with "No events" if empty, else fill rows per event
+            bool no_events = x.empty();
+            for (int i = 0; i < 8; i++) {
+              std::string line = "";
+              if (!text.empty()) {
+                auto nl = text.find('\n');
+                line = (nl != std::string::npos) ? text.substr(0, nl) : text;
+                text = (nl != std::string::npos) ? text.substr(nl + 1) : "";
+              }
+              lv_label_set_text(labels[i], line.c_str());
+              if (!line.empty()) {
+                lv_obj_clear_flag(row_objs[i], LV_OBJ_FLAG_HIDDEN);
+              } else {
+                lv_obj_add_flag(row_objs[i], LV_OBJ_FLAG_HIDDEN);
+              }
+            }
 
   # Tile entity states — update dashboard tile labels when HA state changes
   - platform: homeassistant
