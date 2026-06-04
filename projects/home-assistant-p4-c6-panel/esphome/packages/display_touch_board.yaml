@@ -158,13 +158,16 @@ script:
           value: 'true'
       - lambda: |-
           id(g_stock_idx) = (id(g_stock_idx) + 1) % 4;
-          esphome::image::Image* imgs[4] = {
-            id(stock_img_0), id(stock_img_1), id(stock_img_2), id(stock_img_3)
+          lv_obj_t* stock_imgs[4] = {
+            id(stock_fallback_img_0), id(stock_fallback_img_1),
+            id(stock_fallback_img_2), id(stock_fallback_img_3)
           };
-          lv_img_set_src(id(stock_fallback_img), imgs[id(g_stock_idx)]->get_lv_img_dsc());
-          // Scale 320x188 → fills 1024x600: zoom = 1024/320 * 256 = 819
-          lv_img_set_pivot(id(stock_fallback_img), 0, 0);
-          lv_img_set_zoom(id(stock_fallback_img), 819);
+          for (int i = 0; i < 4; i++) {
+            if (i == id(g_stock_idx))
+              lv_obj_clear_flag(stock_imgs[i], LV_OBJ_FLAG_HIDDEN);
+            else
+              lv_obj_add_flag(stock_imgs[i], LV_OBJ_FLAG_HIDDEN);
+          }
           lv_obj_clear_flag(id(stock_fallback_img), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
@@ -307,6 +310,7 @@ lvgl:
   touchscreens:
     - main_touch
   color_depth: 16
+  byte_order: little_endian
   bg_color: 0x000000
   on_idle:
     timeout: "${idle_timeout}"
@@ -332,14 +336,51 @@ lvgl:
             align: TOP_LEFT
             hidden: true
 
-        # ── Stock fallback image (embedded at build time, shown when Immich unavailable) ──
-        - image:
+        # ── Stock fallback images — container + 4 pre-zoomed children ──
+        # Container toggled by on_download_finished/on_error; inner images cycled via try_fallback_image.
+        # zoom=819 scales 320x188 → ~1024x602 (fills screen). Set in YAML to avoid lv_img_set_src/zoom
+        # lambda path which produces byte-swapped RGB565 color artifacts on the P4 MIPI display.
+        - obj:
             id: stock_fallback_img
-            src: stock_img_0
             width: 1024
             height: 600
             align: TOP_LEFT
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
             hidden: true
+            widgets:
+              - image:
+                  id: stock_fallback_img_0
+                  src: stock_img_0
+                  align: TOP_LEFT
+                  pivot_x: 0
+                  pivot_y: 0
+                  zoom: 3.2
+              - image:
+                  id: stock_fallback_img_1
+                  src: stock_img_1
+                  align: TOP_LEFT
+                  pivot_x: 0
+                  pivot_y: 0
+                  zoom: 3.2
+                  hidden: true
+              - image:
+                  id: stock_fallback_img_2
+                  src: stock_img_2
+                  align: TOP_LEFT
+                  pivot_x: 0
+                  pivot_y: 0
+                  zoom: 3.2
+                  hidden: true
+              - image:
+                  id: stock_fallback_img_3
+                  src: stock_img_3
+                  align: TOP_LEFT
+                  pivot_x: 0
+                  pivot_y: 0
+                  zoom: 3.2
+                  hidden: true
 
         # ── Static placeholder (shown when all image sources fail) ──
         - obj:
