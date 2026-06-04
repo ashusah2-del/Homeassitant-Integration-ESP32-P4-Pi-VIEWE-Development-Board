@@ -11,22 +11,22 @@ image:
     transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
-  - file: https://picsum.photos/id/10/320/188
+  - file: https://picsum.photos/id/10/512/300
     id: stock_img_0
     type: RGB565
-    resize: 320x188
-  - file: https://picsum.photos/id/28/320/188
+    resize: 512x300
+  - file: https://picsum.photos/id/28/512/300
     id: stock_img_1
     type: RGB565
-    resize: 320x188
-  - file: https://picsum.photos/id/63/320/188
+    resize: 512x300
+  - file: https://picsum.photos/id/63/512/300
     id: stock_img_2
     type: RGB565
-    resize: 320x188
-  - file: https://picsum.photos/id/101/320/188
+    resize: 512x300
+  - file: https://picsum.photos/id/101/512/300
     id: stock_img_3
     type: RGB565
-    resize: 320x188
+    resize: 512x300
 
 globals:
   - id: immich_asset_id
@@ -75,6 +75,18 @@ online_image:
       - globals.set:
           id: g_immich_ok
           value: 'true'
+      # Scale image to fill the 1024px screen width regardless of aspect ratio.
+      # Portrait images (e.g. 450x600 from a 1440x1920 original) would otherwise
+      # show as a narrow strip next to the calendar overlay. lv_img_set_zoom is
+      # safe here because byte_order: little_endian sets LV_COLOR_16_SWAP=0.
+      - lambda: |-
+          auto dsc = id(immich_photo).get_lv_img_dsc();
+          lv_img_set_pivot(id(slideshow_img), 0, 0);
+          if (dsc != nullptr && dsc->header.w > 0 && dsc->header.w < 1024) {
+            lv_img_set_zoom(id(slideshow_img), (uint16_t)(256u * 1024u / dsc->header.w));
+          } else {
+            lv_img_set_zoom(id(slideshow_img), 256);
+          }
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
@@ -356,14 +368,14 @@ lvgl:
                   align: TOP_LEFT
                   pivot_x: 0
                   pivot_y: 0
-                  zoom: 3.2
+                  zoom: 2.0
               - image:
                   id: stock_fallback_img_1
                   src: stock_img_1
                   align: TOP_LEFT
                   pivot_x: 0
                   pivot_y: 0
-                  zoom: 3.2
+                  zoom: 2.0
                   hidden: true
               - image:
                   id: stock_fallback_img_2
@@ -371,7 +383,7 @@ lvgl:
                   align: TOP_LEFT
                   pivot_x: 0
                   pivot_y: 0
-                  zoom: 3.2
+                  zoom: 2.0
                   hidden: true
               - image:
                   id: stock_fallback_img_3
@@ -379,7 +391,7 @@ lvgl:
                   align: TOP_LEFT
                   pivot_x: 0
                   pivot_y: 0
-                  zoom: 3.2
+                  zoom: 2.0
                   hidden: true
 
         # ── Static placeholder (shown when all image sources fail) ──
