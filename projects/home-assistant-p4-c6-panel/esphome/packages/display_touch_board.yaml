@@ -11,22 +11,22 @@ image:
     transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
-  - file: https://picsum.photos/id/10/1024/600
+  - file: https://picsum.photos/id/10/320/188
     id: stock_img_0
     type: RGB565
-    resize: 1024x600
-  - file: https://picsum.photos/id/28/1024/600
+    resize: 320x188
+  - file: https://picsum.photos/id/28/320/188
     id: stock_img_1
     type: RGB565
-    resize: 1024x600
-  - file: https://picsum.photos/id/63/1024/600
+    resize: 320x188
+  - file: https://picsum.photos/id/63/320/188
     id: stock_img_2
     type: RGB565
-    resize: 1024x600
-  - file: https://picsum.photos/id/101/1024/600
+    resize: 320x188
+  - file: https://picsum.photos/id/101/320/188
     id: stock_img_3
     type: RGB565
-    resize: 1024x600
+    resize: 320x188
 
 globals:
   - id: immich_asset_id
@@ -162,6 +162,9 @@ script:
             id(stock_img_0), id(stock_img_1), id(stock_img_2), id(stock_img_3)
           };
           lv_img_set_src(id(stock_fallback_img), imgs[id(g_stock_idx)]->get_lv_img_dsc());
+          // Scale 320x188 → fills 1024x600: zoom = 1024/320 * 256 = 819
+          lv_img_set_pivot(id(stock_fallback_img), 0, 0);
+          lv_img_set_zoom(id(stock_fallback_img), 819);
           lv_obj_clear_flag(id(stock_fallback_img), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
