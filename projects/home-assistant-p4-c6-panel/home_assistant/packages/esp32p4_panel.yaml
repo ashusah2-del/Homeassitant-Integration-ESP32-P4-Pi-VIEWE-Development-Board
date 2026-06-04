@@ -14,7 +14,7 @@ homeassistant:
 input_text:
   panel_immich_url:
     name: Panel Immich URL
-    initial: "http://192.168.55.59:2283"
+    initial: ""
     max: 120
     icon: mdi:image-multiple
 
