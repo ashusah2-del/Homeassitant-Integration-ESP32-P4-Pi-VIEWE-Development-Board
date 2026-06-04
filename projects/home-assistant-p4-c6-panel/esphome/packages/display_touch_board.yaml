@@ -62,7 +62,7 @@ online_image:
       - lvgl.widget.show: error_bar
       - lvgl.label.update:
           id: error_lbl
-          text: "Immich unavailable — showing placeholder"
+          text: "Immich unavailable - showing placeholder"
       - lvgl.label.update:
           id: dash_error_lbl
           text: "Immich unavailable"
