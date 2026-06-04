@@ -189,6 +189,16 @@ interval:
             snprintf(b, sizeof(b), "%s %02d %s", wd[t.day_of_week], t.day_of_month, mo[t.month - 1]);
             return std::string(b);
       - lvgl.label.update:
+          id: cal_today_lbl
+          text: !lambda |-
+            auto t = id(ha_time).now();
+            if (!t.is_valid()) return std::string("---");
+            static const char *wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+            static const char *mo[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+            char b[24];
+            snprintf(b, sizeof(b), "%s %02d %s %04d", wd[t.day_of_week], t.day_of_month, mo[t.month - 1], t.year);
+            return std::string(b);
+      - lvgl.label.update:
           id: dash_clock
           text: !lambda |-
             auto t = id(ha_time).now();
@@ -332,34 +342,198 @@ lvgl:
             bg_opa: 70%
             border_width: 0
             radius: 0
-            pad_left: 16
-            pad_right: 14
-            pad_top: 18
-            pad_bottom: 16
+            pad_all: 0
             widgets:
+              # Title row
               - label:
-                  align: TOP_LEFT
-                  text: "This Week"
-                  text_font: montserrat_22
+                  x: 14
+                  y: 10
+                  text: "CALENDAR"
+                  text_font: montserrat_20
                   text_color: 0x69F0AE
+              # Today's date (updated every second)
+              - label:
+                  id: cal_today_lbl
+                  x: 14
+                  y: 34
+                  text: "---"
+                  text_font: montserrat_16
+                  text_color: 0xAABBCC
+              # Header divider
               - obj:
-                  # divider line
-                  align: TOP_LEFT
-                  y: 36
-                  width: 308
+                  x: 0
+                  y: 60
+                  width: 340
                   height: 2
                   bg_color: 0x1E3A6E
                   border_width: 0
                   radius: 0
-              - label:
-                  id: calendar_events_lbl
-                  align: TOP_LEFT
-                  y: 52
-                  width: 308
-                  text: "Loading..."
-                  text_font: montserrat_18
-                  text_color: 0xEEEEEE
-                  long_mode: WRAP
+              # ── Event rows (8 slots, 66px each, alternating ribbon colour) ──
+              # Rows start hidden; shown only when an event is assigned.
+              - obj:
+                  id: cal_row_0
+                  x: 0
+                  y: 64
+                  width: 340
+                  height: 66
+                  bg_color: 0x0D1F3A
+                  bg_opa: 55%
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_0
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xEEEEEE
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_1
+                  x: 0
+                  y: 130
+                  width: 340
+                  height: 66
+                  bg_opa: TRANSP
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_1
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xDDDDDD
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_2
+                  x: 0
+                  y: 196
+                  width: 340
+                  height: 66
+                  bg_color: 0x0D1F3A
+                  bg_opa: 55%
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_2
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xEEEEEE
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_3
+                  x: 0
+                  y: 262
+                  width: 340
+                  height: 66
+                  bg_opa: TRANSP
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_3
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xDDDDDD
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_4
+                  x: 0
+                  y: 328
+                  width: 340
+                  height: 66
+                  bg_color: 0x0D1F3A
+                  bg_opa: 55%
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_4
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xEEEEEE
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_5
+                  x: 0
+                  y: 394
+                  width: 340
+                  height: 66
+                  bg_opa: TRANSP
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_5
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xDDDDDD
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_6
+                  x: 0
+                  y: 460
+                  width: 340
+                  height: 66
+                  bg_color: 0x0D1F3A
+                  bg_opa: 55%
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_6
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xEEEEEE
+                        long_mode: WRAP
+              - obj:
+                  id: cal_row_7
+                  x: 0
+                  y: 526
+                  width: 340
+                  height: 66
+                  bg_opa: TRANSP
+                  border_width: 0
+                  radius: 0
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: cal_evt_7
+                        x: 12
+                        y: 4
+                        width: 316
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: 0xDDDDDD
+                        long_mode: WRAP
 
         # ── Clock background pill (top-right, ensures readability) ──
         - obj:
