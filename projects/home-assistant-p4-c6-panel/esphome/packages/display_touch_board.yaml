@@ -9,6 +9,24 @@ image:
     type: grayscale
     resize: 128x128
     transparency: alpha_channel
+  # Stock fallback images — downloaded once at build time, stored in flash.
+  # Shown when Immich is unavailable; cycles on each slideshow tick.
+  - file: https://picsum.photos/id/10/1024/600
+    id: stock_img_0
+    type: RGB565
+    resize: 1024x600
+  - file: https://picsum.photos/id/28/1024/600
+    id: stock_img_1
+    type: RGB565
+    resize: 1024x600
+  - file: https://picsum.photos/id/63/1024/600
+    id: stock_img_2
+    type: RGB565
+    resize: 1024x600
+  - file: https://picsum.photos/id/101/1024/600
+    id: stock_img_3
+    type: RGB565
+    resize: 1024x600
 
 globals:
   - id: immich_asset_id
@@ -27,73 +45,55 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  # Tracks whether we are showing a stock fallback image instead of Immich.
-  # When true, on_error shows the static placeholder; when false, it tries stock first.
+  # true = currently displaying an embedded stock image, not Immich
   - id: g_using_fallback
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Cycles through embedded stock images (0–3)
+  - id: g_stock_idx
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 online_image:
   - id: immich_photo
-    url: "${immich_url}/api/assets/placeholder/thumbnail?size=thumbnail"
+    url: "${immich_url}/api/assets/placeholder/thumbnail?size=preview"
     format: JPEG
     type: RGB565
     resize: 1024x600
-    buffer_size: 32768
+    buffer_size: 65536
     update_interval: never
     request_headers:
       Accept: image/jpeg
       x-api-key: !secret immich_api_key
     on_download_finished:
       - globals.set:
+          id: g_using_fallback
+          value: 'false'
+      - globals.set:
           id: g_immich_ok
           value: 'true'
       - lvgl.widget.show: slideshow_img
+      - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
-      - if:
-          condition:
-            lambda: return id(g_using_fallback);
-          then:
-            # Immich offline but stock loaded — keep error visible so user knows
-            - lvgl.widget.show: error_bar
-            - lvgl.label.update:
-                id: error_lbl
-                text: "Immich offline - showing stock image"
-            - lvgl.label.update:
-                id: dash_error_lbl
-                text: "Immich offline - stock image"
-          else:
-            - lvgl.widget.hide: error_bar
-            - lvgl.label.update:
-                id: dash_error_lbl
-                text: ""
+      - lvgl.widget.hide: error_bar
+      - lvgl.label.update:
+          id: dash_error_lbl
+          text: ""
     on_error:
-      - if:
-          condition:
-            lambda: return !id(g_using_fallback);
-          then:
-            # Immich download failed — try a stock image from the internet
-            - lvgl.widget.show: error_bar
-            - lvgl.label.update:
-                id: error_lbl
-                text: "Immich unavailable - loading stock image"
-            - script.execute: try_fallback_image
-          else:
-            # Stock image also failed — nothing to show, use static placeholder
-            - globals.set:
-                id: g_immich_ok
-                value: 'false'
-            - lvgl.widget.hide: slideshow_img
-            - lvgl.widget.show: slideshow_placeholder_obj
-            - lvgl.widget.show: error_bar
-            - lvgl.label.update:
-                id: error_lbl
-                text: "Immich & internet unavailable"
-            - lvgl.label.update:
-                id: dash_error_lbl
-                text: "No photos available"
+      - globals.set:
+          id: g_immich_ok
+          value: 'false'
+      - lvgl.widget.show: error_bar
+      - lvgl.label.update:
+          id: error_lbl
+          text: "Immich unavailable - showing stock image"
+      - lvgl.label.update:
+          id: dash_error_lbl
+          text: "Immich offline"
+      - script.execute: try_fallback_image
 
 script:
   # Fetches a random Immich asset and loads it. Always resets to Immich-first mode.
@@ -129,7 +129,7 @@ script:
                           - online_image.set_url:
                               id: immich_photo
                               url: !lambda |-
-                                return id(immich_base_url) + "/api/assets/" + id(immich_asset_id) + "/thumbnail?size=thumbnail";
+                                return id(immich_base_url) + "/api/assets/" + id(immich_asset_id) + "/thumbnail?size=preview";
                               update: true
                   else:
                     # Immich returned an error status — try stock fallback
@@ -148,20 +148,23 @@ script:
                   text: "Immich connection failed - loading stock image"
               - script.execute: try_fallback_image
 
-  # Loads a stock image from picsum.photos as a fallback when Immich is offline.
-  # Cycles through 10 seeds based on millis so images vary over time.
+  # Shows the next embedded stock image (cycles through 4 pre-downloaded images).
+  # No internet required — images are stored in device flash at build time.
   - id: try_fallback_image
     mode: single
     then:
       - globals.set:
           id: g_using_fallback
           value: 'true'
-      - online_image.set_url:
-          id: immich_photo
-          url: !lambda |-
-            int idx = (millis() / 1000) % 10 + 1;
-            return std::string("https://picsum.photos/seed/homepanel") + std::to_string(idx) + "/1024/600";
-          update: true
+      - lambda: |-
+          id(g_stock_idx) = (id(g_stock_idx) + 1) % 4;
+          esphome::image::Image* imgs[4] = {
+            id(stock_img_0), id(stock_img_1), id(stock_img_2), id(stock_img_3)
+          };
+          lv_img_set_src(id(stock_fallback_img), imgs[id(g_stock_idx)]->get_lv_img_dsc());
+          lv_obj_clear_flag(id(stock_fallback_img), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
 
 interval:
   - interval: "${immich_slideshow_interval}"
@@ -222,6 +225,29 @@ interval:
             char b[12];
             snprintf(b, sizeof(b), "%.0f dBm", id(panel_wifi_rssi).state);
             return std::string(b);
+      - lvgl.label.update:
+          id: settings_ha_lbl
+          text: !lambda |-
+            return id(g_ha_connected) ? std::string("Home Assistant: Connected") : std::string("Home Assistant: Disconnected");
+      - lvgl.label.update:
+          id: settings_immich_lbl
+          text: !lambda |-
+            return id(g_immich_ok) ? std::string("Immich: Online") : std::string("Immich: Offline");
+      - lvgl.label.update:
+          id: settings_ip_lbl
+          text: !lambda |-
+            auto ip = id(wifi_ip_addr).state;
+            return std::string("Device IP: ") + (ip.empty() ? "--" : ip);
+      - lvgl.label.update:
+          id: settings_rssi_lbl
+          text: !lambda |-
+            char b[24];
+            snprintf(b, sizeof(b), "Signal: %.0f dBm", id(panel_wifi_rssi).state);
+            return std::string(b);
+      - lvgl.label.update:
+          id: settings_immich_url_val
+          text: !lambda |-
+            return id(immich_base_url).empty() ? std::string("--") : id(immich_base_url);
 
 display:
   - platform: mipi_dsi
@@ -303,7 +329,16 @@ lvgl:
             align: TOP_LEFT
             hidden: true
 
-        # ── Static placeholder (shown when both Immich and stock fail) ──
+        # ── Stock fallback image (embedded at build time, shown when Immich unavailable) ──
+        - image:
+            id: stock_fallback_img
+            src: stock_img_0
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            hidden: true
+
+        # ── Static placeholder (shown when all image sources fail) ──
         - obj:
             id: slideshow_placeholder_obj
             width: 1024
@@ -916,3 +951,222 @@ lvgl:
                         text: "< Back"
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -138
+                  width: 110
+                  height: 34
+                  bg_color: 0x1A2A1A
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Settings"
+                        text_font: montserrat_16
+                        text_color: 0x69F0AE
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 3 — SETTINGS / ADMIN
+    # Read-only status + config display. Change settings via HA.
+    # ═══════════════════════════════════════════════════════════
+    - id: settings_page
+      bg_color: 0x060610
+      widgets:
+        # ── Header bar ─────────────────────────────────────────
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0A1225
+            bg_opa: 100%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Panel Settings"
+                  text_font: montserrat_28
+                  text_color: 0x69F0AE
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 110
+                  height: 34
+                  bg_color: 0x1E3A6E
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "< Back"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+
+        # ── Status column (left half) ───────────────────────────
+        - obj:
+            x: 0
+            y: 60
+            width: 500
+            height: 490
+            bg_opa: TRANSP
+            border_width: 0
+            pad_left: 24
+            pad_top: 20
+            widgets:
+              - label:
+                  x: 0
+                  y: 0
+                  text: "STATUS"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label:
+                  id: settings_ha_lbl
+                  x: 0
+                  y: 34
+                  width: 460
+                  text: "Home Assistant: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - label:
+                  id: settings_immich_lbl
+                  x: 0
+                  y: 62
+                  width: 460
+                  text: "Immich: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - label:
+                  id: settings_ip_lbl
+                  x: 0
+                  y: 90
+                  width: 460
+                  text: "Device IP: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - label:
+                  id: settings_rssi_lbl
+                  x: 0
+                  y: 118
+                  width: 460
+                  text: "Signal: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - obj:
+                  x: 0
+                  y: 154
+                  width: 460
+                  height: 2
+                  bg_color: 0x1E3A6E
+                  border_width: 0
+              - label:
+                  x: 0
+                  y: 166
+                  text: "CONFIGURATION"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label:
+                  id: settings_immich_url_lbl
+                  x: 0
+                  y: 200
+                  width: 460
+                  text: "Immich URL:"
+                  text_font: montserrat_16
+                  text_color: 0xAAAAAA
+                  long_mode: WRAP
+              - label:
+                  id: settings_immich_url_val
+                  x: 0
+                  y: 224
+                  width: 460
+                  text: "--"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+
+        # ── Setup guide (right half) ────────────────────────────
+        - obj:
+            x: 512
+            y: 60
+            width: 500
+            height: 490
+            bg_opa: TRANSP
+            border_width: 0
+            pad_left: 12
+            pad_top: 20
+            pad_right: 12
+            widgets:
+              - label:
+                  x: 0
+                  y: 0
+                  text: "CHANGE SETTINGS"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label:
+                  x: 0
+                  y: 34
+                  width: 476
+                  text: "Open Home Assistant and go to:"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+                  long_mode: WRAP
+              - label:
+                  x: 0
+                  y: 64
+                  width: 476
+                  text: "Settings > Devices & Services\n> Helpers"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+              - label:
+                  x: 0
+                  y: 110
+                  width: 476
+                  text: "Edit: Panel Immich URL\nand Panel Calendar Events"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+                  long_mode: WRAP
+              - obj:
+                  x: 0
+                  y: 164
+                  width: 476
+                  height: 2
+                  bg_color: 0x1E3A6E
+                  border_width: 0
+              - label:
+                  x: 0
+                  y: 176
+                  text: "WIFI SETUP"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label:
+                  x: 0
+                  y: 210
+                  width: 476
+                  text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+                  long_mode: WRAP
+              - label:
+                  x: 0
+                  y: 268
+                  width: 476
+                  text: "SSID: ${fallback_ap_ssid}"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+              - label:
+                  x: 0
+                  y: 296
+                  width: 476
+                  text: "Connect and open any webpage\nto configure WiFi."
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+                  long_mode: WRAP

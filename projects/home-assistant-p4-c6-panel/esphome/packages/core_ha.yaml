@@ -54,6 +54,7 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       name: "Panel IP Address"
+      id: wifi_ip_addr
     ssid:
       name: "Panel Wi-Fi SSID"
 
