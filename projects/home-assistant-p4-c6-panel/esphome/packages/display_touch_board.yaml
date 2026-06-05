@@ -11,6 +11,9 @@ image:
     transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
+  # 512x300 (half resolution) to keep flash hex arrays small (~1.5MB vs 29MB for 1024x600).
+  # No LVGL zoom — zoom on flash-based static images crashes the ESP32-P4 under PSRAM XIP.
+  # Positioned at x=426 y=150 to centre in the right 684px × 600px visible area.
   - file: https://picsum.photos/id/10/512/300
     id: stock_img_0
     type: RGB565
@@ -71,7 +74,7 @@ online_image:
     update_interval: never
     request_headers:
       Accept: image/jpeg
-      x-api-key: !lambda return id(g_immich_api_key);
+      x-api-key: !lambda return id(g_immich_api_key).c_str();
     on_download_finished:
       - globals.set:
           id: g_using_fallback
@@ -87,17 +90,24 @@ online_image:
       - lambda: |-
           auto dsc = id(immich_photo).get_lv_img_dsc();
           lv_img_set_pivot(id(slideshow_img), 0, 0);
-          if (dsc != nullptr && dsc->header.w > 0) {
+          if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
             if ((int)dsc->header.w >= 1024) {
-              lv_img_set_zoom(id(slideshow_img), (uint16_t)(256u * 1024u / dsc->header.w));
+              // Wide image: scale down to fit width, centre vertically
+              uint16_t zoom = (uint16_t)(256u * 1024u / dsc->header.w);
+              lv_img_set_zoom(id(slideshow_img), zoom);
               lv_obj_set_x(id(slideshow_img), 0);
+              int rh = (int)dsc->header.h * zoom / 256;
+              lv_obj_set_y(id(slideshow_img), rh < 600 ? (600 - rh) / 2 : 0);
             } else {
+              // Portrait/narrow image: native size, centre horizontally
               lv_img_set_zoom(id(slideshow_img), 256);
               lv_obj_set_x(id(slideshow_img), (1024 - (int)dsc->header.w) / 2);
+              lv_obj_set_y(id(slideshow_img), 0);
             }
           } else {
             lv_img_set_zoom(id(slideshow_img), 256);
             lv_obj_set_x(id(slideshow_img), 0);
+            lv_obj_set_y(id(slideshow_img), 0);
           }
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: stock_fallback_img
@@ -131,7 +141,7 @@ script:
           url: !lambda return id(immich_base_url) + "/api/assets/random?count=1";
           request_headers:
             Accept: application/json
-            x-api-key: !lambda return id(g_immich_api_key);
+            x-api-key: !lambda return id(g_immich_api_key).c_str();
           capture_response: true
           max_response_buffer_size: 8192
           on_response:
@@ -360,10 +370,10 @@ lvgl:
             align: TOP_LEFT
             hidden: true
 
-        # ── Stock fallback images — container + 4 pre-zoomed children ──
+        # ── Stock fallback images — container + 4 children ──
         # Container toggled by on_download_finished/on_error; inner images cycled via try_fallback_image.
-        # zoom=819 scales 320x188 → ~1024x602 (fills screen). Set in YAML to avoid lv_img_set_src/zoom
-        # lambda path which produces byte-swapped RGB565 color artifacts on the P4 MIPI display.
+        # Images are 512x300, no zoom (zoom on flash images crashes under PSRAM XIP).
+        # x=426 y=150 centres the 512x300 image in the 684x600 visible area right of the calendar.
         - obj:
             id: stock_fallback_img
             width: 1024
@@ -378,32 +388,28 @@ lvgl:
                   id: stock_fallback_img_0
                   src: stock_img_0
                   align: TOP_LEFT
-                  pivot_x: 0
-                  pivot_y: 0
-                  zoom: 2.0
+                  x: 426
+                  y: 150
               - image:
                   id: stock_fallback_img_1
                   src: stock_img_1
                   align: TOP_LEFT
-                  pivot_x: 0
-                  pivot_y: 0
-                  zoom: 2.0
+                  x: 426
+                  y: 150
                   hidden: true
               - image:
                   id: stock_fallback_img_2
                   src: stock_img_2
                   align: TOP_LEFT
-                  pivot_x: 0
-                  pivot_y: 0
-                  zoom: 2.0
+                  x: 426
+                  y: 150
                   hidden: true
               - image:
                   id: stock_fallback_img_3
                   src: stock_img_3
                   align: TOP_LEFT
-                  pivot_x: 0
-                  pivot_y: 0
-                  zoom: 2.0
+                  x: 426
+                  y: 150
                   hidden: true
 
         # ── Static placeholder (shown when all image sources fail) ──
