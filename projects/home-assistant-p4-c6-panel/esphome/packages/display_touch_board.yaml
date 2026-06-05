@@ -70,7 +70,7 @@ online_image:
     format: JPEG
     type: RGB565
     resize: 1024x600
-    buffer_size: 65536
+    buffer_size: 512000
     update_interval: never
     request_headers:
       Accept: image/jpeg
@@ -82,31 +82,29 @@ online_image:
       - globals.set:
           id: g_immich_ok
           value: 'true'
-      # Position/scale image on screen. Wide images (>=1024px) are scaled down to fit.
-      # Portrait images are shown at native size, centered horizontally so they land
-      # in the right half of the screen (past the 340px calendar overlay).
-      # Zoom-up on portrait images was removed: zooming a 276px-wide portrait to fill
-      # 1024px creates a 2226px-tall rendered image, causing LVGL draw overflow crash.
+      # Scale and centre image in the right 684×600 area (x=340 to x=1023).
+      # Fit-inside scaling preserves aspect ratio; zoom on online_image (PSRAM-backed) is safe.
       - lambda: |-
           auto dsc = id(immich_photo).get_lv_img_dsc();
           lv_img_set_pivot(id(slideshow_img), 0, 0);
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
-            if ((int)dsc->header.w >= 1024) {
-              // Wide image: scale down to fit width, centre vertically
-              uint16_t zoom = (uint16_t)(256u * 1024u / dsc->header.w);
-              lv_img_set_zoom(id(slideshow_img), zoom);
-              lv_obj_set_x(id(slideshow_img), 0);
-              int rh = (int)dsc->header.h * zoom / 256;
-              lv_obj_set_y(id(slideshow_img), rh < 600 ? (600 - rh) / 2 : 0);
-            } else {
-              // Portrait/narrow image: native size, centre horizontally
-              lv_img_set_zoom(id(slideshow_img), 256);
-              lv_obj_set_x(id(slideshow_img), (1024 - (int)dsc->header.w) / 2);
-              lv_obj_set_y(id(slideshow_img), 0);
-            }
+            const int avail_w = 684;
+            const int avail_h = 600;
+            float scale_x = (float)avail_w / (float)dsc->header.w;
+            float scale_y = (float)avail_h / (float)dsc->header.h;
+            float scale = (scale_x < scale_y) ? scale_x : scale_y;
+            uint16_t zoom = (uint16_t)(256.0f * scale);
+            if (zoom < 1) zoom = 1;
+            int disp_w = (int)((float)dsc->header.w * zoom / 256.0f);
+            int disp_h = (int)((float)dsc->header.h * zoom / 256.0f);
+            int x = 340 + (avail_w - disp_w) / 2;
+            int y = (avail_h - disp_h) / 2;
+            lv_img_set_zoom(id(slideshow_img), zoom);
+            lv_obj_set_x(id(slideshow_img), x);
+            lv_obj_set_y(id(slideshow_img), y);
           } else {
             lv_img_set_zoom(id(slideshow_img), 256);
-            lv_obj_set_x(id(slideshow_img), 0);
+            lv_obj_set_x(id(slideshow_img), 340);
             lv_obj_set_y(id(slideshow_img), 0);
           }
       - lvgl.widget.show: slideshow_img
@@ -160,6 +158,7 @@ script:
                         condition:
                           lambda: return !id(immich_asset_id).empty();
                         then:
+                          - lvgl.widget.hide: slideshow_img
                           - online_image.set_url:
                               id: immich_photo
                               url: !lambda |-
