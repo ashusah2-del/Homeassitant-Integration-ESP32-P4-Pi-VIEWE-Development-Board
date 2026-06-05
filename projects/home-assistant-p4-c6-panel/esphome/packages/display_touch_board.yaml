@@ -158,7 +158,7 @@ script:
           id: g_using_fallback
           value: 'false'
       - http_request.get:
-          url: !lambda return id(immich_base_url) + "/api/assets/random?count=1";
+          url: !lambda return id(immich_base_url) + "/api/assets/random?count=1&type=IMAGE";
           request_headers:
             Accept: application/json
             x-api-key: !lambda return id(g_immich_api_key).c_str();
