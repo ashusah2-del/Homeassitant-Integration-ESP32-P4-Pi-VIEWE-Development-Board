@@ -37,6 +37,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '"${immich_url}"'
+  - id: g_immich_api_key
+    type: std::string
+    restore_value: no
+    initial_value: '"${immich_api_key}"'
   - id: g_immich_ok
     type: bool
     restore_value: no
@@ -67,7 +71,7 @@ online_image:
     update_interval: never
     request_headers:
       Accept: image/jpeg
-      x-api-key: !secret immich_api_key
+      x-api-key: !lambda return id(g_immich_api_key);
     on_download_finished:
       - globals.set:
           id: g_using_fallback
@@ -75,17 +79,25 @@ online_image:
       - globals.set:
           id: g_immich_ok
           value: 'true'
-      # Scale image to fill the 1024px screen width regardless of aspect ratio.
-      # Portrait images (e.g. 450x600 from a 1440x1920 original) would otherwise
-      # show as a narrow strip next to the calendar overlay. lv_img_set_zoom is
-      # safe here because byte_order: little_endian sets LV_COLOR_16_SWAP=0.
+      # Position/scale image on screen. Wide images (>=1024px) are scaled down to fit.
+      # Portrait images are shown at native size, centered horizontally so they land
+      # in the right half of the screen (past the 340px calendar overlay).
+      # Zoom-up on portrait images was removed: zooming a 276px-wide portrait to fill
+      # 1024px creates a 2226px-tall rendered image, causing LVGL draw overflow crash.
       - lambda: |-
           auto dsc = id(immich_photo).get_lv_img_dsc();
           lv_img_set_pivot(id(slideshow_img), 0, 0);
-          if (dsc != nullptr && dsc->header.w > 0 && dsc->header.w < 1024) {
-            lv_img_set_zoom(id(slideshow_img), (uint16_t)(256u * 1024u / dsc->header.w));
+          if (dsc != nullptr && dsc->header.w > 0) {
+            if ((int)dsc->header.w >= 1024) {
+              lv_img_set_zoom(id(slideshow_img), (uint16_t)(256u * 1024u / dsc->header.w));
+              lv_obj_set_x(id(slideshow_img), 0);
+            } else {
+              lv_img_set_zoom(id(slideshow_img), 256);
+              lv_obj_set_x(id(slideshow_img), (1024 - (int)dsc->header.w) / 2);
+            }
           } else {
             lv_img_set_zoom(id(slideshow_img), 256);
+            lv_obj_set_x(id(slideshow_img), 0);
           }
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: stock_fallback_img
@@ -119,7 +131,7 @@ script:
           url: !lambda return id(immich_base_url) + "/api/assets/random?count=1";
           request_headers:
             Accept: application/json
-            x-api-key: !secret immich_api_key
+            x-api-key: !lambda return id(g_immich_api_key);
           capture_response: true
           max_response_buffer_size: 8192
           on_response:
