@@ -57,6 +57,11 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Retry counter for Immich download errors (reset on success, max 3 attempts)
+  - id: g_immich_retry
+    type: int
+    restore_value: no
+    initial_value: '0'
   # Cycles through embedded stock images (0–3)
   - id: g_stock_idx
     type: int
@@ -82,6 +87,9 @@ online_image:
       - globals.set:
           id: g_immich_ok
           value: 'true'
+      - globals.set:
+          id: g_immich_retry
+          value: '0'
       # Scale and centre image in the right 684×600 area (x=340 to x=1023).
       # Fit-inside scaling preserves aspect ratio; zoom on online_image (PSRAM-backed) is safe.
       - lambda: |-
@@ -118,14 +126,28 @@ online_image:
       - globals.set:
           id: g_immich_ok
           value: 'false'
-      - lvgl.widget.show: error_bar
-      - lvgl.label.update:
-          id: error_lbl
-          text: "Immich unavailable - showing stock image"
-      - lvgl.label.update:
-          id: dash_error_lbl
-          text: "Immich offline"
-      - script.execute: try_fallback_image
+      # Retry with a different random asset up to 3 times before giving up.
+      # Handles JPEG format incompatibilities (e.g. extended-sequential SOF1) in ~40% of assets.
+      - if:
+          condition:
+            lambda: return !id(g_using_fallback) && id(g_immich_retry) < 3;
+          then:
+            - globals.set:
+                id: g_immich_retry
+                value: !lambda return id(g_immich_retry) + 1;
+            - script.execute: refresh_immich_slideshow
+          else:
+            - globals.set:
+                id: g_immich_retry
+                value: '0'
+            - lvgl.widget.show: error_bar
+            - lvgl.label.update:
+                id: error_lbl
+                text: "Immich unavailable - showing stock image"
+            - lvgl.label.update:
+                id: dash_error_lbl
+                text: "Immich offline"
+            - script.execute: try_fallback_image
 
 script:
   # Fetches a random Immich asset and loads it. Always resets to Immich-first mode.
