@@ -69,6 +69,16 @@ text_sensor:
             if (!x.empty()) id(immich_base_url) = x.c_str();
         - script.execute: refresh_immich_slideshow
 
+  # Allows overriding the Immich API key from HA without reflashing
+  - platform: homeassistant
+    id: ha_immich_api_key_sensor
+    entity_id: input_text.panel_immich_api_key
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty()) id(g_immich_api_key) = x.c_str();
+
   # Calendar events pushed from HA automation into input_text.panel_calendar_events
   - platform: homeassistant
     id: ha_calendar_events
