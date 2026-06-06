@@ -32,18 +32,10 @@ image:
     resize: 512x300
 
 globals:
-  - id: immich_asset_id
-    type: std::string
-    restore_value: no
-    initial_value: '""'
   - id: immich_base_url
     type: std::string
     restore_value: no
-    initial_value: '"${immich_url}"'
-  - id: g_immich_api_key
-    type: std::string
-    restore_value: no
-    initial_value: '"${immich_api_key}"'
+    initial_value: '"${proxy_url}"'
   - id: g_immich_ok
     type: bool
     restore_value: no
@@ -52,6 +44,12 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Tracks active API clients so refresh+VA actions only run on first-connect /
+  # last-disconnect rather than on every client transition.
+  - id: g_ha_client_count
+    type: int
+    restore_value: no
+    initial_value: '0'
   # true = currently displaying an embedded stock image, not Immich
   - id: g_using_fallback
     type: bool
@@ -69,9 +67,10 @@ globals:
     initial_value: '0'
 
 # Shared online_image component used for both Immich photos and stock fallback images.
+# URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
 online_image:
   - id: immich_photo
-    url: "${immich_url}/api/assets/placeholder/thumbnail?size=preview"
+    url: "${proxy_url}/random-photo"
     format: JPEG
     type: RGB565
     resize: 512x400
@@ -79,7 +78,6 @@ online_image:
     update_interval: never
     request_headers:
       Accept: image/jpeg
-      x-api-key: !lambda return id(g_immich_api_key).c_str();
     on_download_finished:
       - globals.set:
           id: g_using_fallback
@@ -93,7 +91,7 @@ online_image:
       # Scale and centre image in the right 684×600 area (x=340 to x=1023).
       # Fit-inside scaling preserves aspect ratio; zoom on online_image (PSRAM-backed) is safe.
       - lambda: |-
-          auto dsc = id(immich_photo).get_lv_img_dsc();
+          auto dsc = id(immich_photo).get_lv_image_dsc();
           lv_img_set_pivot(id(slideshow_img), 0, 0);
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
             const int avail_w = 684;
@@ -150,58 +148,20 @@ online_image:
             - script.execute: try_fallback_image
 
 script:
-  # Fetches a random Immich asset and loads it. Always resets to Immich-first mode.
+  # Fetches a random baseline JPEG from the local proxy and displays it.
+  # The proxy (immich-proxy.service on the Docker host) handles Immich API calls
+  # and re-encodes all images as guaranteed SOF0 baseline JPEG before serving.
   - id: refresh_immich_slideshow
     mode: restart
     then:
       - globals.set:
           id: g_using_fallback
           value: 'false'
-      - http_request.get:
-          url: !lambda return id(immich_base_url) + "/api/assets/random?count=1&type=IMAGE";
-          request_headers:
-            Accept: application/json
-            x-api-key: !lambda return id(g_immich_api_key).c_str();
-          capture_response: true
-          max_response_buffer_size: 8192
-          on_response:
-            then:
-              - if:
-                  condition:
-                    lambda: return response->status_code == 200;
-                  then:
-                    - lambda: |-
-                        auto doc = json::parse_json(body);
-                        if (!doc.is<JsonArray>()) return;
-                        JsonArray arr = doc.as<JsonArray>();
-                        if (arr.size() == 0 || !arr[0]["id"].is<const char *>()) return;
-                        id(immich_asset_id) = arr[0]["id"].as<const char *>();
-                    - if:
-                        condition:
-                          lambda: return !id(immich_asset_id).empty();
-                        then:
-                          - lvgl.widget.hide: slideshow_img
-                          - online_image.set_url:
-                              id: immich_photo
-                              url: !lambda |-
-                                return id(immich_base_url) + "/api/assets/" + id(immich_asset_id) + "/thumbnail?size=preview";
-                              update: true
-                  else:
-                    # Immich returned an error status — try stock fallback
-                    - lvgl.widget.show: error_bar
-                    - lvgl.label.update:
-                        id: error_lbl
-                        text: !lambda |-
-                          return std::string("Immich HTTP ") + std::to_string(response->status_code) + " - loading stock";
-                    - script.execute: try_fallback_image
-          on_error:
-            then:
-              # Network request to Immich failed — try stock fallback
-              - lvgl.widget.show: error_bar
-              - lvgl.label.update:
-                  id: error_lbl
-                  text: "Immich connection failed - loading stock image"
-              - script.execute: try_fallback_image
+      - lvgl.widget.hide: slideshow_img
+      - online_image.set_url:
+          id: immich_photo
+          url: "${proxy_url}/random-photo"
+          update: true
 
   # Shows the next embedded stock image (cycles through 4 pre-downloaded images).
   # No internet required — images are stored in device flash at build time.
@@ -249,8 +209,14 @@ interval:
             if (!t.is_valid()) return std::string("---");
             static const char *wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
             static const char *mo[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+            // ESPTime::day_of_week is 1..7 (Sunday=1) — must subtract 1 to index a
+            // 0-based 7-element array. wd[7] is out-of-bounds → crash on Saturdays.
+            int wi = (int)t.day_of_week - 1;
+            int mi = (int)t.month - 1;
+            if (wi < 0 || wi > 6) wi = 0;
+            if (mi < 0 || mi > 11) mi = 0;
             char b[20];
-            snprintf(b, sizeof(b), "%s %02d %s", wd[t.day_of_week], t.day_of_month, mo[t.month - 1]);
+            snprintf(b, sizeof(b), "%s %02d %s", wd[wi], t.day_of_month, mo[mi]);
             return std::string(b);
       - lvgl.label.update:
           id: cal_today_lbl
@@ -259,8 +225,12 @@ interval:
             if (!t.is_valid()) return std::string("---");
             static const char *wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
             static const char *mo[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+            int wi = (int)t.day_of_week - 1;
+            int mi = (int)t.month - 1;
+            if (wi < 0 || wi > 6) wi = 0;
+            if (mi < 0 || mi > 11) mi = 0;
             char b[24];
-            snprintf(b, sizeof(b), "%s %02d %s %04d", wd[t.day_of_week], t.day_of_month, mo[t.month - 1], t.year);
+            snprintf(b, sizeof(b), "%s %02d %s %04d", wd[wi], t.day_of_month, mo[mi], t.year);
             return std::string(b);
       - lvgl.label.update:
           id: dash_clock
@@ -277,8 +247,12 @@ interval:
             if (!t.is_valid()) return std::string("---");
             static const char *wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
             static const char *mo[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+            int wi = (int)t.day_of_week - 1;
+            int mi = (int)t.month - 1;
+            if (wi < 0 || wi > 6) wi = 0;
+            if (mi < 0 || mi > 11) mi = 0;
             char b[24];
-            snprintf(b, sizeof(b), "%s %02d %s %04d", wd[t.day_of_week], t.day_of_month, mo[t.month - 1], t.year);
+            snprintf(b, sizeof(b), "%s %02d %s %04d", wd[wi], t.day_of_month, mo[mi], t.year);
             return std::string(b);
       - lvgl.label.update:
           id: dash_rssi

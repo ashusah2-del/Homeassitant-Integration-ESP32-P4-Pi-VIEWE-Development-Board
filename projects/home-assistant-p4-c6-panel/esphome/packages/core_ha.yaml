@@ -19,32 +19,60 @@ i2c:
 api:
   encryption:
     key: !secret api_encryption_key
+  # Only run setup/teardown on first-connect / last-disconnect.
+  # Multiple clients connect (HA, log streams, etc.) — running refresh and
+  # voice_assistant.start_continuous on every connect blocked the API loop
+  # and cascaded into socket exhaustion.
   on_client_connected:
     - globals.set:
-        id: g_ha_connected
-        value: 'true'
-    - lvgl.widget.hide: ha_disconnected_overlay
-    - lvgl.widget.show: tap_zone_btn
-    - lvgl.label.update:
-        id: dash_error_lbl
-        text: ""
-    - script.execute: refresh_immich_slideshow
-    - voice_assistant.start_continuous:
+        id: g_ha_client_count
+        value: !lambda 'return id(g_ha_client_count) + 1;'
+    - if:
+        condition:
+          lambda: 'return id(g_ha_client_count) == 1;'
+        then:
+          - globals.set:
+              id: g_ha_connected
+              value: 'true'
+          - lvgl.widget.hide: ha_disconnected_overlay
+          - lvgl.widget.show: tap_zone_btn
+          - lvgl.label.update:
+              id: dash_error_lbl
+              text: ""
+          - script.execute: refresh_immich_slideshow
+          - voice_assistant.start_continuous:
   on_client_disconnected:
     - globals.set:
-        id: g_ha_connected
-        value: 'false'
-    - lvgl.widget.show: ha_disconnected_overlay
-    - lvgl.widget.hide: tap_zone_btn
-    - lvgl.page.show: slideshow_page
-    - lvgl.label.update:
-        id: dash_error_lbl
-        text: "Home Assistant disconnected"
-    - voice_assistant.stop:
+        id: g_ha_client_count
+        value: !lambda |-
+          int c = id(g_ha_client_count) - 1;
+          return c < 0 ? 0 : c;
+    - if:
+        condition:
+          lambda: 'return id(g_ha_client_count) == 0;'
+        then:
+          - globals.set:
+              id: g_ha_connected
+              value: 'false'
+          - lvgl.widget.show: ha_disconnected_overlay
+          - lvgl.widget.hide: tap_zone_btn
+          - lvgl.page.show: slideshow_page
+          - lvgl.label.update:
+              id: dash_error_lbl
+              text: "Home Assistant disconnected"
+          - voice_assistant.stop:
 
 ota:
   - platform: esphome
     password: !secret ota_password
+
+# After repeated boot crashes the device enters safe mode (OTA-only, no user
+# code) for 1 minute — gives a reliable window to OTA-flash a fixed firmware
+# even if normal boot crashes immediately.
+safe_mode:
+  boot_is_good_after: 60s
+  reboot_timeout: 1min
+  num_attempts: 5
 
 time:
   - platform: homeassistant
@@ -58,7 +86,8 @@ text_sensor:
     ssid:
       name: "Panel Wi-Fi SSID"
 
-  # Allows overriding the Immich base URL from HA without reflashing
+  # Displays proxy URL in settings; no auto-refresh on change to avoid
+  # cascading download attempts every time HA pushes a state update.
   - platform: homeassistant
     id: ha_immich_url_sensor
     entity_id: input_text.panel_immich_url
@@ -67,17 +96,6 @@ text_sensor:
       then:
         - lambda: |-
             if (!x.empty()) id(immich_base_url) = x.c_str();
-        - script.execute: refresh_immich_slideshow
-
-  # Allows overriding the Immich API key from HA without reflashing
-  - platform: homeassistant
-    id: ha_immich_api_key_sensor
-    entity_id: input_text.panel_immich_api_key
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            if (!x.empty()) id(g_immich_api_key) = x.c_str();
 
   # Calendar events pushed from HA automation into input_text.panel_calendar_events
   - platform: homeassistant

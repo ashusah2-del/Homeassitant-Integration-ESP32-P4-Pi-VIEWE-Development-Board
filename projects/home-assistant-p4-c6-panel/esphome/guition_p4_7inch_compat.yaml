@@ -5,6 +5,7 @@ substitutions:
   rotate_display: "0"
   immich_url: !secret immich_server_url
   immich_api_key: !secret immich_api_key
+  proxy_url: !secret immich_proxy_url
   immich_slideshow_interval: 10min
   idle_timeout: 30s
   fallback_ap_ssid: !secret fallback_ap_ssid
