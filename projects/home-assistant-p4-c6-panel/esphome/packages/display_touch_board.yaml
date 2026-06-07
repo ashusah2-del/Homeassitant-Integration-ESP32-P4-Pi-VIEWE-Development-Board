@@ -18,8 +18,8 @@ image:
     resize: 48x48
     transparency: alpha_channel
   # Presence indicator — recoloured per state (green=ACTIVE, grey=CLEAR).
-  # Filled circle, large enough to be read across the room.
-  - file: mdi:circle
+  # House icon makes it obvious which sensors track motion in the house.
+  - file: mdi:home
     id: img_dot
     type: grayscale
     resize: 80x80
@@ -97,32 +97,32 @@ online_image:
     url: "${proxy_url}/camera/${cam1_entity}?size=thumb"
     format: JPEG
     type: RGB565
-    resize: 300x180
-    buffer_size: 32768
+    resize: 240x144
+    buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
   - id: cam2_thumb
     url: "${proxy_url}/camera/${cam2_entity}?size=thumb"
     format: JPEG
     type: RGB565
-    resize: 300x180
-    buffer_size: 32768
+    resize: 240x144
+    buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
   - id: cam3_thumb
     url: "${proxy_url}/camera/${cam3_entity}?size=thumb"
     format: JPEG
     type: RGB565
-    resize: 300x180
-    buffer_size: 32768
+    resize: 240x144
+    buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
   - id: cam4_thumb
     url: "${proxy_url}/camera/${cam4_entity}?size=thumb"
     format: JPEG
     type: RGB565
-    resize: 300x180
-    buffer_size: 32768
+    resize: 240x144
+    buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
   # Live view — single component, URL is swapped per camera on tap. The
@@ -132,7 +132,7 @@ online_image:
     url: "${proxy_url}/camera/${cam1_entity}?size=full"
     format: JPEG
     type: RGB565
-    resize: 800x500
+    resize: 600x340
     buffer_size: 65536
     update_interval: never
     request_headers: { Accept: image/jpeg }
@@ -254,14 +254,11 @@ interval:
     then:
       - script.execute: refresh_immich_slideshow
 
-  # Camera live-view refresh — only fires while the camera_view_page is up.
-  - interval: 3s
-    then:
-      - if:
-          condition:
-            lambda: 'return id(g_on_camera_view);'
-          then:
-            - lambda: 'id(camera_live_img).update();'
+  # (Removed) Live-view auto-refresh — the 3-second interval kept
+  # g_on_camera_view stuck true after the page closed and hammered the
+  # panel with 800×500 JPEG decodes, eventually crashing it with
+  # "Instruction address misaligned". Live view now refreshes only when
+  # the user taps a camera tile.
 
   - interval: 1s
     then:
@@ -2268,8 +2265,6 @@ lvgl:
               - image:
                   src: cam1_thumb
                   align: CENTER
-                  width: 300
-                  height: 180
               - label:
                   align: BOTTOM_LEFT
                   x: 6
@@ -2304,7 +2299,7 @@ lvgl:
                   value: 'true'
               - lvgl.page.show: camera_view_page
             widgets:
-              - image: { src: cam2_thumb, align: CENTER, width: 300, height: 180 }
+              - image: { src: cam2_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam2_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
         - obj:
             x: 20
@@ -2331,7 +2326,7 @@ lvgl:
                   value: 'true'
               - lvgl.page.show: camera_view_page
             widgets:
-              - image: { src: cam3_thumb, align: CENTER, width: 300, height: 180 }
+              - image: { src: cam3_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam3_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
         - obj:
             x: 524
@@ -2358,7 +2353,7 @@ lvgl:
                   value: 'true'
               - lvgl.page.show: camera_view_page
             widgets:
-              - image: { src: cam4_thumb, align: CENTER, width: 300, height: 180 }
+              - image: { src: cam4_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam4_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
 
     # ═══════════════════════════════════════════════════════════
@@ -2405,8 +2400,6 @@ lvgl:
             src: camera_live_img
             align: CENTER
             y: 28
-            width: 800
-            height: 500
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 7 — SETTINGS / ADMIN
