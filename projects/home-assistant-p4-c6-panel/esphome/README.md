@@ -126,7 +126,7 @@ dashboard's bottom bar.
 
 A small `BaseHTTPRequestHandler` Python service running as a systemd
 **user** service (`immich-proxy.service`) on the Docker host
-(`192.168.55.59:8765`). It exposes two endpoints used by the panel:
+(`<docker-host-ip>:8765`). It exposes two endpoints used by the panel:
 
 - `GET /random-photo` — fetches a random IMAGE asset from Immich,
   follows the `?size=preview` thumbnail link, then **always**
@@ -192,7 +192,7 @@ Then from the ESPHome dashboard or CLI:
 
 ```bash
 esphome compile guition_p4_7inch_compat.yaml
-esphome upload guition_p4_7inch_compat.yaml --device 192.168.55.94
+esphome upload guition_p4_7inch_compat.yaml --device <panel-ip>
 ```
 
 Fresh builds take 10–12 minutes (TFLite-micro is the slow stage);
