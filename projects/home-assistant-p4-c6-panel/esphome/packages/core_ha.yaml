@@ -117,6 +117,11 @@ text_sensor:
             if (v > 1440) v = 1440;
             id(g_slideshow_interval_min) = v;
             id(g_slideshow_counter_min) = 0;
+            // Keep the settings-page spinner label in sync with whatever
+            // value HA pushes (e.g. somebody nudges the helper in HA UI).
+            char b[12];
+            snprintf(b, sizeof(b), "%d min", v);
+            lv_label_set_text(id(settings_interval_val), b);
 
   # Calendar events pushed from HA automation into input_text.panel_calendar_events
   - platform: homeassistant

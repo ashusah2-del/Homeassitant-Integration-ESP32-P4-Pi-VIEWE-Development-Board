@@ -2645,6 +2645,123 @@ lvgl:
                   text_color: 0xFFFFFF
                   long_mode: WRAP
 
+              # ── Slideshow interval spinner ────────────────────
+              - label:
+                  x: 0
+                  y: 268
+                  text: "Slideshow interval (minutes):"
+                  text_font: montserrat_16
+                  text_color: 0xAAAAAA
+              - button:
+                  x: 0
+                  y: 296
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "-"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_slideshow_interval_min) - 1;
+                        if (v < 1) v = 1;
+                        id(g_slideshow_interval_min) = v;
+                        id(g_slideshow_counter_min) = 0;
+                        char b[12];
+                        snprintf(b, sizeof(b), "%d min", v);
+                        lv_label_set_text(id(settings_interval_val), b);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_slideshow_interval
+                          value: !lambda 'return id(g_slideshow_interval_min);'
+              - label:
+                  id: settings_interval_val
+                  x: 70
+                  y: 304
+                  width: 120
+                  text: "10 min"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - button:
+                  x: 200
+                  y: 296
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "+"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_slideshow_interval_min) + 1;
+                        if (v > 1440) v = 1440;
+                        id(g_slideshow_interval_min) = v;
+                        id(g_slideshow_counter_min) = 0;
+                        char b[12];
+                        snprintf(b, sizeof(b), "%d min", v);
+                        lv_label_set_text(id(settings_interval_val), b);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_slideshow_interval
+                          value: !lambda 'return id(g_slideshow_interval_min);'
+              # +/- 10 wide jumps so the user can move quickly through the range
+              - button:
+                  x: 270
+                  y: 296
+                  width: 64
+                  height: 44
+                  radius: 8
+                  bg_color: 0x1A3050
+                  border_width: 0
+                  text: "-10"
+                  text_font: montserrat_18
+                  text_color: 0xAACCFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_slideshow_interval_min) - 10;
+                        if (v < 1) v = 1;
+                        id(g_slideshow_interval_min) = v;
+                        id(g_slideshow_counter_min) = 0;
+                        char b[12];
+                        snprintf(b, sizeof(b), "%d min", v);
+                        lv_label_set_text(id(settings_interval_val), b);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_slideshow_interval
+                          value: !lambda 'return id(g_slideshow_interval_min);'
+              - button:
+                  x: 344
+                  y: 296
+                  width: 64
+                  height: 44
+                  radius: 8
+                  bg_color: 0x1A3050
+                  border_width: 0
+                  text: "+10"
+                  text_font: montserrat_18
+                  text_color: 0xAACCFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_slideshow_interval_min) + 10;
+                        if (v > 1440) v = 1440;
+                        id(g_slideshow_interval_min) = v;
+                        id(g_slideshow_counter_min) = 0;
+                        char b[12];
+                        snprintf(b, sizeof(b), "%d min", v);
+                        lv_label_set_text(id(settings_interval_val), b);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_slideshow_interval
+                          value: !lambda 'return id(g_slideshow_interval_min);'
+
         # ── Setup guide (right half) ────────────────────────────
         - obj:
             x: 512
