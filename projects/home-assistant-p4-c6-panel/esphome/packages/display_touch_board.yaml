@@ -149,6 +149,12 @@ globals:
   # input_number.panel_calendar_opacity and is editable on the settings
   # page. restore_value: yes so a tuning sticks across reboots.
   - { id: g_calendar_opa_pct, type: int, restore_value: yes, initial_value: '70' }
+  # True once the on_boot lambda has run — every multi-widget opacity cascade,
+  # the weather-state lambda, and the weather attribute label-update lambdas
+  # gate themselves on this so a HA push that arrives at boot before LVGL is
+  # fully constructed can't trigger an Instruction-address-misaligned crash.
+  # Flipped to true in the on_boot lambda after a 2-second delay.
+  - { id: g_lvgl_ready, type: bool, restore_value: no, initial_value: 'false' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -2896,7 +2902,7 @@ lvgl:
                         int v = id(g_calendar_opa_pct) - 5;
                         if (v < 0) v = 0;
                         id(g_calendar_opa_pct) = v;
-                        {
+                        if (id(g_lvgl_ready)) {
                           uint32_t opa = (uint32_t)((v * 255) / 100);
                           lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
                           lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
@@ -2936,7 +2942,7 @@ lvgl:
                         int v = id(g_calendar_opa_pct) + 5;
                         if (v > 100) v = 100;
                         id(g_calendar_opa_pct) = v;
-                        {
+                        if (id(g_lvgl_ready)) {
                           uint32_t opa = (uint32_t)((v * 255) / 100);
                           lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
                           lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);

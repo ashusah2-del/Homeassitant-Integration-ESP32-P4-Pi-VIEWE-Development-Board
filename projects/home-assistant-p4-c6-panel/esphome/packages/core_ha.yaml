@@ -123,6 +123,23 @@ text_sensor:
             snprintf(b, sizeof(b), "%d min", v);
             lv_label_set_text(id(settings_interval_val), b);
 
+  # Weather location label — text driven by HA helper
+  # input_text.panel_weather_city. The weather entity's friendly_name is
+  # "Forecast Home" and it has no city attribute, so a dedicated HA helper
+  # is the cleanest source. Create:
+  #   Settings → Devices & Services → Helpers → Text
+  #   Name "Panel Weather City", entity_id input_text.panel_weather_city
+  - platform: homeassistant
+    id: ha_weather_city
+    entity_id: input_text.panel_weather_city
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            if (x.empty()) return;
+            lv_label_set_text(id(wx_location_lbl), x.c_str());
+
   # ─── Weather widget — state drives which mdi:weather-* icon is visible
   # and its tint; temperature attribute fills the big number.
   - platform: homeassistant
@@ -132,6 +149,7 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
+            if (!id(g_lvgl_ready)) return;  // LVGL not ready yet, skip
             struct WxRow { const char* state; lv_obj_t* widget; uint32_t color; const char* label; };
             WxRow rows[] = {
               {"sunny",            id(wx_sunny),        0xFFD700, "Sunny"},
@@ -182,6 +200,7 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
+            if (!id(g_lvgl_ready)) return;
             // Temperature comes through as "16.0" / "-3.2" etc.; trim the
             // .0 and tack on °. atof handles negatives + decimals cleanly.
             float t = atof(x.c_str());
@@ -197,6 +216,7 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
+            if (!id(g_lvgl_ready)) return;
             float h = atof(x.c_str());
             char b[12];
             snprintf(b, sizeof(b), "%d%% RH", (int)(h + 0.5f));
@@ -216,7 +236,7 @@ text_sensor:
             if (v < 0) v = 0;
             if (v > 100) v = 100;
             id(g_calendar_opa_pct) = v;
-            {
+            if (id(g_lvgl_ready)) {
               uint32_t opa = (uint32_t)((v * 255) / 100);
               lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
               lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
