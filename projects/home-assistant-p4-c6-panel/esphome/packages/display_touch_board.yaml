@@ -155,6 +155,11 @@ globals:
   # fully constructed can't trigger an Instruction-address-misaligned crash.
   # Flipped to true in the on_boot lambda after a 2-second delay.
   - { id: g_lvgl_ready, type: bool, restore_value: no, initial_value: 'false' }
+  # Calendar pagination — the HA helper pushes a single newline-separated
+  # string; we cache it here and the render_calendar script splits it into
+  # 8-event pages that cycle every 30 s.
+  - { id: g_calendar_events_full, type: std::string, restore_value: no, initial_value: '""' }
+  - { id: g_calendar_page,         type: int, restore_value: no, initial_value: '0' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -318,6 +323,61 @@ online_image:
             - script.execute: try_fallback_image
 
 script:
+  # Renders the current "page" of calendar events into the 8 cal_row_N
+  # slots. The HA on_value handler caches the full string in
+  # g_calendar_events_full and zeroes the page; the 30-second cycle
+  # interval increments g_calendar_page and re-calls this script so the
+  # user sees later events without having to interact with the panel.
+  - id: render_calendar
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          lv_obj_t* labels[8] = {
+            id(cal_evt_0), id(cal_evt_1), id(cal_evt_2), id(cal_evt_3),
+            id(cal_evt_4), id(cal_evt_5), id(cal_evt_6), id(cal_evt_7)
+          };
+          lv_obj_t* rows[8] = {
+            id(cal_row_0), id(cal_row_1), id(cal_row_2), id(cal_row_3),
+            id(cal_row_4), id(cal_row_5), id(cal_row_6), id(cal_row_7)
+          };
+          // Split the cached events string into a vector of non-empty lines.
+          std::vector<std::string> events;
+          const std::string& full = id(g_calendar_events_full);
+          size_t pos = 0;
+          while (pos < full.size()) {
+            size_t nl = full.find('\n', pos);
+            size_t end = (nl == std::string::npos) ? full.size() : nl;
+            if (end > pos) events.emplace_back(full.substr(pos, end - pos));
+            pos = (nl == std::string::npos) ? full.size() : nl + 1;
+          }
+          int total = (int)events.size();
+          int pages = (total + 7) / 8;
+          if (pages <= 0) pages = 1;
+          // Clamp / wrap the page index.
+          if (id(g_calendar_page) >= pages) id(g_calendar_page) = 0;
+          if (id(g_calendar_page) < 0)      id(g_calendar_page) = 0;
+          int page = id(g_calendar_page);
+          // Render the slice of 8 events for this page.
+          for (int i = 0; i < 8; i++) {
+            int idx = page * 8 + i;
+            if (total == 0 && i == 0) {
+              lv_label_set_text(labels[i], "No events this week");
+              lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+            } else if (idx < total) {
+              lv_label_set_text(labels[i], events[idx].c_str());
+              lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_label_set_text(labels[i], "");
+              lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+            }
+          }
+          // Page indicator at the bottom of the panel.
+          char b[16];
+          if (pages > 1) snprintf(b, sizeof(b), "%d/%d", page + 1, pages);
+          else b[0] = '\0';
+          lv_label_set_text(id(cal_page_lbl), b);
+
   # Fetches a random baseline JPEG from the local proxy and displays it.
   # The proxy (immich-proxy.service on the Docker host) handles Immich API calls
   # and re-encodes all images as guaranteed SOF0 baseline JPEG before serving.
@@ -369,6 +429,15 @@ interval:
             id(g_slideshow_counter_min) = 0;
             id(refresh_immich_slideshow).execute();
           }
+
+  # Calendar pagination — every 30 s the page index advances; the script
+  # wraps it to 0 once we run out of events, and resets cal_page_lbl to
+  # "" automatically when there's only one page so the indicator just
+  # disappears if nothing's overflowing.
+  - interval: 30s
+    then:
+      - lambda: 'id(g_calendar_page)++;'
+      - script.execute: render_calendar
 
   # (Removed) Live-view auto-refresh — the 3-second interval kept
   # g_on_camera_view stuck true after the page closed and hammered the
@@ -696,6 +765,15 @@ lvgl:
                   text: "---"
                   text_font: montserrat_16
                   text_color: 0xAABBCC
+              # Page indicator at the bottom of the calendar panel.
+              # Empty when the events fit on one page; otherwise "N/M".
+              - label:
+                  id: cal_page_lbl
+                  align: BOTTOM_MID
+                  y: -8
+                  text: ""
+                  text_font: montserrat_14
+                  text_color: 0x69F0AE
               # Header divider
               - obj:
                   x: 0
