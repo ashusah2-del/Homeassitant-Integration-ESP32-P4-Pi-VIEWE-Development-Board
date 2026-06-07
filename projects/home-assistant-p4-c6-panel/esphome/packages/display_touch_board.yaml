@@ -98,6 +98,10 @@ globals:
   # threshold. restore_value: yes so a non-default tuning survives reboot.
   - { id: g_slideshow_interval_min, type: int, restore_value: yes, initial_value: '10' }
   - { id: g_slideshow_counter_min,  type: int, restore_value: no,  initial_value: '0' }
+  # Calendar overlay opacity, 0–100 %. Mirrors HA's
+  # input_number.panel_calendar_opacity and is editable on the settings
+  # page. restore_value: yes so a tuning sticks across reboots.
+  - { id: g_calendar_opa_pct, type: int, restore_value: yes, initial_value: '70' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -2761,6 +2765,72 @@ lvgl:
                         data:
                           entity_id: input_number.panel_slideshow_interval
                           value: !lambda 'return id(g_slideshow_interval_min);'
+
+              # ── Calendar opacity spinner ──────────────────────
+              - label:
+                  x: 0
+                  y: 354
+                  text: "Calendar overlay opacity:"
+                  text_font: montserrat_16
+                  text_color: 0xAAAAAA
+              - button:
+                  x: 0
+                  y: 382
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "-"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_calendar_opa_pct) - 5;
+                        if (v < 0) v = 0;
+                        id(g_calendar_opa_pct) = v;
+                        lv_obj_set_style_bg_opa(id(calendar_panel), (v * 255) / 100, 0);
+                        char b[12];
+                        snprintf(b, sizeof(b), "%d %%", v);
+                        lv_label_set_text(id(settings_calopa_val), b);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_calendar_opacity
+                          value: !lambda 'return id(g_calendar_opa_pct);'
+              - label:
+                  id: settings_calopa_val
+                  x: 70
+                  y: 390
+                  width: 120
+                  text: "70 %"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - button:
+                  x: 200
+                  y: 382
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "+"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_calendar_opa_pct) + 5;
+                        if (v > 100) v = 100;
+                        id(g_calendar_opa_pct) = v;
+                        lv_obj_set_style_bg_opa(id(calendar_panel), (v * 255) / 100, 0);
+                        char b[12];
+                        snprintf(b, sizeof(b), "%d %%", v);
+                        lv_label_set_text(id(settings_calopa_val), b);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_calendar_opacity
+                          value: !lambda 'return id(g_calendar_opa_pct);'
 
         # ── Setup guide (right half) ────────────────────────────
         - obj:

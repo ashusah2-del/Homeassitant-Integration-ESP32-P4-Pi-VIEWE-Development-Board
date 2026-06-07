@@ -123,6 +123,25 @@ text_sensor:
             snprintf(b, sizeof(b), "%d min", v);
             lv_label_set_text(id(settings_interval_val), b);
 
+  # Calendar overlay opacity in %, paired with HA helper
+  # input_number.panel_calendar_opacity (recommended range 0–100 step 5
+  # mode=Box). Drives the bg_opa of calendar_panel on the slideshow page.
+  - platform: homeassistant
+    id: ha_calendar_opacity
+    entity_id: input_number.panel_calendar_opacity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            int v = (int)atof(x.c_str());
+            if (v < 0) v = 0;
+            if (v > 100) v = 100;
+            id(g_calendar_opa_pct) = v;
+            lv_obj_set_style_bg_opa(id(calendar_panel), (v * 255) / 100, 0);
+            char b[12];
+            snprintf(b, sizeof(b), "%d %%", v);
+            lv_label_set_text(id(settings_calopa_val), b);
+
   # Calendar events pushed from HA automation into input_text.panel_calendar_events
   - platform: homeassistant
     id: ha_calendar_events
