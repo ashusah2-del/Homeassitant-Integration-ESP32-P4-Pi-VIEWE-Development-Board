@@ -123,6 +123,72 @@ text_sensor:
             snprintf(b, sizeof(b), "%d min", v);
             lv_label_set_text(id(settings_interval_val), b);
 
+  # ─── Weather widget — state drives which mdi:weather-* icon is visible
+  # and its tint; temperature attribute fills the big number.
+  - platform: homeassistant
+    id: ha_weather_state
+    entity_id: "${weather_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            struct WxRow { const char* state; lv_obj_t* widget; uint32_t color; const char* label; };
+            WxRow rows[] = {
+              {"sunny",            id(wx_sunny),        0xFFD700, "Sunny"},
+              {"clear-night",      id(wx_night),        0xAACCFF, "Clear night"},
+              {"cloudy",           id(wx_cloudy),       0xCCCCCC, "Cloudy"},
+              {"partlycloudy",     id(wx_partlycloudy), 0xDDDDDD, "Partly cloudy"},
+              {"rainy",            id(wx_rainy),        0x66BBFF, "Rainy"},
+              {"pouring",          id(wx_rainy),        0x4499FF, "Pouring"},
+              {"snowy",            id(wx_snowy),        0xEEFFFF, "Snowy"},
+              {"snowy-rainy",      id(wx_snowy),        0xCCDDFF, "Sleet"},
+              {"hail",             id(wx_snowy),        0xCCDDFF, "Hail"},
+              {"fog",              id(wx_fog),          0xBBBBBB, "Fog"},
+              {"lightning",        id(wx_lightning),    0xFFCC44, "Lightning"},
+              {"lightning-rainy",  id(wx_lightning),    0xFFAA00, "Storm"},
+              {"windy",            id(wx_windy),        0xAACCDD, "Windy"},
+              {"windy-variant",    id(wx_windy),        0xAACCDD, "Windy"},
+              {"exceptional",      id(wx_lightning),    0xFF6644, "Extreme"},
+            };
+            // Hide every weather icon first.
+            lv_obj_t* all_icons[] = {
+              id(wx_sunny), id(wx_night), id(wx_cloudy), id(wx_partlycloudy),
+              id(wx_rainy), id(wx_snowy), id(wx_fog), id(wx_lightning), id(wx_windy)
+            };
+            for (auto* w : all_icons) lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
+            // Find a matching row.
+            const char* label = "—";
+            uint32_t color = 0xCCCCCC;
+            lv_obj_t* show = id(wx_cloudy);
+            for (auto& row : rows) {
+              if (x == row.state) {
+                show = row.widget;
+                color = row.color;
+                label = row.label;
+                break;
+              }
+            }
+            lv_obj_clear_flag(show, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_img_recolor(show, lv_color_hex(color), 0);
+            lv_obj_set_style_img_recolor_opa(show, LV_OPA_COVER, 0);
+            lv_label_set_text(id(wx_cond_lbl), label);
+            lv_obj_set_style_text_color(id(wx_cond_lbl), lv_color_hex(color), 0);
+
+  - platform: homeassistant
+    id: ha_weather_temp
+    entity_id: "${weather_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            // Temperature comes through as "16.0" / "-3.2" etc.; trim the
+            // .0 and tack on °. atof handles negatives + decimals cleanly.
+            float t = atof(x.c_str());
+            char b[12];
+            snprintf(b, sizeof(b), "%d\xC2\xB0", (int)(t + (t >= 0 ? 0.5f : -0.5f)));
+            lv_label_set_text(id(wx_temp_lbl), b);
+
   # Calendar overlay opacity in %, paired with HA helper
   # input_number.panel_calendar_opacity (recommended range 0–100 step 5
   # mode=Box). Drives the bg_opa of calendar_panel on the slideshow page.
