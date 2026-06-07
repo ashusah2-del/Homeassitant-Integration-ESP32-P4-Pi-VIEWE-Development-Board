@@ -722,7 +722,7 @@ lvgl:
                     - label:
                         id: cal_evt_0
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: "No events this week"
                         text_font: montserrat_16
@@ -742,7 +742,7 @@ lvgl:
                     - label:
                         id: cal_evt_1
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
@@ -763,7 +763,7 @@ lvgl:
                     - label:
                         id: cal_evt_2
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
@@ -783,7 +783,7 @@ lvgl:
                     - label:
                         id: cal_evt_3
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
@@ -804,7 +804,7 @@ lvgl:
                     - label:
                         id: cal_evt_4
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
@@ -824,7 +824,7 @@ lvgl:
                     - label:
                         id: cal_evt_5
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
@@ -845,7 +845,7 @@ lvgl:
                     - label:
                         id: cal_evt_6
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
@@ -865,7 +865,7 @@ lvgl:
                     - label:
                         id: cal_evt_7
                         align: LEFT_MID
-                        x: 12
+                        x: 4
                         width: 316
                         text: ""
                         text_font: montserrat_16
