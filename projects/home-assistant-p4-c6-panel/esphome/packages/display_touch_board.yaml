@@ -67,6 +67,15 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  # Tado page — current target temperature per zone (updated from HA's
+  # climate.X "temperature" attribute). The +/− buttons mutate these and
+  # call climate.set_temperature with the new value.
+  - { id: g_tado1_target, type: float, restore_value: no, initial_value: '20.0' }
+  - { id: g_tado2_target, type: float, restore_value: no, initial_value: '20.0' }
+  - { id: g_tado3_target, type: float, restore_value: no, initial_value: '20.0' }
+  - { id: g_tado4_target, type: float, restore_value: no, initial_value: '20.0' }
+  - { id: g_tado5_target, type: float, restore_value: no, initial_value: '20.0' }
+  - { id: g_tado6_target, type: float, restore_value: no, initial_value: '20.0' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -734,6 +743,8 @@ lvgl:
     # ═══════════════════════════════════════════════════════════
     - id: dashboard_page
       bg_color: 0x090916
+      on_swipe_left:
+        - lvgl.page.show: tado_page
       widgets:
         - image:
             id: dash_bg_img
@@ -1227,7 +1238,580 @@ lvgl:
                         text_color: 0x69F0AE
 
     # ═══════════════════════════════════════════════════════════
-    # PAGE 3 — SETTINGS / ADMIN
+    # PAGE 3 — TADO climate (swipe left from dashboard)
+    # 6 climate zones in a 3×2 grid. Each card shows current temp +
+    # humidity, target temp with +/− adjusters, and OFF/AUTO/HEAT mode.
+    # ═══════════════════════════════════════════════════════════
+    - id: tado_page
+      bg_color: 0x080814
+      on_swipe_right:
+        - lvgl.page.show: dashboard_page
+      widgets:
+        # ── Top bar (same shape as dashboard) ──────────────────
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x12192E
+            bg_opa: 96%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Heating"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - label:
+                  align: CENTER
+                  text: "Tado Zones"
+                  text_font: montserrat_18
+                  text_color: 0xAAAAAA
+              - label:
+                  align: RIGHT_MID
+                  x: -20
+                  text: "← Dashboard"
+                  text_font: montserrat_16
+                  text_color: 0x69F0AE
+
+        # ── Card 1 — Drawing Room ──────────────────────────────
+        - obj:
+            id: tado1_card
+            x: 20
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "${tado1_label}"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - label:
+                  id: tado1_mode_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 16
+                  text: "--"
+                  text_font: montserrat_16
+                  text_color: 0x666666
+              - label:
+                  id: tado1_ct_lbl
+                  align: TOP_LEFT
+                  x: 16
+                  y: 46
+                  text: "--°"
+                  text_font: montserrat_24
+                  text_color: 0xFFCC66
+              - label:
+                  id: tado1_ch_lbl
+                  align: TOP_LEFT
+                  x: 130
+                  y: 50
+                  text: "--%"
+                  text_font: montserrat_18
+                  text_color: 0x66CCFF
+              - label:
+                  id: tado1_tgt_lbl
+                  align: CENTER
+                  y: 14
+                  text: "--°"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: CENTER
+                  x: -76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "−"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service:
+                        service: climate.set_temperature
+                        data:
+                          entity_id: "${tado1_entity}"
+                          temperature: !lambda 'return id(g_tado1_target) - 0.5f;'
+              - button:
+                  align: CENTER
+                  x: 76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "+"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service:
+                        service: climate.set_temperature
+                        data:
+                          entity_id: "${tado1_entity}"
+                          temperature: !lambda 'return id(g_tado1_target) + 0.5f;'
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service:
+                        service: climate.set_hvac_mode
+                        data:
+                          entity_id: "${tado1_entity}"
+                          hvac_mode: "off"
+              - button:
+                  align: BOTTOM_MID
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x1A2840
+                  text: "AUTO"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service:
+                        service: climate.set_hvac_mode
+                        data:
+                          entity_id: "${tado1_entity}"
+                          hvac_mode: "auto"
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2E1A14
+                  text: "HEAT"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service:
+                        service: climate.set_hvac_mode
+                        data:
+                          entity_id: "${tado1_entity}"
+                          hvac_mode: "heat"
+
+        # ── Card 2 — Office ────────────────────────────────────
+        - obj:
+            id: tado2_card
+            x: 352
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado2_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
+              - label: { id: tado2_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: tado2_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
+              - label: { id: tado2_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado2_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
+              - button:
+                  align: CENTER
+                  x: -76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "−"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado2_entity}", temperature: !lambda 'return id(g_tado2_target) - 0.5f;' } }
+              - button:
+                  align: CENTER
+                  x: 76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "+"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado2_entity}", temperature: !lambda 'return id(g_tado2_target) + 0.5f;' } }
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado2_entity}", hvac_mode: "off" } }
+              - button:
+                  align: BOTTOM_MID
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x1A2840
+                  text: "AUTO"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado2_entity}", hvac_mode: "auto" } }
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2E1A14
+                  text: "HEAT"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado2_entity}", hvac_mode: "heat" } }
+
+        # ── Card 3 — Main Bedroom ──────────────────────────────
+        - obj:
+            id: tado3_card
+            x: 684
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado3_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
+              - label: { id: tado3_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: tado3_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
+              - label: { id: tado3_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado3_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
+              - button:
+                  align: CENTER
+                  x: -76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "−"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado3_entity}", temperature: !lambda 'return id(g_tado3_target) - 0.5f;' } }
+              - button:
+                  align: CENTER
+                  x: 76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "+"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado3_entity}", temperature: !lambda 'return id(g_tado3_target) + 0.5f;' } }
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado3_entity}", hvac_mode: "off" } }
+              - button:
+                  align: BOTTOM_MID
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x1A2840
+                  text: "AUTO"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado3_entity}", hvac_mode: "auto" } }
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2E1A14
+                  text: "HEAT"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado3_entity}", hvac_mode: "heat" } }
+
+        # ── Card 4 — Mukta Room ────────────────────────────────
+        - obj:
+            id: tado4_card
+            x: 20
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado4_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
+              - label: { id: tado4_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: tado4_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
+              - label: { id: tado4_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado4_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
+              - button:
+                  align: CENTER
+                  x: -76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "−"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado4_entity}", temperature: !lambda 'return id(g_tado4_target) - 0.5f;' } }
+              - button:
+                  align: CENTER
+                  x: 76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "+"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado4_entity}", temperature: !lambda 'return id(g_tado4_target) + 0.5f;' } }
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado4_entity}", hvac_mode: "off" } }
+              - button:
+                  align: BOTTOM_MID
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x1A2840
+                  text: "AUTO"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado4_entity}", hvac_mode: "auto" } }
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2E1A14
+                  text: "HEAT"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado4_entity}", hvac_mode: "heat" } }
+
+        # ── Card 5 — Advik ─────────────────────────────────────
+        - obj:
+            id: tado5_card
+            x: 352
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x162044
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado5_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
+              - label: { id: tado5_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: tado5_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
+              - label: { id: tado5_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado5_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
+              - button:
+                  align: CENTER
+                  x: -76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "−"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado5_entity}", temperature: !lambda 'return id(g_tado5_target) - 0.5f;' } }
+              - button:
+                  align: CENTER
+                  x: 76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  text: "+"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado5_entity}", temperature: !lambda 'return id(g_tado5_target) + 0.5f;' } }
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado5_entity}", hvac_mode: "off" } }
+              - button:
+                  align: BOTTOM_MID
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x1A2840
+                  text: "AUTO"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado5_entity}", hvac_mode: "auto" } }
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2E1A14
+                  text: "HEAT"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado5_entity}", hvac_mode: "heat" } }
+
+        # ── Card 6 — Heating (whole-house) ─────────────────────
+        - obj:
+            id: tado6_card
+            x: 684
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x1A1E28
+            bg_opa: 95%
+            border_color: 0x4E2E2E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado6_label}", text_font: montserrat_20, text_color: 0xFFAA77 }
+              - label: { id: tado6_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: tado6_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
+              - label: { id: tado6_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado6_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
+              - button:
+                  align: CENTER
+                  x: -76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x4E2E2E
+                  text: "−"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado6_entity}", temperature: !lambda 'return id(g_tado6_target) - 0.5f;' } }
+              - button:
+                  align: CENTER
+                  x: 76
+                  y: 14
+                  width: 44
+                  height: 44
+                  radius: 22
+                  bg_color: 0x4E2E2E
+                  text: "+"
+                  text_font: montserrat_24
+                  on_click:
+                    - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado6_entity}", temperature: !lambda 'return id(g_tado6_target) + 0.5f;' } }
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado6_entity}", hvac_mode: "off" } }
+              - button:
+                  align: BOTTOM_MID
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x1A2840
+                  text: "AUTO"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado6_entity}", hvac_mode: "auto" } }
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -12
+                  y: -10
+                  width: 88
+                  height: 34
+                  radius: 8
+                  bg_color: 0x2E1A14
+                  text: "HEAT"
+                  text_font: montserrat_14
+                  on_click:
+                    - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado6_entity}", hvac_mode: "heat" } }
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 4 — SETTINGS / ADMIN
     # Read-only status + config display. Change settings via HA.
     # ═══════════════════════════════════════════════════════════
     - id: settings_page

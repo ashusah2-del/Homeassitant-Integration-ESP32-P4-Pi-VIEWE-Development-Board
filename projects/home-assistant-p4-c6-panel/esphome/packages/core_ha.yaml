@@ -303,6 +303,286 @@ text_sensor:
         - lambda: |-
             lv_label_set_text(id(room5_hum_lbl), (x + "%").c_str());
 
+  # ─── Tado page: per-zone state, current temp/humidity, target temp ───
+  # State (off/auto/heat) drives the mode buttons' highlight. Target temp
+  # updates a global the +/− buttons mutate; current temp/humidity drive
+  # the big readout. Each card has 4 HA subscriptions = 24 total.
+  - platform: homeassistant
+    id: tado1_state
+    entity_id: "${tado1_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            std::string m = x;
+            const char* lbl = (m == "off") ? "OFF" : (m == "heat") ? "HEAT" : "AUTO";
+            lv_label_set_text(id(tado1_mode_lbl), lbl);
+            uint32_t c = (m == "off") ? 0x666666 : (m == "heat") ? 0xFF8844 : 0x66AAFF;
+            lv_obj_set_style_text_color(id(tado1_mode_lbl), lv_color_hex(c), 0);
+  - platform: homeassistant
+    id: tado1_ct
+    entity_id: "${tado1_entity}"
+    attribute: current_temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[10]; snprintf(b, sizeof(b), "%s\xC2\xB0", x.c_str());
+            lv_label_set_text(id(tado1_ct_lbl), b);
+  - platform: homeassistant
+    id: tado1_ch
+    entity_id: "${tado1_entity}"
+    attribute: current_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[12]; snprintf(b, sizeof(b), "%s%%", x.c_str());
+            lv_label_set_text(id(tado1_ch_lbl), b);
+  - platform: homeassistant
+    id: tado1_tgt
+    entity_id: "${tado1_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.empty() || x == "None") return;
+            float t = atof(x.c_str());
+            id(g_tado1_target) = t;
+            char b[10]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", t);
+            lv_label_set_text(id(tado1_tgt_lbl), b);
+
+  - platform: homeassistant
+    id: tado2_state
+    entity_id: "${tado2_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            std::string m = x;
+            const char* lbl = (m == "off") ? "OFF" : (m == "heat") ? "HEAT" : "AUTO";
+            lv_label_set_text(id(tado2_mode_lbl), lbl);
+            uint32_t c = (m == "off") ? 0x666666 : (m == "heat") ? 0xFF8844 : 0x66AAFF;
+            lv_obj_set_style_text_color(id(tado2_mode_lbl), lv_color_hex(c), 0);
+  - platform: homeassistant
+    id: tado2_ct
+    entity_id: "${tado2_entity}"
+    attribute: current_temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[10]; snprintf(b, sizeof(b), "%s\xC2\xB0", x.c_str());
+            lv_label_set_text(id(tado2_ct_lbl), b);
+  - platform: homeassistant
+    id: tado2_ch
+    entity_id: "${tado2_entity}"
+    attribute: current_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[12]; snprintf(b, sizeof(b), "%s%%", x.c_str());
+            lv_label_set_text(id(tado2_ch_lbl), b);
+  - platform: homeassistant
+    id: tado2_tgt
+    entity_id: "${tado2_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.empty() || x == "None") return;
+            float t = atof(x.c_str());
+            id(g_tado2_target) = t;
+            char b[10]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", t);
+            lv_label_set_text(id(tado2_tgt_lbl), b);
+
+  - platform: homeassistant
+    id: tado3_state
+    entity_id: "${tado3_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            std::string m = x;
+            const char* lbl = (m == "off") ? "OFF" : (m == "heat") ? "HEAT" : "AUTO";
+            lv_label_set_text(id(tado3_mode_lbl), lbl);
+            uint32_t c = (m == "off") ? 0x666666 : (m == "heat") ? 0xFF8844 : 0x66AAFF;
+            lv_obj_set_style_text_color(id(tado3_mode_lbl), lv_color_hex(c), 0);
+  - platform: homeassistant
+    id: tado3_ct
+    entity_id: "${tado3_entity}"
+    attribute: current_temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[10]; snprintf(b, sizeof(b), "%s\xC2\xB0", x.c_str());
+            lv_label_set_text(id(tado3_ct_lbl), b);
+  - platform: homeassistant
+    id: tado3_ch
+    entity_id: "${tado3_entity}"
+    attribute: current_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[12]; snprintf(b, sizeof(b), "%s%%", x.c_str());
+            lv_label_set_text(id(tado3_ch_lbl), b);
+  - platform: homeassistant
+    id: tado3_tgt
+    entity_id: "${tado3_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.empty() || x == "None") return;
+            float t = atof(x.c_str());
+            id(g_tado3_target) = t;
+            char b[10]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", t);
+            lv_label_set_text(id(tado3_tgt_lbl), b);
+
+  - platform: homeassistant
+    id: tado4_state
+    entity_id: "${tado4_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            std::string m = x;
+            const char* lbl = (m == "off") ? "OFF" : (m == "heat") ? "HEAT" : "AUTO";
+            lv_label_set_text(id(tado4_mode_lbl), lbl);
+            uint32_t c = (m == "off") ? 0x666666 : (m == "heat") ? 0xFF8844 : 0x66AAFF;
+            lv_obj_set_style_text_color(id(tado4_mode_lbl), lv_color_hex(c), 0);
+  - platform: homeassistant
+    id: tado4_ct
+    entity_id: "${tado4_entity}"
+    attribute: current_temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[10]; snprintf(b, sizeof(b), "%s\xC2\xB0", x.c_str());
+            lv_label_set_text(id(tado4_ct_lbl), b);
+  - platform: homeassistant
+    id: tado4_ch
+    entity_id: "${tado4_entity}"
+    attribute: current_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[12]; snprintf(b, sizeof(b), "%s%%", x.c_str());
+            lv_label_set_text(id(tado4_ch_lbl), b);
+  - platform: homeassistant
+    id: tado4_tgt
+    entity_id: "${tado4_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.empty() || x == "None") return;
+            float t = atof(x.c_str());
+            id(g_tado4_target) = t;
+            char b[10]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", t);
+            lv_label_set_text(id(tado4_tgt_lbl), b);
+
+  - platform: homeassistant
+    id: tado5_state
+    entity_id: "${tado5_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            std::string m = x;
+            const char* lbl = (m == "off") ? "OFF" : (m == "heat") ? "HEAT" : "AUTO";
+            lv_label_set_text(id(tado5_mode_lbl), lbl);
+            uint32_t c = (m == "off") ? 0x666666 : (m == "heat") ? 0xFF8844 : 0x66AAFF;
+            lv_obj_set_style_text_color(id(tado5_mode_lbl), lv_color_hex(c), 0);
+  - platform: homeassistant
+    id: tado5_ct
+    entity_id: "${tado5_entity}"
+    attribute: current_temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[10]; snprintf(b, sizeof(b), "%s\xC2\xB0", x.c_str());
+            lv_label_set_text(id(tado5_ct_lbl), b);
+  - platform: homeassistant
+    id: tado5_ch
+    entity_id: "${tado5_entity}"
+    attribute: current_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[12]; snprintf(b, sizeof(b), "%s%%", x.c_str());
+            lv_label_set_text(id(tado5_ch_lbl), b);
+  - platform: homeassistant
+    id: tado5_tgt
+    entity_id: "${tado5_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.empty() || x == "None") return;
+            float t = atof(x.c_str());
+            id(g_tado5_target) = t;
+            char b[10]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", t);
+            lv_label_set_text(id(tado5_tgt_lbl), b);
+
+  - platform: homeassistant
+    id: tado6_state
+    entity_id: "${tado6_entity}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            std::string m = x;
+            const char* lbl = (m == "off") ? "OFF" : (m == "heat") ? "HEAT" : "AUTO";
+            lv_label_set_text(id(tado6_mode_lbl), lbl);
+            uint32_t c = (m == "off") ? 0x666666 : (m == "heat") ? 0xFF8844 : 0x66AAFF;
+            lv_obj_set_style_text_color(id(tado6_mode_lbl), lv_color_hex(c), 0);
+  - platform: homeassistant
+    id: tado6_ct
+    entity_id: "${tado6_entity}"
+    attribute: current_temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[10]; snprintf(b, sizeof(b), "%s\xC2\xB0", x.c_str());
+            lv_label_set_text(id(tado6_ct_lbl), b);
+  - platform: homeassistant
+    id: tado6_ch
+    entity_id: "${tado6_entity}"
+    attribute: current_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            char b[12]; snprintf(b, sizeof(b), "%s%%", x.c_str());
+            lv_label_set_text(id(tado6_ch_lbl), b);
+  - platform: homeassistant
+    id: tado6_tgt
+    entity_id: "${tado6_entity}"
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.empty() || x == "None") return;
+            float t = atof(x.c_str());
+            id(g_tado6_target) = t;
+            char b[10]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", t);
+            lv_label_set_text(id(tado6_tgt_lbl), b);
+
 sensor:
   - platform: uptime
     name: "Panel Uptime"
