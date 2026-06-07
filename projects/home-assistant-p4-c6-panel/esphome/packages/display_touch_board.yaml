@@ -24,6 +24,53 @@ image:
     type: grayscale
     resize: 80x80
     transparency: alpha_channel
+  # Weather widget icons — one per HA `weather` state. All start hidden;
+  # the on_value lambda below reveals the matching one and hides the rest.
+  - file: mdi:weather-sunny
+    id: img_wx_sunny
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-night
+    id: img_wx_night
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-cloudy
+    id: img_wx_cloudy
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-partly-cloudy
+    id: img_wx_partlycloudy
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-rainy
+    id: img_wx_rainy
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-snowy
+    id: img_wx_snowy
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-fog
+    id: img_wx_fog
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-lightning
+    id: img_wx_lightning
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
+  - file: mdi:weather-windy
+    id: img_wx_windy
+    type: grayscale
+    resize: 96x96
+    transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
   # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
@@ -554,6 +601,47 @@ lvgl:
                   text: "Check Immich connection"
                   text_font: montserrat_18
                   text_color: 0x333355
+
+        # ── Weather widget (top-right, transparent) ────────────
+        # Stack of 9 mdi:weather-* icons at the same coordinates; the
+        # weather_state on_value lambda reveals exactly one at a time and
+        # recolours it by condition. Temperature + condition labels live
+        # alongside. Background is fully transparent so the slideshow
+        # photo shows through.
+        - obj:
+            id: weather_widget
+            x: 800
+            y: 14
+            width: 210
+            height: 180
+            align: TOP_LEFT
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            widgets:
+              - image: { id: wx_sunny,       src: img_wx_sunny,       align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_night,       src: img_wx_night,       align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_cloudy,      src: img_wx_cloudy,      align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_partlycloudy, src: img_wx_partlycloudy, align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_rainy,       src: img_wx_rainy,       align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_snowy,       src: img_wx_snowy,       align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_fog,         src: img_wx_fog,         align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_lightning,   src: img_wx_lightning,   align: TOP_MID, y: 0, hidden: true }
+              - image: { id: wx_windy,       src: img_wx_windy,       align: TOP_MID, y: 0, hidden: true }
+              - label:
+                  id: wx_temp_lbl
+                  align: TOP_MID
+                  y: 100
+                  text: "--°"
+                  text_font: montserrat_36
+                  text_color: 0xFFFFFF
+              - label:
+                  id: wx_cond_lbl
+                  align: TOP_MID
+                  y: 152
+                  text: "—"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
 
         # ── Calendar panel (left side, 70% opaque) ─────────────
         - obj:
