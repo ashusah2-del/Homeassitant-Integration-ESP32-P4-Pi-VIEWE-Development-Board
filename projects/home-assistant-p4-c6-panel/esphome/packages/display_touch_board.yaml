@@ -616,11 +616,11 @@ lvgl:
         # photo shows through.
         - obj:
             id: weather_widget
-            x: 800
-            y: 130
+            align: BOTTOM_RIGHT
+            x: -14
+            y: -14
             width: 210
             height: 224
-            align: TOP_LEFT
             bg_opa: TRANSP
             border_width: 0
             pad_all: 0
