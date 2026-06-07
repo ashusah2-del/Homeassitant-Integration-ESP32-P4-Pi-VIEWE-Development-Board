@@ -248,7 +248,10 @@ text_sensor:
             snprintf(b, sizeof(b), "%d %%", v);
             lv_label_set_text(id(settings_calopa_val), b);
 
-  # Calendar events pushed from HA automation into input_text.panel_calendar_events
+  # Calendar events pushed from HA automation into input_text.panel_calendar_events.
+  # The string is cached into g_calendar_events_full; the render_calendar
+  # script does the splitting and paginates onto 8-event pages that cycle
+  # every 30 s (interval block in display_touch_board.yaml).
   - platform: homeassistant
     id: ha_calendar_events
     entity_id: input_text.panel_calendar_events
@@ -256,31 +259,9 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
-            lv_obj_t* labels[8] = {
-              id(cal_evt_0), id(cal_evt_1), id(cal_evt_2), id(cal_evt_3),
-              id(cal_evt_4), id(cal_evt_5), id(cal_evt_6), id(cal_evt_7)
-            };
-            lv_obj_t* row_objs[8] = {
-              id(cal_row_0), id(cal_row_1), id(cal_row_2), id(cal_row_3),
-              id(cal_row_4), id(cal_row_5), id(cal_row_6), id(cal_row_7)
-            };
-            std::string text = x.empty() ? "No events this week" : x;
-            // Show first row with "No events" if empty, else fill rows per event
-            bool no_events = x.empty();
-            for (int i = 0; i < 8; i++) {
-              std::string line = "";
-              if (!text.empty()) {
-                auto nl = text.find('\n');
-                line = (nl != std::string::npos) ? text.substr(0, nl) : text;
-                text = (nl != std::string::npos) ? text.substr(nl + 1) : "";
-              }
-              lv_label_set_text(labels[i], line.c_str());
-              if (!line.empty()) {
-                lv_obj_clear_flag(row_objs[i], LV_OBJ_FLAG_HIDDEN);
-              } else {
-                lv_obj_add_flag(row_objs[i], LV_OBJ_FLAG_HIDDEN);
-              }
-            }
+            id(g_calendar_events_full) = x;
+            id(g_calendar_page) = 0;  // jump back to page 1 on every fresh push
+        - script.execute: render_calendar
 
   # ─── Room dashboard: light state + brightness + temp/humidity ─────────
   # Each room card subscribes to light state ("on"/"off"), updates the bulb
