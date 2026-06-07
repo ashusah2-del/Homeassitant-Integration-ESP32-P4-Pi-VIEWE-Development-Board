@@ -2789,7 +2789,7 @@ lvgl:
                         int v = id(g_calendar_opa_pct) - 5;
                         if (v < 0) v = 0;
                         id(g_calendar_opa_pct) = v;
-                        lv_obj_set_style_bg_opa(id(calendar_panel), (v * 255) / 100, 0);
+                        lv_obj_set_style_opa(id(calendar_panel), (v * 255) / 100, 0);
                         char b[12];
                         snprintf(b, sizeof(b), "%d %%", v);
                         lv_label_set_text(id(settings_calopa_val), b);
@@ -2822,7 +2822,7 @@ lvgl:
                         int v = id(g_calendar_opa_pct) + 5;
                         if (v > 100) v = 100;
                         id(g_calendar_opa_pct) = v;
-                        lv_obj_set_style_bg_opa(id(calendar_panel), (v * 255) / 100, 0);
+                        lv_obj_set_style_opa(id(calendar_panel), (v * 255) / 100, 0);
                         char b[12];
                         snprintf(b, sizeof(b), "%d %%", v);
                         lv_label_set_text(id(settings_calopa_val), b);
