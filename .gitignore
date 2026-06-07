@@ -1,0 +1,56 @@
+# ─── Secrets ────────────────────────────────────────────────────────────
+# Any real secrets file MUST stay local. Only the *.example templates
+# may be committed.
+secrets.yaml
+secrets.local.yaml
+**/secrets.yaml
+!**/secrets.yaml.example
+proxy.env
+.env
+.env.*
+*.pem
+*.key
+*.p12
+id_rsa
+id_ed25519
+
+# ─── ESPHome / Python build & cache ─────────────────────────────────────
+.esphome/
+.pioenvs/
+.piolibdeps/
+.pio/
+*.elf
+*.bin
+firmware.factory.bin
+firmware.ota.bin
+build_info.json
+compile_commands.json
+
+# ─── ESP-IDF build outputs ──────────────────────────────────────────────
+build/
+sdkconfig.old
+sdkconfig.ci
+managed_components/
+dependencies.lock
+.ccache/
+
+# ─── Python venvs & caches ──────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ─── Editor / tooling state ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Claude Code agent harness ──────────────────────────────────────────
+.claude/
