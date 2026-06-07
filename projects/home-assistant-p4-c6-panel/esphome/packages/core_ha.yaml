@@ -100,6 +100,24 @@ text_sensor:
         - lambda: |-
             if (!x.empty()) id(immich_base_url) = x.c_str();
 
+  # Slideshow refresh interval, in minutes. Reads from HA helper
+  # input_number.panel_slideshow_interval (recommended range 1–1440 minutes;
+  # create with min=1, max=1440, step=1 mode=box). Clamped here so a bad
+  # value in HA can't break the timer logic. The 1-minute interval block
+  # in display_touch_board.yaml reads g_slideshow_interval_min on every tick.
+  - platform: homeassistant
+    id: ha_slideshow_interval
+    entity_id: input_number.panel_slideshow_interval
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            int v = (int)atof(x.c_str());
+            if (v < 1) v = 1;
+            if (v > 1440) v = 1440;
+            id(g_slideshow_interval_min) = v;
+            id(g_slideshow_counter_min) = 0;
+
   # Calendar events pushed from HA automation into input_text.panel_calendar_events
   - platform: homeassistant
     id: ha_calendar_events

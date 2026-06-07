@@ -92,6 +92,12 @@ globals:
   # all-lights toggle button uses this to decide whether tapping should
   # turn everything off or turn everything on.
   - { id: g_lights_on_mask, type: uint8_t, restore_value: no, initial_value: '0' }
+  # Slideshow refresh interval in minutes. Sourced from HA's
+  # input_number.panel_slideshow_interval helper; the 1-minute interval
+  # bumps the counter and fires the refresh script when it crosses the
+  # threshold. restore_value: yes so a non-default tuning survives reboot.
+  - { id: g_slideshow_interval_min, type: int, restore_value: yes, initial_value: '10' }
+  - { id: g_slideshow_counter_min,  type: int, restore_value: no,  initial_value: '0' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -294,9 +300,18 @@ script:
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
 
 interval:
-  - interval: "${immich_slideshow_interval}"
+  # Slideshow refresh — fires every minute, only executes the refresh
+  # script once the per-minute counter reaches the configured interval
+  # (g_slideshow_interval_min). The interval is sourced from HA's
+  # input_number.panel_slideshow_interval helper so it's runtime-tunable.
+  - interval: 1min
     then:
-      - script.execute: refresh_immich_slideshow
+      - lambda: |-
+          id(g_slideshow_counter_min)++;
+          if (id(g_slideshow_counter_min) >= id(g_slideshow_interval_min)) {
+            id(g_slideshow_counter_min) = 0;
+            id(refresh_immich_slideshow).execute();
+          }
 
   # (Removed) Live-view auto-refresh — the 3-second interval kept
   # g_on_camera_view stuck true after the page closed and hammered the
