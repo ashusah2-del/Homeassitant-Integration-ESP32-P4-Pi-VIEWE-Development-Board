@@ -87,6 +87,11 @@ globals:
   # camera-refresh interval only fires when this is set, so we don't poll
   # HA constantly when no one's looking.
   - { id: g_on_camera_view, type: bool, restore_value: no, initial_value: 'false' }
+  # Bitmask of which dashboard lights are currently on. Bit i is for room i+1
+  # (so bit 0 = Drawing, bit 1 = Office, …, bit 5 = Conservatory). The
+  # all-lights toggle button uses this to decide whether tapping should
+  # turn everything off or turn everything on.
+  - { id: g_lights_on_mask, type: uint8_t, restore_value: no, initial_value: '0' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -1352,73 +1357,69 @@ lvgl:
                         text: "Settings"
                         text_font: montserrat_16
                         text_color: 0x69F0AE
-              # All-lights master controls — turn every room light on or off at once.
+              # All-lights master toggle — single button at the leftmost
+              # position. Label and color flip based on g_lights_on_mask
+              # (updated by each roomN_state lambda). If any light is on,
+              # tapping turns everything off; if all are off, tapping turns
+              # everything on.
               - button:
+                  id: all_lights_btn
                   align: LEFT_MID
-                  x: 220
-                  width: 110
+                  x: 180
+                  width: 150
                   height: 34
-                  bg_color: 0x3A2814
+                  bg_color: 0x2A2A14
                   radius: 8
                   border_width: 0
                   on_click:
-                    - homeassistant.service:
-                        service: light.turn_on
-                        data: { entity_id: "${room2_light}" }
-                    - homeassistant.service:
-                        service: light.turn_on
-                        data: { entity_id: "${room3_light}" }
-                    - homeassistant.service:
-                        service: light.turn_on
-                        data: { entity_id: "${room4_light}" }
-                    - homeassistant.service:
-                        service: light.turn_on
-                        data: { entity_id: "${room5_light}" }
-                    - homeassistant.service:
-                        service: switch.turn_on
-                        data: { entity_id: "${room1_light}" }
-                    - homeassistant.service:
-                        service: switch.turn_on
-                        data: { entity_id: "${room6_light}" }
+                    - if:
+                        condition:
+                          lambda: 'return id(g_lights_on_mask) != 0;'
+                        then:
+                          - homeassistant.service:
+                              service: light.turn_off
+                              data: { entity_id: "${room2_light}" }
+                          - homeassistant.service:
+                              service: light.turn_off
+                              data: { entity_id: "${room3_light}" }
+                          - homeassistant.service:
+                              service: light.turn_off
+                              data: { entity_id: "${room4_light}" }
+                          - homeassistant.service:
+                              service: light.turn_off
+                              data: { entity_id: "${room5_light}" }
+                          - homeassistant.service:
+                              service: switch.turn_off
+                              data: { entity_id: "${room1_light}" }
+                          - homeassistant.service:
+                              service: switch.turn_off
+                              data: { entity_id: "${room6_light}" }
+                        else:
+                          - homeassistant.service:
+                              service: light.turn_on
+                              data: { entity_id: "${room2_light}" }
+                          - homeassistant.service:
+                              service: light.turn_on
+                              data: { entity_id: "${room3_light}" }
+                          - homeassistant.service:
+                              service: light.turn_on
+                              data: { entity_id: "${room4_light}" }
+                          - homeassistant.service:
+                              service: light.turn_on
+                              data: { entity_id: "${room5_light}" }
+                          - homeassistant.service:
+                              service: switch.turn_on
+                              data: { entity_id: "${room1_light}" }
+                          - homeassistant.service:
+                              service: switch.turn_on
+                              data: { entity_id: "${room6_light}" }
                   widgets:
                     - label:
+                        id: all_lights_lbl
                         align: CENTER
-                        text: "All On"
+                        text: "All Lights"
                         text_font: montserrat_16
                         text_color: 0xFFD700
-              - button:
-                  align: LEFT_MID
-                  x: 340
-                  width: 110
-                  height: 34
-                  bg_color: 0x2A1822
-                  radius: 8
-                  border_width: 0
-                  on_click:
-                    - homeassistant.service:
-                        service: light.turn_off
-                        data: { entity_id: "${room2_light}" }
-                    - homeassistant.service:
-                        service: light.turn_off
-                        data: { entity_id: "${room3_light}" }
-                    - homeassistant.service:
-                        service: light.turn_off
-                        data: { entity_id: "${room4_light}" }
-                    - homeassistant.service:
-                        service: light.turn_off
-                        data: { entity_id: "${room5_light}" }
-                    - homeassistant.service:
-                        service: switch.turn_off
-                        data: { entity_id: "${room1_light}" }
-                    - homeassistant.service:
-                        service: switch.turn_off
-                        data: { entity_id: "${room6_light}" }
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "All Off"
-                        text_font: montserrat_16
-                        text_color: 0xFFAACC
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 3 — TADO climate (swipe left from dashboard)
