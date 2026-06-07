@@ -11,25 +11,19 @@ image:
     transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
-  # 512x300 (half resolution) to keep flash hex arrays small (~1.5MB vs 29MB for 1024x600).
-  # No LVGL zoom — zoom on flash-based static images crashes the ESP32-P4 under PSRAM XIP.
-  # Positioned at x=426 y=150 to centre in the right 684px × 600px visible area.
-  - file: https://picsum.photos/id/10/512/300
+  # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
+  # so the image still shows through behind the calendar text).
+  # No LVGL zoom — zoom on flash-based static images crashes the ESP32-P4
+  # under PSRAM XIP, so the source size IS the displayed size.
+  # 2 images at 1.23MB each = 2.46MB total embedded, well within OTA budget.
+  - file: https://picsum.photos/id/10/1024/600
     id: stock_img_0
     type: RGB565
-    resize: 512x300
-  - file: https://picsum.photos/id/28/512/300
+    resize: 1024x600
+  - file: https://picsum.photos/id/28/1024/600
     id: stock_img_1
     type: RGB565
-    resize: 512x300
-  - file: https://picsum.photos/id/63/512/300
-    id: stock_img_2
-    type: RGB565
-    resize: 512x300
-  - file: https://picsum.photos/id/101/512/300
-    id: stock_img_3
-    type: RGB565
-    resize: 512x300
+    resize: 1024x600
 
 globals:
   - id: immich_base_url
@@ -166,7 +160,7 @@ script:
           url: "${proxy_url}/random-photo"
           update: true
 
-  # Shows the next embedded stock image (cycles through 4 pre-downloaded images).
+  # Shows the next embedded stock image (cycles through 2 pre-downloaded images).
   # No internet required — images are stored in device flash at build time.
   - id: try_fallback_image
     mode: single
@@ -175,12 +169,11 @@ script:
           id: g_using_fallback
           value: 'true'
       - lambda: |-
-          id(g_stock_idx) = (id(g_stock_idx) + 1) % 4;
-          lv_obj_t* stock_imgs[4] = {
+          id(g_stock_idx) = (id(g_stock_idx) + 1) % 2;
+          lv_obj_t* stock_imgs[2] = {
             id(stock_fallback_img_0), id(stock_fallback_img_1),
-            id(stock_fallback_img_2), id(stock_fallback_img_3)
           };
-          for (int i = 0; i < 4; i++) {
+          for (int i = 0; i < 2; i++) {
             if (i == id(g_stock_idx))
               lv_obj_clear_flag(stock_imgs[i], LV_OBJ_FLAG_HIDDEN);
             else
@@ -372,10 +365,10 @@ lvgl:
             height: 600
             hidden: true
 
-        # ── Stock fallback images — container + 4 children ──
+        # ── Stock fallback images — container + 2 full-screen children ──
         # Container toggled by on_download_finished/on_error; inner images cycled via try_fallback_image.
-        # Images are 512x300, no zoom (zoom on flash images crashes under PSRAM XIP).
-        # x=426 y=150 centres the 512x300 image in the 684x600 visible area right of the calendar.
+        # Images are 1024x600 (full screen). Calendar panel sits on top with
+        # bg_opa: 70% so the image shows through behind the text.
         - obj:
             id: stock_fallback_img
             width: 1024
@@ -390,28 +383,14 @@ lvgl:
                   id: stock_fallback_img_0
                   src: stock_img_0
                   align: TOP_LEFT
-                  x: 426
-                  y: 150
+                  x: 0
+                  y: 0
               - image:
                   id: stock_fallback_img_1
                   src: stock_img_1
                   align: TOP_LEFT
-                  x: 426
-                  y: 150
-                  hidden: true
-              - image:
-                  id: stock_fallback_img_2
-                  src: stock_img_2
-                  align: TOP_LEFT
-                  x: 426
-                  y: 150
-                  hidden: true
-              - image:
-                  id: stock_fallback_img_3
-                  src: stock_img_3
-                  align: TOP_LEFT
-                  x: 426
-                  y: 150
+                  x: 0
+                  y: 0
                   hidden: true
 
         # ── Static placeholder (shown when all image sources fail) ──
