@@ -9,6 +9,14 @@ image:
     type: grayscale
     resize: 128x128
     transparency: alpha_channel
+  # Room-card icon — single 48x48 light bulb, recoloured at runtime via
+  # lv_obj_set_style_img_recolor depending on the light state (gold = on,
+  # grey = off). Single source so the binary doesn't carry both variants.
+  - file: mdi:lightbulb
+    id: img_lightbulb
+    type: grayscale
+    resize: 48x48
+    transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
   # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
@@ -83,11 +91,11 @@ online_image:
           id: g_immich_retry
           value: '0'
       # Scale and centre image in the right 684×600 area (x=340 to x=1023).
-      # Also clamp widget size to the rendered image so its bounding box
-      # never bleeds into the calendar panel area on the left.
+      # LVGL 9 API: lv_image_set_scale (replaces lv_img_set_zoom). 256 = 1:1.
+      # inner_align CENTER auto-centres the image inside the widget bounding box,
+      # so we don't have to translate the widget per-image.
       - lambda: |-
           auto dsc = id(immich_photo).get_lv_image_dsc();
-          lv_img_set_pivot(id(slideshow_img), 0, 0);
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
             const int avail_w = 684;
             const int avail_h = 600;
@@ -96,19 +104,11 @@ online_image:
             float scale = (scale_x < scale_y) ? scale_x : scale_y;
             uint16_t zoom = (uint16_t)(256.0f * scale);
             if (zoom < 1) zoom = 1;
-            int disp_w = (int)((float)dsc->header.w * zoom / 256.0f);
-            int disp_h = (int)((float)dsc->header.h * zoom / 256.0f);
-            if (disp_w < 1) disp_w = 1;
-            if (disp_h < 1) disp_h = 1;
-            int x = 340 + (avail_w - disp_w) / 2;
-            int y = (avail_h - disp_h) / 2;
-            lv_img_set_zoom(id(slideshow_img), zoom);
-            lv_obj_set_size(id(slideshow_img), disp_w, disp_h);
-            lv_obj_set_pos(id(slideshow_img), x, y);
+            lv_image_set_inner_align(id(slideshow_img), LV_IMAGE_ALIGN_CENTER);
+            lv_image_set_scale(id(slideshow_img), zoom);
           } else {
-            lv_img_set_zoom(id(slideshow_img), 256);
-            lv_obj_set_size(id(slideshow_img), 684, 600);
-            lv_obj_set_pos(id(slideshow_img), 340, 0);
+            lv_image_set_inner_align(id(slideshow_img), LV_IMAGE_ALIGN_CENTER);
+            lv_image_set_scale(id(slideshow_img), 256);
           }
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: stock_fallback_img
@@ -785,192 +785,394 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0x69F0AE
 
-        # ── Tiles ──────────────────────────────────────────────
-        - button:
-            id: tile_btn_1
+        # ── Room cards (5 rooms + 1 info slot, 3x2 grid) ───────────
+        # Each 320x228 card: light bulb icon (recoloured by state),
+        # room name, ON/OFF label, brightness slider, temp/humidity.
+        # Tap the card body to toggle; drag the slider for brightness.
+
+        # Card 1 — Drawing Room (switch, no dimming)
+        - obj:
+            id: room1_card
             x: 20
             y: 70
             width: 320
             height: 228
             align: TOP_LEFT
             bg_color: 0x162044
+            bg_opa: 95%
             border_color: 0x2E4A8E
             border_width: 2
             radius: 14
+            pad_all: 0
             on_click:
               - homeassistant.service:
                   service: homeassistant.toggle
                   data:
-                    entity_id: "${tile1_entity}"
+                    entity_id: "${room1_light}"
             widgets:
+              - image:
+                  id: room1_icon
+                  src: img_lightbulb
+                  x: 14
+                  y: 14
               - label:
-                  align: TOP_MID
+                  align: TOP_LEFT
+                  x: 72
                   y: 22
-                  text: "${tile1_label}"
-                  text_font: montserrat_22
+                  text: "${room1_label}"
+                  text_font: montserrat_20
                   text_color: 0xFFFFFF
               - label:
-                  id: tile1_state_lbl
-                  align: BOTTOM_MID
-                  y: -22
-                  text: "---"
+                  id: room1_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 26
+                  text: "--"
                   text_font: montserrat_18
-                  text_color: 0x888888
+                  text_color: 0x666666
+              - label:
+                  align: CENTER
+                  y: 14
+                  text: "Tap to toggle"
+                  text_font: montserrat_16
+                  text_color: 0x6688AA
+              - label:
+                  id: room1_temp_lbl
+                  align: BOTTOM_LEFT
+                  x: 16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0xFFB266
+              - label:
+                  id: room1_hum_lbl
+                  align: BOTTOM_RIGHT
+                  x: -16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x66CCFF
 
-        - button:
-            id: tile_btn_2
+        # Card 2 — Office (dimmable)
+        - obj:
+            id: room2_card
             x: 352
             y: 70
             width: 320
             height: 228
             align: TOP_LEFT
             bg_color: 0x162044
+            bg_opa: 95%
             border_color: 0x2E4A8E
             border_width: 2
             radius: 14
+            pad_all: 0
             on_click:
               - homeassistant.service:
                   service: homeassistant.toggle
                   data:
-                    entity_id: "${tile2_entity}"
+                    entity_id: "${room2_light}"
             widgets:
+              - image:
+                  id: room2_icon
+                  src: img_lightbulb
+                  x: 14
+                  y: 14
               - label:
-                  align: TOP_MID
+                  align: TOP_LEFT
+                  x: 72
                   y: 22
-                  text: "${tile2_label}"
-                  text_font: montserrat_22
+                  text: "${room2_label}"
+                  text_font: montserrat_20
                   text_color: 0xFFFFFF
               - label:
-                  id: tile2_state_lbl
-                  align: BOTTOM_MID
-                  y: -22
-                  text: "---"
+                  id: room2_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 26
+                  text: "--"
                   text_font: montserrat_18
-                  text_color: 0x888888
+                  text_color: 0x666666
+              - slider:
+                  id: room2_arc
+                  align: CENTER
+                  y: 8
+                  width: 260
+                  height: 18
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  indicator:
+                    bg_color: 0xFFD700
+                  knob:
+                    bg_color: 0xFFFFFF
+                  on_release:
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data:
+                          entity_id: "${room2_light}"
+                          brightness_pct: !lambda 'return (int)x;'
+              - label:
+                  id: room2_temp_lbl
+                  align: BOTTOM_LEFT
+                  x: 16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0xFFB266
+              - label:
+                  id: room2_hum_lbl
+                  align: BOTTOM_RIGHT
+                  x: -16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x66CCFF
 
-        - button:
-            id: tile_btn_3
+        # Card 3 — Hallway (dimmable, no temp sensors)
+        - obj:
+            id: room3_card
             x: 684
             y: 70
             width: 320
             height: 228
             align: TOP_LEFT
             bg_color: 0x162044
+            bg_opa: 95%
             border_color: 0x2E4A8E
             border_width: 2
             radius: 14
+            pad_all: 0
             on_click:
               - homeassistant.service:
                   service: homeassistant.toggle
                   data:
-                    entity_id: "${tile3_entity}"
+                    entity_id: "${room3_light}"
             widgets:
+              - image:
+                  id: room3_icon
+                  src: img_lightbulb
+                  x: 14
+                  y: 14
               - label:
-                  align: TOP_MID
+                  align: TOP_LEFT
+                  x: 72
                   y: 22
-                  text: "${tile3_label}"
-                  text_font: montserrat_22
+                  text: "${room3_label}"
+                  text_font: montserrat_20
                   text_color: 0xFFFFFF
               - label:
-                  id: tile3_state_lbl
-                  align: BOTTOM_MID
-                  y: -22
-                  text: "---"
+                  id: room3_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 26
+                  text: "--"
                   text_font: montserrat_18
-                  text_color: 0x888888
+                  text_color: 0x666666
+              - slider:
+                  id: room3_arc
+                  align: CENTER
+                  y: 8
+                  width: 260
+                  height: 18
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  indicator:
+                    bg_color: 0xFFD700
+                  knob:
+                    bg_color: 0xFFFFFF
+                  on_release:
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data:
+                          entity_id: "${room3_light}"
+                          brightness_pct: !lambda 'return (int)x;'
 
-        - button:
-            id: tile_btn_4
+        # Card 4 — Stairs (dimmable, no temp sensors)
+        - obj:
+            id: room4_card
             x: 20
             y: 308
             width: 320
             height: 228
             align: TOP_LEFT
             bg_color: 0x162044
+            bg_opa: 95%
             border_color: 0x2E4A8E
             border_width: 2
             radius: 14
+            pad_all: 0
             on_click:
               - homeassistant.service:
                   service: homeassistant.toggle
                   data:
-                    entity_id: "${tile4_entity}"
+                    entity_id: "${room4_light}"
             widgets:
+              - image:
+                  id: room4_icon
+                  src: img_lightbulb
+                  x: 14
+                  y: 14
               - label:
-                  align: TOP_MID
+                  align: TOP_LEFT
+                  x: 72
                   y: 22
-                  text: "${tile4_label}"
-                  text_font: montserrat_22
+                  text: "${room4_label}"
+                  text_font: montserrat_20
                   text_color: 0xFFFFFF
               - label:
-                  id: tile4_state_lbl
-                  align: BOTTOM_MID
-                  y: -22
-                  text: "---"
+                  id: room4_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 26
+                  text: "--"
                   text_font: montserrat_18
-                  text_color: 0x888888
+                  text_color: 0x666666
+              - slider:
+                  id: room4_arc
+                  align: CENTER
+                  y: 8
+                  width: 260
+                  height: 18
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  indicator:
+                    bg_color: 0xFFD700
+                  knob:
+                    bg_color: 0xFFFFFF
+                  on_release:
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data:
+                          entity_id: "${room4_light}"
+                          brightness_pct: !lambda 'return (int)x;'
 
-        - button:
-            id: tile_btn_5
+        # Card 5 — Bedroom (dimmable)
+        - obj:
+            id: room5_card
             x: 352
             y: 308
             width: 320
             height: 228
             align: TOP_LEFT
             bg_color: 0x162044
+            bg_opa: 95%
             border_color: 0x2E4A8E
             border_width: 2
             radius: 14
+            pad_all: 0
             on_click:
               - homeassistant.service:
                   service: homeassistant.toggle
                   data:
-                    entity_id: "${tile5_entity}"
+                    entity_id: "${room5_light}"
             widgets:
+              - image:
+                  id: room5_icon
+                  src: img_lightbulb
+                  x: 14
+                  y: 14
               - label:
-                  align: TOP_MID
+                  align: TOP_LEFT
+                  x: 72
                   y: 22
-                  text: "${tile5_label}"
-                  text_font: montserrat_22
+                  text: "${room5_label}"
+                  text_font: montserrat_20
                   text_color: 0xFFFFFF
               - label:
-                  id: tile5_state_lbl
-                  align: BOTTOM_MID
-                  y: -22
-                  text: "---"
+                  id: room5_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 26
+                  text: "--"
                   text_font: montserrat_18
-                  text_color: 0x888888
+                  text_color: 0x666666
+              - slider:
+                  id: room5_arc
+                  align: CENTER
+                  y: 8
+                  width: 260
+                  height: 18
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  indicator:
+                    bg_color: 0xFFD700
+                  knob:
+                    bg_color: 0xFFFFFF
+                  on_release:
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data:
+                          entity_id: "${room5_light}"
+                          brightness_pct: !lambda 'return (int)x;'
+              - label:
+                  id: room5_temp_lbl
+                  align: BOTTOM_LEFT
+                  x: 16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0xFFB266
+              - label:
+                  id: room5_hum_lbl
+                  align: BOTTOM_RIGHT
+                  x: -16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x66CCFF
 
-        - button:
-            id: tile_btn_6
+        # Cell 6 — "All Off" action button
+        - obj:
+            id: room6_card
             x: 684
             y: 308
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
-            border_color: 0x2E4A8E
+            bg_color: 0x2A1822
+            bg_opa: 90%
+            border_color: 0x5E2E4A
             border_width: 2
             radius: 14
+            pad_all: 0
             on_click:
               - homeassistant.service:
-                  service: homeassistant.toggle
+                  service: light.turn_off
                   data:
-                    entity_id: "${tile6_entity}"
+                    entity_id: "${room2_light}"
+              - homeassistant.service:
+                  service: light.turn_off
+                  data:
+                    entity_id: "${room3_light}"
+              - homeassistant.service:
+                  service: light.turn_off
+                  data:
+                    entity_id: "${room4_light}"
+              - homeassistant.service:
+                  service: light.turn_off
+                  data:
+                    entity_id: "${room5_light}"
+              - homeassistant.service:
+                  service: switch.turn_off
+                  data:
+                    entity_id: "${room1_light}"
             widgets:
               - label:
-                  align: TOP_MID
-                  y: 22
-                  text: "${tile6_label}"
+                  align: CENTER
+                  y: -10
+                  text: "All Lights Off"
                   text_font: montserrat_22
-                  text_color: 0xFFFFFF
+                  text_color: 0xFFAACC
               - label:
-                  id: tile6_state_lbl
-                  align: BOTTOM_MID
-                  y: -22
-                  text: "---"
-                  text_font: montserrat_18
-                  text_color: 0x888888
+                  align: CENTER
+                  y: 22
+                  text: "Tap to switch off all rooms"
+                  text_font: montserrat_16
+                  text_color: 0x886677
 
         # ── Bottom bar ─────────────────────────────────────────
         - obj:
