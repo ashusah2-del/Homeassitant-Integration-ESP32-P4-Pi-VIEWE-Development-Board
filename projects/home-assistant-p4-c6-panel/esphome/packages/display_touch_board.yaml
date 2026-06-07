@@ -17,6 +17,13 @@ image:
     type: grayscale
     resize: 48x48
     transparency: alpha_channel
+  # Presence indicator — recoloured per state (green=ACTIVE, grey=CLEAR).
+  # Filled circle, large enough to be read across the room.
+  - file: mdi:circle
+    id: img_dot
+    type: grayscale
+    resize: 80x80
+    transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
   # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
@@ -76,10 +83,60 @@ globals:
   - { id: g_tado4_target, type: float, restore_value: no, initial_value: '20.0' }
   - { id: g_tado5_target, type: float, restore_value: no, initial_value: '20.0' }
   - { id: g_tado6_target, type: float, restore_value: no, initial_value: '20.0' }
+  # True while the camera_view_page is foregrounded. The 3-second
+  # camera-refresh interval only fires when this is set, so we don't poll
+  # HA constantly when no one's looking.
+  - { id: g_on_camera_view, type: bool, restore_value: no, initial_value: 'false' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
 online_image:
+  # Eufy camera thumbnails — small (300x180) JPEGs from the proxy's /camera
+  # endpoint, refreshed every 60 seconds on the camera grid page.
+  - id: cam1_thumb
+    url: "${proxy_url}/camera/${cam1_entity}?size=thumb"
+    format: JPEG
+    type: RGB565
+    resize: 300x180
+    buffer_size: 32768
+    update_interval: 60s
+    request_headers: { Accept: image/jpeg }
+  - id: cam2_thumb
+    url: "${proxy_url}/camera/${cam2_entity}?size=thumb"
+    format: JPEG
+    type: RGB565
+    resize: 300x180
+    buffer_size: 32768
+    update_interval: 60s
+    request_headers: { Accept: image/jpeg }
+  - id: cam3_thumb
+    url: "${proxy_url}/camera/${cam3_entity}?size=thumb"
+    format: JPEG
+    type: RGB565
+    resize: 300x180
+    buffer_size: 32768
+    update_interval: 60s
+    request_headers: { Accept: image/jpeg }
+  - id: cam4_thumb
+    url: "${proxy_url}/camera/${cam4_entity}?size=thumb"
+    format: JPEG
+    type: RGB565
+    resize: 300x180
+    buffer_size: 32768
+    update_interval: 60s
+    request_headers: { Accept: image/jpeg }
+  # Live view — single component, URL is swapped per camera on tap. The
+  # update is triggered manually on page show (and via a 3s interval that
+  # only fires while the camera_view_page is active, guarded by g_on_camera_view).
+  - id: camera_live_img
+    url: "${proxy_url}/camera/${cam1_entity}?size=full"
+    format: JPEG
+    type: RGB565
+    resize: 800x500
+    buffer_size: 65536
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+
   - id: immich_photo
     url: "${proxy_url}/random-photo"
     format: JPEG
@@ -196,6 +253,15 @@ interval:
   - interval: "${immich_slideshow_interval}"
     then:
       - script.execute: refresh_immich_slideshow
+
+  # Camera live-view refresh — only fires while the camera_view_page is up.
+  - interval: 3s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_on_camera_view);'
+          then:
+            - lambda: 'id(camera_live_img).update();'
 
   - interval: 1s
     then:
@@ -1059,6 +1125,22 @@ lvgl:
                         data:
                           entity_id: "${room4_light}"
                           brightness_pct: !lambda 'return (int)x;'
+              - label:
+                  id: room4_temp_lbl
+                  align: BOTTOM_LEFT
+                  x: 16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0xFFB266
+              - label:
+                  id: room4_hum_lbl
+                  align: BOTTOM_RIGHT
+                  x: -16
+                  y: -14
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x66CCFF
 
         # Card 5 — Bedroom (dimmable)
         - obj:
@@ -1136,7 +1218,7 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x66CCFF
 
-        # Cell 6 — "All Off" action button
+        # Card 6 — Conservatory (switch entity)
         - obj:
             id: room6_card
             x: 684
@@ -1144,46 +1226,46 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x2A1822
-            bg_opa: 90%
-            border_color: 0x5E2E4A
+            bg_color: 0x162044
+            bg_opa: 95%
+            border_color: 0x2E4A8E
             border_width: 2
             radius: 14
             pad_all: 0
             on_click:
               - homeassistant.service:
-                  service: light.turn_off
+                  service: homeassistant.toggle
                   data:
-                    entity_id: "${room2_light}"
-              - homeassistant.service:
-                  service: light.turn_off
-                  data:
-                    entity_id: "${room3_light}"
-              - homeassistant.service:
-                  service: light.turn_off
-                  data:
-                    entity_id: "${room4_light}"
-              - homeassistant.service:
-                  service: light.turn_off
-                  data:
-                    entity_id: "${room5_light}"
-              - homeassistant.service:
-                  service: switch.turn_off
-                  data:
-                    entity_id: "${room1_light}"
+                    entity_id: "${room6_light}"
             widgets:
+              - image:
+                  id: room6_icon
+                  src: img_lightbulb
+                  x: 14
+                  y: 14
+                  width: 48
+                  height: 48
               - label:
-                  align: CENTER
-                  y: -10
-                  text: "All Lights Off"
-                  text_font: montserrat_22
-                  text_color: 0xFFAACC
-              - label:
-                  align: CENTER
+                  align: TOP_LEFT
+                  x: 72
                   y: 22
-                  text: "Tap to switch off all rooms"
+                  text: "${room6_label}"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - label:
+                  id: room6_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 26
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x666666
+              - label:
+                  align: CENTER
+                  y: 14
+                  text: "Tap to toggle"
                   text_font: montserrat_16
-                  text_color: 0x886677
+                  text_color: 0x6688AA
 
         # ── Bottom bar ─────────────────────────────────────────
         - obj:
@@ -1246,6 +1328,8 @@ lvgl:
       bg_color: 0x080814
       on_swipe_right:
         - lvgl.page.show: dashboard_page
+      on_swipe_left:
+        - lvgl.page.show: presence_page
       widgets:
         # ── Top bar (same shape as dashboard) ──────────────────
         - obj:
@@ -1338,7 +1422,7 @@ lvgl:
                   height: 44
                   radius: 22
                   bg_color: 0x2E4A8E
-                  text: "−"
+                  text: "-"
                   text_font: montserrat_24
                   on_click:
                     - homeassistant.service:
@@ -1438,7 +1522,7 @@ lvgl:
                   height: 44
                   radius: 22
                   bg_color: 0x2E4A8E
-                  text: "−"
+                  text: "-"
                   text_font: montserrat_24
                   on_click:
                     - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado2_entity}", temperature: !lambda 'return id(g_tado2_target) - 0.5f;' } }
@@ -1518,7 +1602,7 @@ lvgl:
                   height: 44
                   radius: 22
                   bg_color: 0x2E4A8E
-                  text: "−"
+                  text: "-"
                   text_font: montserrat_24
                   on_click:
                     - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado3_entity}", temperature: !lambda 'return id(g_tado3_target) - 0.5f;' } }
@@ -1598,7 +1682,7 @@ lvgl:
                   height: 44
                   radius: 22
                   bg_color: 0x2E4A8E
-                  text: "−"
+                  text: "-"
                   text_font: montserrat_24
                   on_click:
                     - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado4_entity}", temperature: !lambda 'return id(g_tado4_target) - 0.5f;' } }
@@ -1678,7 +1762,7 @@ lvgl:
                   height: 44
                   radius: 22
                   bg_color: 0x2E4A8E
-                  text: "−"
+                  text: "-"
                   text_font: montserrat_24
                   on_click:
                     - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado5_entity}", temperature: !lambda 'return id(g_tado5_target) - 0.5f;' } }
@@ -1758,7 +1842,7 @@ lvgl:
                   height: 44
                   radius: 22
                   bg_color: 0x4E2E2E
-                  text: "−"
+                  text: "-"
                   text_font: montserrat_24
                   on_click:
                     - homeassistant.service: { service: climate.set_temperature, data: { entity_id: "${tado6_entity}", temperature: !lambda 'return id(g_tado6_target) - 0.5f;' } }
@@ -1811,7 +1895,521 @@ lvgl:
                     - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado6_entity}", hvac_mode: "heat" } }
 
     # ═══════════════════════════════════════════════════════════
-    # PAGE 4 — SETTINGS / ADMIN
+    # PAGE 4 — PRESENCE (swipe left from Tado)
+    # 12 motion/occupancy binary sensors across the whole house +
+    # outdoors, arranged in a 4×3 grid (246×168 cards). Active = green
+    # dot + "ACTIVE"; idle = grey dot + "CLEAR".
+    # ═══════════════════════════════════════════════════════════
+    - id: presence_page
+      bg_color: 0x0A0816
+      on_swipe_right:
+        - lvgl.page.show: tado_page
+      on_swipe_left:
+        - lvgl.page.show: camera_page
+      widgets:
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x12192E
+            bg_opa: 96%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Presence"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - label:
+                  align: CENTER
+                  text: "Motion sensors across the house"
+                  text_font: montserrat_18
+                  text_color: 0xAAAAAA
+              - label:
+                  align: RIGHT_MID
+                  x: -20
+                  text: "← Tado    Cameras →"
+                  text_font: montserrat_16
+                  text_color: 0x69F0AE
+
+        - obj:
+            x: 6
+            y: 70
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres1_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres1_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres1_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 258
+            y: 70
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres2_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres2_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres2_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 510
+            y: 70
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres3_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres3_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres3_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 762
+            y: 70
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres4_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres4_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres4_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 6
+            y: 246
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres5_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres5_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres5_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 258
+            y: 246
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres6_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres6_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres6_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 510
+            y: 246
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres7_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres7_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres7_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 762
+            y: 246
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres8_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres8_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres8_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 6
+            y: 422
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres9_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres9_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres9_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 258
+            y: 422
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres10_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres10_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres10_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 510
+            y: 422
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres11_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres11_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres11_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+        - obj:
+            x: 762
+            y: 422
+            width: 246
+            height: 168
+            align: TOP_LEFT
+            bg_color: 0x162038
+            bg_opa: 95%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_MID, y: 8, text: "${pres12_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
+              - image:
+                  id: pres12_dot
+                  src: img_dot
+                  align: CENTER
+                  y: -4
+                  width: 80
+                  height: 80
+              - label: { id: pres12_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 5 — CAMERA GRID (swipe left from Presence)
+    # Four Eufy cameras as thumbnails. Tap a thumbnail to open
+    # camera_view_page with the larger live feed.
+    # ═══════════════════════════════════════════════════════════
+    - id: camera_page
+      bg_color: 0x050510
+      on_swipe_right:
+        - lvgl.page.show: presence_page
+      on_swipe_left:
+        - lvgl.page.show: slideshow_page
+      widgets:
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x12192E
+            bg_opa: 96%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label: { align: LEFT_MID, x: 20, text: "Cameras", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - label: { align: CENTER, text: "Tap a tile to view", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: RIGHT_MID, x: -20, text: "← Presence    Slideshow →", text_font: montserrat_16, text_color: 0x69F0AE }
+
+        # Camera tiles — 2x2 grid, each 480×255
+        - obj:
+            x: 20
+            y: 70
+            width: 480
+            height: 250
+            align: TOP_LEFT
+            bg_color: 0x0F1828
+            bg_opa: 100%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 6
+            on_click:
+              - online_image.set_url:
+                  id: camera_live_img
+                  url: "${proxy_url}/camera/${cam1_entity}?size=full"
+                  update: true
+              - lvgl.label.update:
+                  id: camera_view_title
+                  text: "${cam1_name}"
+              - globals.set:
+                  id: g_on_camera_view
+                  value: 'true'
+              - lvgl.page.show: camera_view_page
+            widgets:
+              - image:
+                  src: cam1_thumb
+                  align: CENTER
+                  width: 300
+                  height: 180
+              - label:
+                  align: BOTTOM_LEFT
+                  x: 6
+                  y: -2
+                  text: "${cam1_name}"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+                  bg_color: 0x000000
+                  bg_opa: 60%
+        - obj:
+            x: 524
+            y: 70
+            width: 480
+            height: 250
+            align: TOP_LEFT
+            bg_color: 0x0F1828
+            bg_opa: 100%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 6
+            on_click:
+              - online_image.set_url:
+                  id: camera_live_img
+                  url: "${proxy_url}/camera/${cam2_entity}?size=full"
+                  update: true
+              - lvgl.label.update:
+                  id: camera_view_title
+                  text: "${cam2_name}"
+              - globals.set:
+                  id: g_on_camera_view
+                  value: 'true'
+              - lvgl.page.show: camera_view_page
+            widgets:
+              - image: { src: cam2_thumb, align: CENTER, width: 300, height: 180 }
+              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam2_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
+        - obj:
+            x: 20
+            y: 332
+            width: 480
+            height: 250
+            align: TOP_LEFT
+            bg_color: 0x0F1828
+            bg_opa: 100%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 6
+            on_click:
+              - online_image.set_url:
+                  id: camera_live_img
+                  url: "${proxy_url}/camera/${cam3_entity}?size=full"
+                  update: true
+              - lvgl.label.update:
+                  id: camera_view_title
+                  text: "${cam3_name}"
+              - globals.set:
+                  id: g_on_camera_view
+                  value: 'true'
+              - lvgl.page.show: camera_view_page
+            widgets:
+              - image: { src: cam3_thumb, align: CENTER, width: 300, height: 180 }
+              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam3_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
+        - obj:
+            x: 524
+            y: 332
+            width: 480
+            height: 250
+            align: TOP_LEFT
+            bg_color: 0x0F1828
+            bg_opa: 100%
+            border_color: 0x2E4A8E
+            border_width: 2
+            radius: 12
+            pad_all: 6
+            on_click:
+              - online_image.set_url:
+                  id: camera_live_img
+                  url: "${proxy_url}/camera/${cam4_entity}?size=full"
+                  update: true
+              - lvgl.label.update:
+                  id: camera_view_title
+                  text: "${cam4_name}"
+              - globals.set:
+                  id: g_on_camera_view
+                  value: 'true'
+              - lvgl.page.show: camera_view_page
+            widgets:
+              - image: { src: cam4_thumb, align: CENTER, width: 300, height: 180 }
+              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam4_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 6 — CAMERA LIVE VIEW (opened by tapping a camera tile)
+    # Shows the selected camera at 800×500 max, refreshing every 3s
+    # via the camera-refresh interval (gated on g_on_camera_view).
+    # Tap "Back" or swipe right to return to the camera grid.
+    # ═══════════════════════════════════════════════════════════
+    - id: camera_view_page
+      bg_color: 0x000000
+      on_swipe_right:
+        - globals.set: { id: g_on_camera_view, value: 'false' }
+        - lvgl.page.show: camera_page
+      widgets:
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x12192E
+            bg_opa: 96%
+            border_width: 0
+            pad_all: 0
+            widgets:
+              - label:
+                  id: camera_view_title
+                  align: CENTER
+                  text: "Camera"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - button:
+                  align: LEFT_MID
+                  x: 14
+                  width: 120
+                  height: 38
+                  radius: 8
+                  bg_color: 0x2E4A8E
+                  text: "← Back"
+                  text_font: montserrat_16
+                  on_click:
+                    - globals.set: { id: g_on_camera_view, value: 'false' }
+                    - lvgl.page.show: camera_page
+        - image:
+            id: camera_live_widget
+            src: camera_live_img
+            align: CENTER
+            y: 28
+            width: 800
+            height: 500
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 7 — SETTINGS / ADMIN
     # Read-only status + config display. Change settings via HA.
     # ═══════════════════════════════════════════════════════════
     - id: settings_page
