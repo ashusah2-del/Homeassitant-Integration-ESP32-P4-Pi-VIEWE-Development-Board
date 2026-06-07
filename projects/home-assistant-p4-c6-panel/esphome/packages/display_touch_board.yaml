@@ -89,7 +89,8 @@ online_image:
           id: g_immich_retry
           value: '0'
       # Scale and centre image in the right 684×600 area (x=340 to x=1023).
-      # Fit-inside scaling preserves aspect ratio; zoom on online_image (PSRAM-backed) is safe.
+      # Also clamp widget size to the rendered image so its bounding box
+      # never bleeds into the calendar panel area on the left.
       - lambda: |-
           auto dsc = id(immich_photo).get_lv_image_dsc();
           lv_img_set_pivot(id(slideshow_img), 0, 0);
@@ -103,15 +104,17 @@ online_image:
             if (zoom < 1) zoom = 1;
             int disp_w = (int)((float)dsc->header.w * zoom / 256.0f);
             int disp_h = (int)((float)dsc->header.h * zoom / 256.0f);
+            if (disp_w < 1) disp_w = 1;
+            if (disp_h < 1) disp_h = 1;
             int x = 340 + (avail_w - disp_w) / 2;
             int y = (avail_h - disp_h) / 2;
             lv_img_set_zoom(id(slideshow_img), zoom);
-            lv_obj_set_x(id(slideshow_img), x);
-            lv_obj_set_y(id(slideshow_img), y);
+            lv_obj_set_size(id(slideshow_img), disp_w, disp_h);
+            lv_obj_set_pos(id(slideshow_img), x, y);
           } else {
             lv_img_set_zoom(id(slideshow_img), 256);
-            lv_obj_set_x(id(slideshow_img), 340);
-            lv_obj_set_y(id(slideshow_img), 0);
+            lv_obj_set_size(id(slideshow_img), 684, 600);
+            lv_obj_set_pos(id(slideshow_img), 340, 0);
           }
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: stock_fallback_img
@@ -357,12 +360,16 @@ lvgl:
       bg_color: 0x000000
       widgets:
         # ── Background image (Immich or stock) ─────────────────
+        # Sized 684x600 = slideshow area; positioned at x=340 so it never
+        # overlaps the calendar panel. Inner image scaled to fit by the
+        # on_download_finished lambda; widget size also updated there.
         - image:
             id: slideshow_img
             src: immich_photo
-            width: 1024
+            x: 340
+            y: 0
+            width: 684
             height: 600
-            align: TOP_LEFT
             hidden: true
 
         # ── Stock fallback images — container + 4 children ──
@@ -473,7 +480,8 @@ lvgl:
                   border_width: 0
                   radius: 0
               # ── Event rows (8 slots, 66px each, alternating ribbon colour) ──
-              # Rows start hidden; shown only when an event is assigned.
+              # Row 0 visible from boot with "No events this week"; on_value lambda
+              # overwrites it when HA publishes the panel_calendar_events entity.
               - obj:
                   id: cal_row_0
                   x: 0
@@ -484,14 +492,13 @@ lvgl:
                   bg_opa: 55%
                   border_width: 0
                   radius: 0
-                  hidden: true
                   widgets:
                     - label:
                         id: cal_evt_0
                         x: 12
                         y: 4
                         width: 316
-                        text: ""
+                        text: "No events this week"
                         text_font: montserrat_16
                         text_color: 0xEEEEEE
                         long_mode: WRAP
@@ -707,12 +714,13 @@ lvgl:
                   text_font: montserrat_18
                   text_color: 0x777777
 
-        # ── Error bar (bottom, shown on Immich / network errors) ──
+        # ── Error bar (bottom of slideshow area only — does not cover calendar) ──
         - obj:
             id: error_bar
-            width: 1024
+            x: 340
+            y: 554
+            width: 684
             height: 46
-            align: BOTTOM_LEFT
             bg_color: 0x7B0000
             bg_opa: 90%
             border_width: 0
