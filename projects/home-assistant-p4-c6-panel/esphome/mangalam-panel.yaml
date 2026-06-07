@@ -1,0 +1,176 @@
+substitutions:
+  node_name: guition-p4-7inch-ha
+  friendly_name: Guition P4 7inch HA Panel
+  board_type: esp32-p4-evboard
+  rotate_display: "0"
+  immich_url: !secret immich_server_url
+  immich_api_key: !secret immich_api_key
+  proxy_url: !secret immich_proxy_url
+  idle_timeout: 30s
+  fallback_ap_ssid: !secret fallback_ap_ssid
+
+  # Room dashboard — 5 rooms with light + climate, mapped to Mangalam Pro HA entities.
+  # Drawing Room uses a switch (no brightness); others are dimmable light entities.
+  room1_label: "Drawing Room"
+  room1_light: switch.drawinglights
+  room1_temp: sensor.drawing_room_weather_temperature
+  room1_humidity: sensor.drawing_room_weather_humidity
+
+  room2_label: "Office"
+  room2_light: light.office_lights
+  room2_temp: sensor.office_room_temperature
+  room2_humidity: sensor.office_room_humidity
+
+  room3_label: "Hallway"
+  room3_light: light.hallway
+
+  room4_label: "Stairs"
+  room4_light: light.stairs_light
+  room4_temp: sensor.stairs_weather_temperature
+  room4_humidity: sensor.stairs_weather_humidity
+
+  room5_label: "Bedroom"
+  room5_light: light.bedroom_lights
+  room5_temp: sensor.h5075_5b8d_temperature
+  room5_humidity: sensor.h5075_5b8d_humidity
+
+  room6_label: "Conservatory"
+  room6_light: switch.conservatory_switch
+
+  # Tado page — six climate zones. State on/off/heat is shared across all
+  # Tado zones (modes: off / auto / heat). The presets are auto/home/away
+  # but we don't expose those on the panel.
+  tado1_label: "Drawing"
+  tado1_entity: climate.drawing_room
+  tado2_label: "Office"
+  tado2_entity: climate.office_room
+  tado3_label: "Main Bed"
+  tado3_entity: climate.main_bedroom
+  tado4_label: "Mukta"
+  tado4_entity: climate.mukta_room
+  tado5_label: "Advik"
+  tado5_entity: climate.advik
+  tado6_label: "Heating"
+  tado6_entity: climate.heating
+
+  # Presence page — 12 motion/occupancy sensors across the house + outdoors,
+  # 4×3 grid. Active = green dot + ACTIVE; idle = grey + CLEAR.
+  pres1_label: "Hallway"
+  pres1_entity: binary_sensor.hallway_motion_sensor_motion
+  pres2_label: "Hallway PS"
+  pres2_entity: binary_sensor.hallway_ps_motion
+  pres3_label: "Stairs"
+  pres3_entity: binary_sensor.stairs_motion_sensor_motion
+  pres4_label: "Drawing"
+  pres4_entity: binary_sensor.dr_motion_sensor_motion_2
+  pres5_label: "Office"
+  pres5_entity: binary_sensor.office_presence_sensor_occupancy
+  pres6_label: "Toilet"
+  pres6_entity: binary_sensor.tze200_3towulqd_ts0601_motion_4
+  pres7_label: "Conservatory"
+  pres7_entity: binary_sensor.cps_motion
+  pres8_label: "Repeater"
+  pres8_entity: binary_sensor.repeater_motion
+  pres9_label: "Front Door"
+  pres9_entity: binary_sensor.front_door_motion_detected
+  pres10_label: "Front Bell"
+  pres10_entity: binary_sensor.front_door_bell_motion_detected
+  pres11_label: "Side Door"
+  pres11_entity: binary_sensor.side_door_motion_detected
+  pres12_label: "Garden"
+  pres12_entity: binary_sensor.garden_motion_detected
+
+  # Weather widget on slideshow page (top-right). Reads its state +
+  # attributes from HA's weather entity. weather_location prints below
+  # the location label; set it to whatever name suits you.
+  weather_entity: weather.forecast_home_2
+  weather_location: "Home"
+
+  # Camera page — four Eufy cameras. Thumbnails refresh every 60s on the
+  # grid page; tap a card to open camera_view_page where the live frame
+  # refreshes every 3s via the proxy.
+  cam1_name: "Front Door"
+  cam1_entity: front_door
+  cam2_name: "Front Bell"
+  cam2_entity: front_door_bell
+  cam3_name: "Side Door"
+  cam3_entity: side_door
+  cam4_name: "Garden"
+  cam4_entity: garden
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  project:
+    name: local.home_assistant_p4_c6_panel
+    version: "0.2.0"
+  on_boot:
+    # Apply persistent UI tunings to LVGL widgets once everything is up.
+    # Priority -100 means this runs after all other boot work, so the
+    # widgets and their initial styles are fully set when we override.
+    priority: -100
+    then:
+      - delay: 2s
+      - lambda: |-
+          // LVGL is up by now; flip the gate so cascading lambdas can run.
+          id(g_lvgl_ready) = true;
+          int pct = id(g_calendar_opa_pct);
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+          if (id(g_lvgl_ready)) {
+            uint32_t opa = (uint32_t)((pct * 255) / 100);
+            lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
+            lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
+            lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
+            lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+            lv_obj_set_style_opa(id(weather_widget),     opa, 0);
+          }
+          char b[12];
+          snprintf(b, sizeof(b), "%d %%", pct);
+          lv_label_set_text(id(settings_calopa_val), b);
+
+esp32:
+  board: ${board_type}
+  flash_size: 16MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: yes
+    sdkconfig_options:
+      CONFIG_SPIRAM_XIP_FROM_PSRAM: y
+
+psram:
+  speed: 200MHz
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+esp32_hosted:
+  active_high: true
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+
+packages:
+  core: !include packages/core_ha.yaml
+  display_touch: !include packages/display_touch_board.yaml
+  audio_voice: !include packages/audio_voice_board.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  use_address: !secret panel_use_address
+  on_connect:
+    - script.execute: refresh_immich_slideshow
+  ap:
+    ssid: !secret fallback_ap_ssid
+    password: !secret fallback_ap_password
+
+captive_portal:
