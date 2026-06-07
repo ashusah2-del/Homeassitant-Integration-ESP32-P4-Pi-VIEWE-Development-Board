@@ -101,6 +101,13 @@ online_image:
     buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          // LVGL 9: refresh the widget's src descriptor after each download
+          // so the new frame actually paints (the compile-time src: binding
+          // points at an empty buffer at boot and never re-resolves).
+          lv_image_set_src(id(cam1_widget), id(cam1_thumb).get_lv_image_dsc());
+          lv_obj_invalidate(id(cam1_widget));
   - id: cam2_thumb
     url: "${proxy_url}/camera/${cam2_entity}?size=thumb"
     format: JPEG
@@ -109,6 +116,13 @@ online_image:
     buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          // LVGL 9: refresh the widget's src descriptor after each download
+          // so the new frame actually paints (the compile-time src: binding
+          // points at an empty buffer at boot and never re-resolves).
+          lv_image_set_src(id(cam2_widget), id(cam2_thumb).get_lv_image_dsc());
+          lv_obj_invalidate(id(cam2_widget));
   - id: cam3_thumb
     url: "${proxy_url}/camera/${cam3_entity}?size=thumb"
     format: JPEG
@@ -117,6 +131,13 @@ online_image:
     buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          // LVGL 9: refresh the widget's src descriptor after each download
+          // so the new frame actually paints (the compile-time src: binding
+          // points at an empty buffer at boot and never re-resolves).
+          lv_image_set_src(id(cam3_widget), id(cam3_thumb).get_lv_image_dsc());
+          lv_obj_invalidate(id(cam3_widget));
   - id: cam4_thumb
     url: "${proxy_url}/camera/${cam4_entity}?size=thumb"
     format: JPEG
@@ -125,6 +146,13 @@ online_image:
     buffer_size: 24576
     update_interval: 60s
     request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          // LVGL 9: refresh the widget's src descriptor after each download
+          // so the new frame actually paints (the compile-time src: binding
+          // points at an empty buffer at boot and never re-resolves).
+          lv_image_set_src(id(cam4_widget), id(cam4_thumb).get_lv_image_dsc());
+          lv_obj_invalidate(id(cam4_widget));
   # Live view — single component, URL is swapped per camera on tap. The
   # update is triggered manually on page show (and via a 3s interval that
   # only fires while the camera_view_page is active, guarded by g_on_camera_view).
@@ -136,12 +164,19 @@ online_image:
     buffer_size: 65536
     update_interval: never
     request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          lv_image_set_src(id(camera_live_widget), id(camera_live_img).get_lv_image_dsc());
+          lv_obj_invalidate(id(camera_live_widget));
 
   - id: immich_photo
     url: "${proxy_url}/random-photo"
     format: JPEG
     type: RGB565
-    resize: 512x400
+    # Proxy already shapes images to fit within 1024×600 at the panel's
+    # height (600 px). Just allow that footprint here so the decode buffer
+    # is large enough to hold the panel-height result without re-scaling.
+    resize: 1024x600
     buffer_size: 65536
     update_interval: never
     request_headers:
@@ -162,20 +197,24 @@ online_image:
       # so we don't have to translate the widget per-image.
       - lambda: |-
           auto dsc = id(immich_photo).get_lv_image_dsc();
+          // LVGL 9 binding fix: rebind the widget src so the freshly decoded
+          // descriptor is what gets painted. The compile-time src: binding
+          // points at an empty buffer at boot and never re-resolves.
+          lv_image_set_src(id(slideshow_img), dsc);
+          lv_image_set_src(id(dash_bg_img), dsc);
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
-            const int avail_w = 684;
-            const int avail_h = 600;
-            float scale_x = (float)avail_w / (float)dsc->header.w;
-            float scale_y = (float)avail_h / (float)dsc->header.h;
-            float scale = (scale_x < scale_y) ? scale_x : scale_y;
-            uint16_t zoom = (uint16_t)(256.0f * scale);
-            if (zoom < 1) zoom = 1;
-            lv_image_set_inner_align(id(slideshow_img), LV_IMAGE_ALIGN_CENTER);
-            lv_image_set_scale(id(slideshow_img), zoom);
-          } else {
-            lv_image_set_inner_align(id(slideshow_img), LV_IMAGE_ALIGN_CENTER);
-            lv_image_set_scale(id(slideshow_img), 256);
+            // Widget auto-sizes to the actual decoded buffer. Centre the
+            // image horizontally across the full 1024-px panel — the
+            // calendar panel sits on top of the left 340 px at 70 % opacity
+            // so the photo shows through behind it.
+            int dw = (int)dsc->header.w;
+            int dh = (int)dsc->header.h;
+            int x = (1024 - dw) / 2;
+            int y = (600  - dh) / 2;
+            lv_obj_set_pos(id(slideshow_img), x, y);
           }
+          lv_obj_invalidate(id(slideshow_img));
+          lv_obj_invalidate(id(dash_bg_img));
       - lvgl.widget.show: slideshow_img
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
@@ -425,16 +464,16 @@ lvgl:
       bg_color: 0x000000
       widgets:
         # ── Background image (Immich or stock) ─────────────────
-        # Sized 684x600 = slideshow area; positioned at x=340 so it never
-        # overlaps the calendar panel. Inner image scaled to fit by the
-        # on_download_finished lambda; widget size also updated there.
+        # No explicit width/height — the widget auto-sizes to the actual
+        # decoded image buffer. With explicit dimensions LVGL reads with
+        # the WIDGET's stride (684×2 bytes/row) instead of the BUFFER's
+        # (512×2 bytes/row), producing vertical-stripe corruption.
+        # Position is updated to the slideshow area in the lambda below.
         - image:
             id: slideshow_img
             src: immich_photo
             x: 340
             y: 0
-            width: 684
-            height: 600
             hidden: true
 
         # ── Stock fallback images — container + 2 full-screen children ──
@@ -812,8 +851,6 @@ lvgl:
         - image:
             id: dash_bg_img
             src: immich_photo
-            width: 1024
-            height: 600
             align: TOP_LEFT
             opa: 31%
 
@@ -2263,6 +2300,7 @@ lvgl:
               - lvgl.page.show: camera_view_page
             widgets:
               - image:
+                  id: cam1_widget
                   src: cam1_thumb
                   align: CENTER
               - label:
@@ -2299,7 +2337,7 @@ lvgl:
                   value: 'true'
               - lvgl.page.show: camera_view_page
             widgets:
-              - image: { src: cam2_thumb, align: CENTER }
+              - image: { id: cam2_widget, src: cam2_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam2_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
         - obj:
             x: 20
@@ -2326,7 +2364,7 @@ lvgl:
                   value: 'true'
               - lvgl.page.show: camera_view_page
             widgets:
-              - image: { src: cam3_thumb, align: CENTER }
+              - image: { id: cam3_widget, src: cam3_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam3_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
         - obj:
             x: 524
@@ -2353,7 +2391,7 @@ lvgl:
                   value: 'true'
               - lvgl.page.show: camera_view_page
             widgets:
-              - image: { src: cam4_thumb, align: CENTER }
+              - image: { id: cam4_widget, src: cam4_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam4_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
 
     # ═══════════════════════════════════════════════════════════

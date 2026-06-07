@@ -1,74 +1,77 @@
-# ESP32-P4/C6 7-inch Home Assistant Panel
+# Mangalam Smart-Home Panel
 
-This project is a starter for the 7.0-inch 1024x600 IPS capacitive touch ESP32-P4 + ESP32-C6 development board with camera support and Home Assistant integration.
+A custom **Home Assistant control panel** built on the Guition
+**ESP32-P4 + ESP32-C6 7-inch development board** (1024×600 IPS
+capacitive touch, 32 MB PSRAM, 16 MB flash).
 
-## What is included
+This is a personal-use panel for a wall-mounted whole-house dashboard,
+running **ESPHome 2026.5+ on LVGL 9** and integrating with a
+**Home Assistant OS** instance on a Raspberry Pi 5. It replaces a
+generic tablet showing a Lovelace dashboard with a purpose-built
+UI driven directly by HA's native API.
 
-- ESP-IDF firmware starter with:
-  - Wi-Fi station mode
-  - MQTT client
-  - Home Assistant MQTT discovery messages
-  - Device heartbeat and camera status topics
-- Home Assistant package template
-- ESPHome compatibility profile (Guition P4 7.0 style modular layout)
-- OpenSCAD housing starter model with display and camera cutout
-- Git helper scripts for frequent commit/push workflows
+## Feature pages
 
-## Layout
+- **Slideshow / lock screen** with random Immich photos + a left-side
+  calendar overlay
+- **Room dashboard** — 6 rooms with light bulb icons, on/off, brightness
+  sliders, and per-room temperature + humidity
+- **Tado climate** — 6 thermostat zones with current-temperature
+  readout, ⊖/⊕ target buttons, and OFF/AUTO/HEAT mode buttons
+- **Presence** — 12 motion/occupancy sensors (indoor + outdoor) with
+  recoloured `mdi:home` indicators
+- **Cameras** — 2×2 grid of Eufy thumbnails, tap any to open the
+  larger live view
+- **Settings** — read-only status display
 
-- `firmware/` ESP-IDF application
-- `home_assistant/` Home Assistant YAML templates
-- `esphome/` ESPHome compatibility profile and package fragments
-- `mechanical/housing/` OpenSCAD housing model
-- `scripts/` helper scripts
+Navigation between pages is a left/right swipe gesture; the slideshow
+re-engages after 30 seconds of inactivity.
 
-## 1) Build firmware
+## Repository layout
 
-Prerequisites:
+| Path | Contents |
+|---|---|
+| `esphome/` | **The actual panel firmware.** Start here. |
+| `esphome/README.md` | Detailed feature documentation, HA entity mappings, gotchas |
+| `esphome/guition_p4_7inch_compat.yaml` | Top-level node config |
+| `esphome/packages/` | Modular package fragments (`core_ha`, `display_touch_board`, `audio_voice_board`) |
+| `firmware/` | (Legacy) ESP-IDF starter app — not used in production |
+| `home_assistant/` | HA YAML helpers that go on the HA OS side |
+| `mechanical/housing/` | OpenSCAD housing model |
 
-- ESP-IDF v5.3+
-- USB serial access to the board
+## Supporting services
 
-Commands:
+The panel is backed by a small **Python proxy service** running on the
+Docker host (`docker/immich-proxy/`, not in this repo). It exposes two
+endpoints used by the panel:
 
-```bash
-cd projects/home-assistant-p4-c6-panel/firmware
-idf.py set-target esp32p4
-idf.py menuconfig
-idf.py -p /dev/ttyACM0 flash monitor
-```
+- `GET /random-photo` — re-encodes a random Immich preview as a
+  guaranteed SOF0 baseline JPEG resized to ≤ 512×400 (works around a
+  JPEGDEC 1.2.7 crash on SOF1 thumbnails)
+- `GET /camera/<entity>?size=thumb|full` — re-encodes a Eufy camera
+  snapshot at a panel-friendly size
 
-In `menuconfig` set:
+## Hardware
 
-- `Home Assistant Panel Settings -> WiFi SSID`
-- `Home Assistant Panel Settings -> WiFi Password`
-- `Home Assistant Panel Settings -> MQTT Broker URI`
-- `Home Assistant Panel Settings -> MQTT Device Name`
+- Board: VIEWE / Guition 7-inch ESP32-P4 development board
+  (`esp32-p4-evboard`)
+- Display: 1024 × 600 MIPI DSI, 16-bit colour
+- Touch: GT911 capacitive
+- Audio: I2S codec with built-in mic + speaker
+- Co-processor: ESP32-C6 (Wi-Fi 6 / BT5 / Thread) — used for Wi-Fi,
+  talks to the P4 over hosted-mode SDIO
+- Power: USB-C, with battery monitoring on GPIO53
 
-## 2) Add Home Assistant package
+## Quick start
 
-Copy `home_assistant/packages/esp32p4_panel.yaml` into your HA `packages` folder and adjust the topic prefix if needed.
+See **[esphome/README.md](./esphome/README.md)** for the detailed
+build, flash, HA-wiring walkthrough, and a list of known gotchas
+collected the hard way during development (font-glyph subsetting,
+LVGL 9 image binding, JPEGDEC limits, ESPHome dashboard zombie
+connections, …).
 
-## 2b) Optional ESPHome profile path
+## License
 
-If you want to test an ESPHome-first workflow:
-
-```bash
-cd projects/home-assistant-p4-c6-panel/esphome
-```
-
-Use `guition_p4_7inch_compat.yaml` as your node configuration, update all `CHANGE_ME` values, then adjust the board-mapped package files if your PCB revision differs.
-
-This allows side-by-side validation:
-
-- ESP-IDF path for low-level board bring-up certainty
-- ESPHome path for rapid Home Assistant entity and automation iteration
-
-## 3) Housing
-
-Open `mechanical/housing/esp32p4_7inch_case.scad` in OpenSCAD, adjust dimensions if your panel variant differs, then export STL.
-
-## Notes
-
-- Camera support is represented as MQTT-discovered camera status and stream URL text sensor in this starter. For full MJPEG/RTSP streaming, add your preferred camera streaming component in firmware and point Home Assistant to that stream.
-- Touch and LVGL UI hooks are left in the firmware as integration points for your final UI logic.
+Personal-use config; reuse / fork at your own risk. The hardware
+reference photos and reference manual at the repo root belong to the
+upstream board vendor.
