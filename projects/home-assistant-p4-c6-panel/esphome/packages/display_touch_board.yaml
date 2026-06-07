@@ -1352,6 +1352,73 @@ lvgl:
                         text: "Settings"
                         text_font: montserrat_16
                         text_color: 0x69F0AE
+              # All-lights master controls — turn every room light on or off at once.
+              - button:
+                  align: LEFT_MID
+                  x: 220
+                  width: 110
+                  height: 34
+                  bg_color: 0x3A2814
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data: { entity_id: "${room2_light}" }
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data: { entity_id: "${room3_light}" }
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data: { entity_id: "${room4_light}" }
+                    - homeassistant.service:
+                        service: light.turn_on
+                        data: { entity_id: "${room5_light}" }
+                    - homeassistant.service:
+                        service: switch.turn_on
+                        data: { entity_id: "${room1_light}" }
+                    - homeassistant.service:
+                        service: switch.turn_on
+                        data: { entity_id: "${room6_light}" }
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "All On"
+                        text_font: montserrat_16
+                        text_color: 0xFFD700
+              - button:
+                  align: LEFT_MID
+                  x: 340
+                  width: 110
+                  height: 34
+                  bg_color: 0x2A1822
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - homeassistant.service:
+                        service: light.turn_off
+                        data: { entity_id: "${room2_light}" }
+                    - homeassistant.service:
+                        service: light.turn_off
+                        data: { entity_id: "${room3_light}" }
+                    - homeassistant.service:
+                        service: light.turn_off
+                        data: { entity_id: "${room4_light}" }
+                    - homeassistant.service:
+                        service: light.turn_off
+                        data: { entity_id: "${room5_light}" }
+                    - homeassistant.service:
+                        service: switch.turn_off
+                        data: { entity_id: "${room1_light}" }
+                    - homeassistant.service:
+                        service: switch.turn_off
+                        data: { entity_id: "${room6_light}" }
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "All Off"
+                        text_font: montserrat_16
+                        text_color: 0xFFAACC
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 3 — TADO climate (swipe left from dashboard)
