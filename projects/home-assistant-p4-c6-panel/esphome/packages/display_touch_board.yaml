@@ -611,37 +611,55 @@ lvgl:
         - obj:
             id: weather_widget
             x: 800
-            y: 14
+            y: 130
             width: 210
-            height: 180
+            height: 224
             align: TOP_LEFT
             bg_opa: TRANSP
             border_width: 0
             pad_all: 0
             widgets:
-              - image: { id: wx_sunny,       src: img_wx_sunny,       align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_night,       src: img_wx_night,       align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_cloudy,      src: img_wx_cloudy,      align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_partlycloudy, src: img_wx_partlycloudy, align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_rainy,       src: img_wx_rainy,       align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_snowy,       src: img_wx_snowy,       align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_fog,         src: img_wx_fog,         align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_lightning,   src: img_wx_lightning,   align: TOP_MID, y: 0, hidden: true }
-              - image: { id: wx_windy,       src: img_wx_windy,       align: TOP_MID, y: 0, hidden: true }
+              # Location label at the very top of the widget.
+              - label:
+                  id: wx_location_lbl
+                  align: TOP_MID
+                  y: 0
+                  text: "${weather_location}"
+                  text_font: montserrat_16
+                  text_color: 0xDDDDDD
+              # Stack of 9 condition icons; only the one matching state stays visible.
+              - image: { id: wx_sunny,       src: img_wx_sunny,       align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_night,       src: img_wx_night,       align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_cloudy,      src: img_wx_cloudy,      align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_partlycloudy, src: img_wx_partlycloudy, align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_rainy,       src: img_wx_rainy,       align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_snowy,       src: img_wx_snowy,       align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_fog,         src: img_wx_fog,         align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_lightning,   src: img_wx_lightning,   align: TOP_MID, y: 22, hidden: true }
+              - image: { id: wx_windy,       src: img_wx_windy,       align: TOP_MID, y: 22, hidden: true }
               - label:
                   id: wx_temp_lbl
                   align: TOP_MID
-                  y: 100
+                  y: 122
                   text: "--°"
                   text_font: montserrat_36
                   text_color: 0xFFFFFF
               - label:
                   id: wx_cond_lbl
                   align: TOP_MID
-                  y: 152
+                  y: 174
                   text: "—"
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
+              # Humidity sits below the condition. Cyan tint so it doesn't
+              # compete with the condition-coloured label above it.
+              - label:
+                  id: wx_humidity_lbl
+                  align: TOP_MID
+                  y: 198
+                  text: "--% RH"
+                  text_font: montserrat_16
+                  text_color: 0x66CCFF
 
         # ── Calendar panel (left side, 70% opaque) ─────────────
         - obj:
@@ -850,6 +868,7 @@ lvgl:
 
         # ── Clock background pill (top-right, ensures readability) ──
         - obj:
+            id: clock_pill_obj
             width: 220
             height: 110
             align: TOP_RIGHT
@@ -2877,7 +2896,14 @@ lvgl:
                         int v = id(g_calendar_opa_pct) - 5;
                         if (v < 0) v = 0;
                         id(g_calendar_opa_pct) = v;
-                        lv_obj_set_style_opa(id(calendar_panel), (v * 255) / 100, 0);
+                        {
+                          uint32_t opa = (uint32_t)((v * 255) / 100);
+                          lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
+                          lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
+                          lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
+                          lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+                          lv_obj_set_style_opa(id(weather_widget),     opa, 0);
+                        }
                         char b[12];
                         snprintf(b, sizeof(b), "%d %%", v);
                         lv_label_set_text(id(settings_calopa_val), b);
@@ -2910,7 +2936,14 @@ lvgl:
                         int v = id(g_calendar_opa_pct) + 5;
                         if (v > 100) v = 100;
                         id(g_calendar_opa_pct) = v;
-                        lv_obj_set_style_opa(id(calendar_panel), (v * 255) / 100, 0);
+                        {
+                          uint32_t opa = (uint32_t)((v * 255) / 100);
+                          lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
+                          lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
+                          lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
+                          lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+                          lv_obj_set_style_opa(id(weather_widget),     opa, 0);
+                        }
                         char b[12];
                         snprintf(b, sizeof(b), "%d %%", v);
                         lv_label_set_text(id(settings_calopa_val), b);
