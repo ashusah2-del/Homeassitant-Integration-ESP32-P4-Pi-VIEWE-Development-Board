@@ -3176,3 +3176,51 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
                   long_mode: WRAP
+              # Hidden-ish test button: deliberately triggers a software
+              # panic so the crash overlay + HA persistent notification
+              # path can be verified end-to-end. Tap once to arm, second
+              # tap within 5 s actually crashes — single accidental taps
+              # do nothing.
+              - obj:
+                  x: 0
+                  y: 380
+                  width: 476
+                  height: 2
+                  bg_color: 0x401010
+                  border_width: 0
+              - label:
+                  x: 0
+                  y: 392
+                  text: "DIAGNOSTICS"
+                  text_font: montserrat_18
+                  text_color: 0xFF6666
+              - button:
+                  id: test_crash_btn
+                  x: 0
+                  y: 422
+                  width: 280
+                  height: 44
+                  radius: 8
+                  bg_color: 0x701010
+                  border_width: 1
+                  border_color: 0xFF6666
+                  on_click:
+                    - lambda: |-
+                        static uint32_t last_tap_ms = 0;
+                        uint32_t now = millis();
+                        if (now - last_tap_ms < 5000) {
+                          ESP_LOGW("crashtest", "User-triggered crash via settings button");
+                          // Misaligned function pointer call → identical
+                          // signature to the organic crash, so we can
+                          // verify banner + HA notification path.
+                          abort();
+                        }
+                        last_tap_ms = now;
+                        lv_label_set_text(id(test_crash_btn_lbl), "Tap again within 5s to crash");
+                  widgets:
+                    - label:
+                        id: test_crash_btn_lbl
+                        align: CENTER
+                        text: "Test crash banner"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
