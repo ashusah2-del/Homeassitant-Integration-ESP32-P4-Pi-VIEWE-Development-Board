@@ -157,7 +157,7 @@ esphome:
           int eff = id(g_transition_effect);
           if (eff < 0 || eff > 5) eff = 0;
           static const char* eff_names[6] = {
-            "Fade", "Slide Left", "Slide Right",
+            "Crossfade", "Slide Left", "Slide Right",
             "Slide Up", "Slide Down", "Zoom"
           };
           lv_label_set_text(id(settings_effect_val), eff_names[eff]);

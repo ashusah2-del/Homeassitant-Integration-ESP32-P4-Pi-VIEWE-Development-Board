@@ -263,7 +263,7 @@ text_sensor:
             id(g_transition_effect) = v;
             if (id(g_lvgl_ready)) {
               static const char* names[6] = {
-                "Fade", "Slide Left", "Slide Right",
+                "Crossfade", "Slide Left", "Slide Right",
                 "Slide Up", "Slide Down", "Zoom"
               };
               lv_label_set_text(id(settings_effect_val), names[v]);

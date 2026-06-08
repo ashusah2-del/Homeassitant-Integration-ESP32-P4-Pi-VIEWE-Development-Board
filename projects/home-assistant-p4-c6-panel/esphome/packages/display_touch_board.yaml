@@ -157,6 +157,12 @@ globals:
   # animation runs from on_download_finished after the new image is
   # decoded and positioned.
   - { id: g_transition_effect, type: int, restore_value: yes, initial_value: '0' }
+  # Slideshow double-buffer slot index: 0 = slideshow_img / immich_photo
+  # currently visible, 1 = slideshow_img_b / immich_photo_b currently
+  # visible. refresh_immich_slideshow downloads into the inactive slot
+  # so the visible image is never disturbed mid-fetch; on_download_finished
+  # then crossfades old → new with no blank moment.
+  - { id: g_slideshow_slot, type: int, restore_value: no, initial_value: '0' }
   # True once the on_boot lambda has run — every multi-widget opacity cascade,
   # the weather-state lambda, and the weather attribute label-update lambdas
   # gate themselves on this so a HA push that arrives at boot before LVGL is
@@ -255,132 +261,88 @@ online_image:
           lv_image_set_src(id(camera_live_widget), id(camera_live_img).get_lv_image_dsc());
           lv_obj_invalidate(id(camera_live_widget));
 
+  # Slideshow uses two online_image components (immich_photo and
+  # immich_photo_b) as a double-buffer. While slot A is on screen, slot
+  # B downloads the next photo. When slot B's decode finishes,
+  # crossfade_to_active_slot brings it forward while the old A fades/
+  # slides out — so the previous image is always visible *during* the
+  # transition. PSRAM cost: ~1.2 MB per slot (1024×600×RGB565).
   - id: immich_photo
     url: "${proxy_url}/random-photo"
     format: JPEG
     type: RGB565
-    # Proxy already shapes images to fit within 1024×600 at the panel's
-    # height (600 px). Just allow that footprint here so the decode buffer
-    # is large enough to hold the panel-height result without re-scaling.
     resize: 1024x600
     buffer_size: 65536
     update_interval: never
     request_headers:
       Accept: image/jpeg
     on_download_finished:
-      - globals.set:
-          id: g_using_fallback
-          value: 'false'
-      - globals.set:
-          id: g_immich_ok
-          value: 'true'
-      - globals.set:
-          id: g_immich_retry
-          value: '0'
-      # Scale and centre image in the right 684×600 area (x=340 to x=1023).
-      # LVGL 9 API: lv_image_set_scale (replaces lv_img_set_zoom). 256 = 1:1.
-      # inner_align CENTER auto-centres the image inside the widget bounding box,
-      # so we don't have to translate the widget per-image.
-      - lambda: |-
-          auto dsc = id(immich_photo).get_lv_image_dsc();
-          // LVGL 9 binding fix: rebind the widget src so the freshly decoded
-          // descriptor is what gets painted. The compile-time src: binding
-          // points at an empty buffer at boot and never re-resolves.
-          lv_image_set_src(id(slideshow_img), dsc);
-          lv_image_set_src(id(dash_bg_img), dsc);
-          int final_x = 0, final_y = 0;
-          if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
-            int dw = (int)dsc->header.w;
-            int dh = (int)dsc->header.h;
-            final_x = (1024 - dw) / 2;
-            final_y = (600  - dh) / 2;
-          }
-          lv_obj_clear_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
-          // Entry animation matching the exit run in refresh_immich_slideshow.
-          switch (id(g_transition_effect)) {
-            case 0:  // Fade in
-              lv_obj_set_pos(id(slideshow_img), final_x, final_y);
-              lv_image_set_scale(id(slideshow_img), 256);
-              lv_obj_set_style_opa(id(slideshow_img), 0, 0);
-              lv_obj_fade_in(id(slideshow_img), 500, 0);
-              break;
-            case 1:  // Slide Left — enter from the right
-            case 2:  // Slide Right — enter from the left
-            case 3:  // Slide Up — enter from below
-            case 4: {  // Slide Down — enter from above
-              int start_x = final_x, start_y = final_y;
-              int e = id(g_transition_effect);
-              if (e == 1) start_x = 1024;
-              else if (e == 2) start_x = -1024;
-              else if (e == 3) start_y = 600;
-              else start_y = -600;
-              lv_obj_set_pos(id(slideshow_img), start_x, start_y);
-              lv_image_set_scale(id(slideshow_img), 256);
-              lv_obj_set_style_opa(id(slideshow_img), 255, 0);
-              lv_anim_t a;
-              lv_anim_init(&a);
-              lv_anim_set_var(&a, id(slideshow_img));
-              lv_anim_set_time(&a, 500);
-              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
-              if (e == 1 || e == 2) {
-                lv_anim_set_values(&a, start_x, final_x);
-                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-              } else {
-                lv_anim_set_values(&a, start_y, final_y);
-                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-              }
-              lv_anim_start(&a);
-              break;
-            }
-            case 5: {  // Zoom — grow and fade in
-              lv_obj_set_pos(id(slideshow_img), final_x, final_y);
-              lv_image_set_scale(id(slideshow_img), 64);
-              lv_obj_set_style_opa(id(slideshow_img), 0, 0);
-              lv_obj_fade_in(id(slideshow_img), 500, 0);
-              lv_anim_t a;
-              lv_anim_init(&a);
-              lv_anim_set_var(&a, id(slideshow_img));
-              lv_anim_set_time(&a, 500);
-              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
-              lv_anim_set_values(&a, 64, 256);
-              lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_image_set_scale);
-              lv_anim_start(&a);
-              break;
-            }
-          }
-          lv_obj_invalidate(id(slideshow_img));
-          lv_obj_invalidate(id(dash_bg_img));
+      - globals.set: { id: g_using_fallback, value: 'false' }
+      - globals.set: { id: g_immich_ok,      value: 'true'  }
+      - globals.set: { id: g_immich_retry,   value: '0'     }
+      - globals.set: { id: g_slideshow_slot, value: '0'     }
+      - lambda: 'lv_image_set_src(id(dash_bg_img), id(immich_photo).get_lv_image_dsc());'
+      - script.execute: crossfade_to_active_slot
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
       - lvgl.widget.hide: error_bar
-      - lvgl.label.update:
-          id: dash_error_lbl
-          text: ""
+      - lvgl.label.update: { id: dash_error_lbl, text: "" }
     on_error:
-      - globals.set:
-          id: g_immich_ok
-          value: 'false'
-      # Retry with a different random asset up to 3 times before giving up.
-      # Handles JPEG format incompatibilities (e.g. extended-sequential SOF1) in ~40% of assets.
+      - globals.set: { id: g_immich_ok, value: 'false' }
       - if:
           condition:
             lambda: return !id(g_using_fallback) && id(g_immich_retry) < 3;
           then:
-            - globals.set:
-                id: g_immich_retry
-                value: !lambda return id(g_immich_retry) + 1;
-            - script.execute: refresh_immich_slideshow
+            - globals.set: { id: g_immich_retry, value: !lambda return id(g_immich_retry) + 1; }
+            # Retry into the SAME slot — refresh script picks slot based on
+            # g_slideshow_slot, which hasn't been advanced on a failed load.
+            - online_image.set_url:
+                id: immich_photo
+                url: "${proxy_url}/random-photo"
+                update: true
           else:
-            - globals.set:
-                id: g_immich_retry
-                value: '0'
+            - globals.set: { id: g_immich_retry, value: '0' }
             - lvgl.widget.show: error_bar
-            - lvgl.label.update:
-                id: error_lbl
-                text: "Immich unavailable - showing stock image"
-            - lvgl.label.update:
-                id: dash_error_lbl
-                text: "Immich offline"
+            - lvgl.label.update: { id: error_lbl, text: "Immich unavailable - showing stock image" }
+            - lvgl.label.update: { id: dash_error_lbl, text: "Immich offline" }
+            - script.execute: try_fallback_image
+
+  - id: immich_photo_b
+    url: "${proxy_url}/random-photo"
+    format: JPEG
+    type: RGB565
+    resize: 1024x600
+    buffer_size: 65536
+    update_interval: never
+    request_headers:
+      Accept: image/jpeg
+    on_download_finished:
+      - globals.set: { id: g_using_fallback, value: 'false' }
+      - globals.set: { id: g_immich_ok,      value: 'true'  }
+      - globals.set: { id: g_immich_retry,   value: '0'     }
+      - globals.set: { id: g_slideshow_slot, value: '1'     }
+      - lambda: 'lv_image_set_src(id(dash_bg_img), id(immich_photo_b).get_lv_image_dsc());'
+      - script.execute: crossfade_to_active_slot
+      - lvgl.widget.hide: stock_fallback_img
+      - lvgl.widget.hide: slideshow_placeholder_obj
+      - lvgl.widget.hide: error_bar
+      - lvgl.label.update: { id: dash_error_lbl, text: "" }
+    on_error:
+      - globals.set: { id: g_immich_ok, value: 'false' }
+      - if:
+          condition:
+            lambda: return !id(g_using_fallback) && id(g_immich_retry) < 3;
+          then:
+            - globals.set: { id: g_immich_retry, value: !lambda return id(g_immich_retry) + 1; }
+            - online_image.set_url:
+                id: immich_photo_b
+                url: "${proxy_url}/random-photo"
+                update: true
+          else:
+            - globals.set: { id: g_immich_retry, value: '0' }
+            - lvgl.widget.show: error_bar
+            - lvgl.label.update: { id: error_lbl, text: "Immich unavailable - showing stock image" }
+            - lvgl.label.update: { id: dash_error_lbl, text: "Immich offline" }
             - script.execute: try_fallback_image
 
 script:
@@ -448,67 +410,138 @@ script:
       - globals.set:
           id: g_using_fallback
           value: 'false'
-      # Graceful transition: run an exit animation on slideshow_img,
-      # delay for the duration, then start the download. The matching
-      # entry animation runs from on_download_finished below. Animation
-      # style is user-selectable on the settings page via the
-      # +/- "Slide transition effect" cycler.
+      # Double-buffered slideshow: kick off the download into the slot
+      # that's currently NOT on screen. The visible slot keeps painting
+      # at full opacity throughout the fetch+decode (no exit animation
+      # here). When the new buffer finishes, on_download_finished triggers
+      # crossfade_to_active_slot, which runs the slide/fade/zoom on both
+      # widgets simultaneously so the previous image overlaps the new
+      # one mid-transition.
+      - if:
+          condition:
+            lambda: 'return id(g_slideshow_slot) == 0;'
+          then:
+            - online_image.set_url:
+                id: immich_photo_b
+                url: "${proxy_url}/random-photo"
+                update: true
+          else:
+            - online_image.set_url:
+                id: immich_photo
+                url: "${proxy_url}/random-photo"
+                update: true
+
+  # Crossfade the just-loaded slot in while the previously-visible slot
+  # transitions out, with both animations running simultaneously so the
+  # images overlap. g_slideshow_slot must already be set to the *new*
+  # active slot before this script is executed. Effect (fade / slide /
+  # zoom) is chosen via g_transition_effect from the settings cycler.
+  - id: crossfade_to_active_slot
+    mode: restart
+    then:
       - lambda: |-
           if (!id(g_lvgl_ready)) return;
-          int cur_x = lv_obj_get_x(id(slideshow_img));
-          int cur_y = lv_obj_get_y(id(slideshow_img));
-          switch (id(g_transition_effect)) {
-            case 0:  // Fade
-              lv_obj_fade_out(id(slideshow_img), 500, 0);
-              break;
-            case 1:  // Slide Left — exit left
-            case 2:  // Slide Right — exit right
-            case 3:  // Slide Up — exit up
-            case 4: {  // Slide Down — exit down
-              lv_anim_t a;
-              lv_anim_init(&a);
-              lv_anim_set_var(&a, id(slideshow_img));
-              lv_anim_set_time(&a, 500);
-              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
-              int e = id(g_transition_effect);
-              if (e == 1) {
-                lv_anim_set_values(&a, cur_x, -1024);
-                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-              } else if (e == 2) {
-                lv_anim_set_values(&a, cur_x, 1024);
-                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-              } else if (e == 3) {
-                lv_anim_set_values(&a, cur_y, -600);
-                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-              } else {
-                lv_anim_set_values(&a, cur_y, 600);
-                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-              }
-              lv_anim_start(&a);
+          bool a_active = (id(g_slideshow_slot) == 0);
+          lv_obj_t* in  = a_active ? id(slideshow_img)   : id(slideshow_img_b);
+          lv_obj_t* out = a_active ? id(slideshow_img_b) : id(slideshow_img);
+          auto dsc = a_active ? id(immich_photo).get_lv_image_dsc()
+                              : id(immich_photo_b).get_lv_image_dsc();
+          // Repoint the incoming widget at the freshly decoded buffer
+          // (LVGL 9: compile-time src binding doesn't re-resolve).
+          lv_image_set_src(in, dsc);
+          int final_x = 0, final_y = 0;
+          if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
+            final_x = (1024 - (int)dsc->header.w) / 2;
+            final_y = (600  - (int)dsc->header.h) / 2;
+          }
+          // Both widgets must be visible during the transition; the
+          // incoming widget sits above the outgoing so the crossfade
+          // visually layers new-on-top-of-old.
+          lv_obj_clear_flag(in,  LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(out, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_move_foreground(in);
+
+          const int T = 1500;
+          int e = id(g_transition_effect);
+          switch (e) {
+            case 0: {  // Crossfade — new fades up while old fades out
+              lv_obj_set_pos(in, final_x, final_y);
+              lv_image_set_scale(in, 256);
+              lv_obj_set_style_opa(in, 0, 0);
+              lv_obj_fade_in(in, T, 0);
+              lv_obj_fade_out(out, T, 0);
               break;
             }
-            case 5: {  // Zoom — shrink and fade
-              lv_obj_fade_out(id(slideshow_img), 500, 0);
-              lv_anim_t a;
-              lv_anim_init(&a);
-              lv_anim_set_var(&a, id(slideshow_img));
-              lv_anim_set_time(&a, 500);
-              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
-              lv_anim_set_values(&a, 256, 64);
-              lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_image_set_scale);
-              lv_anim_start(&a);
+            case 1: case 2: case 3: case 4: {  // Slides — both translate
+              int in_start_x = final_x, in_start_y = final_y;
+              int out_start_x = lv_obj_get_x(out), out_start_y = lv_obj_get_y(out);
+              int out_end_x = out_start_x, out_end_y = out_start_y;
+              if (e == 1)      { in_start_x = 1024;  out_end_x = -1024; }
+              else if (e == 2) { in_start_x = -1024; out_end_x = 1024;  }
+              else if (e == 3) { in_start_y = 600;   out_end_y = -600;  }
+              else             { in_start_y = -600;  out_end_y = 600;   }
+              lv_obj_set_pos(in, in_start_x, in_start_y);
+              lv_image_set_scale(in, 256);
+              lv_obj_set_style_opa(in, 255, 0);
+              lv_obj_set_style_opa(out, 255, 0);
+              // Animate incoming → final
+              lv_anim_t ai;
+              lv_anim_init(&ai);
+              lv_anim_set_var(&ai, in);
+              lv_anim_set_time(&ai, T);
+              lv_anim_set_path_cb(&ai, lv_anim_path_ease_in_out);
+              if (e == 1 || e == 2) {
+                lv_anim_set_values(&ai, in_start_x, final_x);
+                lv_anim_set_exec_cb(&ai, (lv_anim_exec_xcb_t)lv_obj_set_x);
+              } else {
+                lv_anim_set_values(&ai, in_start_y, final_y);
+                lv_anim_set_exec_cb(&ai, (lv_anim_exec_xcb_t)lv_obj_set_y);
+              }
+              lv_anim_start(&ai);
+              // Animate outgoing → off-screen
+              lv_anim_t ao;
+              lv_anim_init(&ao);
+              lv_anim_set_var(&ao, out);
+              lv_anim_set_time(&ao, T);
+              lv_anim_set_path_cb(&ao, lv_anim_path_ease_in_out);
+              if (e == 1 || e == 2) {
+                lv_anim_set_values(&ao, out_start_x, out_end_x);
+                lv_anim_set_exec_cb(&ao, (lv_anim_exec_xcb_t)lv_obj_set_x);
+              } else {
+                lv_anim_set_values(&ao, out_start_y, out_end_y);
+                lv_anim_set_exec_cb(&ao, (lv_anim_exec_xcb_t)lv_obj_set_y);
+              }
+              lv_anim_start(&ao);
+              break;
+            }
+            case 5: {  // Zoom — new grows + fades in, old shrinks + fades out
+              lv_obj_set_pos(in, final_x, final_y);
+              lv_image_set_scale(in, 64);
+              lv_obj_set_style_opa(in, 0, 0);
+              lv_obj_fade_in(in, T, 0);
+              lv_anim_t ai;
+              lv_anim_init(&ai);
+              lv_anim_set_var(&ai, in);
+              lv_anim_set_time(&ai, T);
+              lv_anim_set_path_cb(&ai, lv_anim_path_ease_in_out);
+              lv_anim_set_values(&ai, 64, 256);
+              lv_anim_set_exec_cb(&ai, (lv_anim_exec_xcb_t)lv_image_set_scale);
+              lv_anim_start(&ai);
+              lv_obj_fade_out(out, T, 0);
+              lv_anim_t ao;
+              lv_anim_init(&ao);
+              lv_anim_set_var(&ao, out);
+              lv_anim_set_time(&ao, T);
+              lv_anim_set_path_cb(&ao, lv_anim_path_ease_in_out);
+              lv_anim_set_values(&ao, 256, 64);
+              lv_anim_set_exec_cb(&ao, (lv_anim_exec_xcb_t)lv_image_set_scale);
+              lv_anim_start(&ao);
               break;
             }
           }
-      # Hold for the 500 ms exit before the download mutates the buffer.
-      # On fade and zoom that's not strictly required (opa 0 hides the
-      # corruption) but the slide effects need a clean buffer at the
-      # exit endpoint or they'd flash garbled mid-animation.
-      - delay: 520ms
-      - online_image.set_url:
-          id: immich_photo
-          url: "${proxy_url}/random-photo"
-          update: true
+          lv_obj_invalidate(in);
+          lv_obj_invalidate(out);
+          lv_obj_invalidate(id(dash_bg_img));
 
   # Shows the next embedded stock image (cycles through 2 pre-downloaded images).
   # No internet required — images are stored in device flash at build time.
@@ -530,7 +563,9 @@ script:
               lv_obj_add_flag(stock_imgs[i], LV_OBJ_FLAG_HIDDEN);
           }
           lv_obj_clear_flag(id(stock_fallback_img), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
+          // Hide both slideshow slots so the stock image is unobstructed.
+          lv_obj_add_flag(id(slideshow_img),   LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(slideshow_img_b), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
 
 interval:
@@ -735,6 +770,17 @@ lvgl:
         - image:
             id: slideshow_img
             src: immich_photo
+            x: 340
+            y: 0
+            hidden: true
+        # Slot B of the double-buffered slideshow. Initially hidden — the
+        # first download lands in slot B (because g_slideshow_slot starts
+        # at 0, refresh_immich_slideshow targets the *inactive* slot), so
+        # B becomes visible and slot A's empty buffer stays hidden until
+        # the next refresh swaps them.
+        - image:
+            id: slideshow_img_b
+            src: immich_photo_b
             x: 340
             y: 0
             hidden: true
@@ -3233,7 +3279,7 @@ lvgl:
                         if (v < 0) v = 5;
                         id(g_transition_effect) = v;
                         static const char* names[6] = {
-                          "Fade", "Slide Left", "Slide Right",
+                          "Crossfade", "Slide Left", "Slide Right",
                           "Slide Up", "Slide Down", "Zoom"
                         };
                         lv_label_set_text(id(settings_effect_val), names[v]);
@@ -3247,7 +3293,7 @@ lvgl:
                   x: 70
                   y: 474
                   width: 220
-                  text: "Fade"
+                  text: "Crossfade"
                   text_font: montserrat_20
                   text_color: 0xFFFFFF
               - button:
@@ -3267,7 +3313,7 @@ lvgl:
                         if (v > 5) v = 0;
                         id(g_transition_effect) = v;
                         static const char* names[6] = {
-                          "Fade", "Slide Left", "Slide Right",
+                          "Crossfade", "Slide Left", "Slide Right",
                           "Slide Up", "Slide Down", "Zoom"
                         };
                         lv_label_set_text(id(settings_effect_val), names[v]);
