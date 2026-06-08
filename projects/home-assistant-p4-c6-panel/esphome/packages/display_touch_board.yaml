@@ -454,12 +454,17 @@ script:
             final_x = (1024 - (int)dsc->header.w) / 2;
             final_y = (600  - (int)dsc->header.h) / 2;
           }
-          // Both widgets must be visible during the transition; the
-          // incoming widget sits above the outgoing so the crossfade
-          // visually layers new-on-top-of-old.
+          // Both widgets must be visible during the transition. Use
+          // move_background so they sit at the bottom of the slideshow
+          // page's child stack — *behind* calendar_panel, clock_pill,
+          // weather_widget, etc. The two background calls in this order
+          // park 'out' at index 0 and 'in' at index 1, so 'in' still
+          // renders on top of 'out' during the crossfade but both are
+          // below every overlay widget.
           lv_obj_clear_flag(in,  LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(out, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_move_foreground(in);
+          lv_obj_move_background(in);
+          lv_obj_move_background(out);
 
           const int T = 1500;
           int e = id(g_transition_effect);
