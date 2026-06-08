@@ -155,6 +155,11 @@ globals:
   # fully constructed can't trigger an Instruction-address-misaligned crash.
   # Flipped to true in the on_boot lambda after a 2-second delay.
   - { id: g_lvgl_ready, type: bool, restore_value: no, initial_value: 'false' }
+  # If the previous boot was a real fault, on_boot writes the human-
+  # readable reason here. on_client_connected fires a persistent
+  # notification into HA the first time HA reconnects and clears the
+  # string, so each crash produces exactly one HA-side notification.
+  - { id: g_crash_report, type: std::string, restore_value: no, initial_value: '""' }
   # Calendar pagination — the HA helper pushes a single newline-separated
   # string; we cache it here and the render_calendar script splits it into
   # 8-event pages that cycle every 30 s.
