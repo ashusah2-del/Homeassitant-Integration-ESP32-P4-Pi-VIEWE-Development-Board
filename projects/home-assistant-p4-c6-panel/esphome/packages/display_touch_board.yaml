@@ -985,6 +985,61 @@ lvgl:
             text_color: 0xEEEEEE
             bg_opa: TRANSP
 
+        # ── Crash-recovery overlay (full screen, dismissible by tap).
+        # The on_boot lambda checks esp_reset_reason() and unhides this
+        # if the previous reset was a real software fault. Tap or 20-s
+        # auto-dismiss clears it. Hidden by default so a clean boot
+        # never sees it.
+        - obj:
+            id: crash_overlay
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x300505
+            bg_opa: 90%
+            border_width: 0
+            pad_all: 0
+            hidden: true
+            on_click:
+              - lvgl.widget.hide: crash_overlay
+            widgets:
+              - label:
+                  align: CENTER
+                  y: -160
+                  text: "Panel Recovered From Crash"
+                  text_font: montserrat_28
+                  text_color: 0xFF8888
+              - label:
+                  id: crash_reason_lbl
+                  align: CENTER
+                  y: -100
+                  width: 880
+                  text: "Reason: --"
+                  text_font: montserrat_18
+                  text_color: 0xFFCCCC
+                  long_mode: WRAP
+              - label:
+                  align: CENTER
+                  y: -40
+                  text: "The firmware caught the fault and rebooted itself.\nNothing is permanently damaged."
+                  text_font: montserrat_16
+                  text_color: 0xDDDDDD
+                  long_mode: WRAP
+              - label:
+                  align: CENTER
+                  y: 50
+                  width: 880
+                  text: "If this keeps happening:\n1. Tap to dismiss this banner.\n2. Note what you were doing when it happened.\n3. Re-flash the panel from the ESPHome dashboard, or unplug power for 5 s and plug it back in to fully reset."
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+                  long_mode: WRAP
+              - label:
+                  align: BOTTOM_MID
+                  y: -30
+                  text: "Tap anywhere on this banner to dismiss"
+                  text_font: montserrat_16
+                  text_color: 0xFFAAAA
+
         # ── HA disconnected overlay (full screen, visible at boot) ──
         - obj:
             id: ha_disconnected_overlay
