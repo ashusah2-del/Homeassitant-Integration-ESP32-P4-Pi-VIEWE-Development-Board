@@ -293,7 +293,12 @@ online_image:
           }
           lv_obj_invalidate(id(slideshow_img));
           lv_obj_invalidate(id(dash_bg_img));
-      - lvgl.widget.show: slideshow_img
+          // Reveal the widget if a previous fallback hid it, force opa
+          // to 0 (in case fade_out hadn't started yet on a fast network),
+          // then fade in to match the fade_out in refresh_immich_slideshow.
+          lv_obj_clear_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_style_opa(id(slideshow_img), 0, 0);
+          lv_obj_fade_in(id(slideshow_img), 500, 0);
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
       - lvgl.widget.hide: error_bar
@@ -392,7 +397,14 @@ script:
       - globals.set:
           id: g_using_fallback
           value: 'false'
-      - lvgl.widget.hide: slideshow_img
+      # Graceful transition: fade the current photo out while the next
+      # one downloads. The decode buffer is mutated mid-fetch, but the
+      # widget is at opa 0 by then so the partial frames are hidden.
+      # The matching fade-in runs from on_download_finished below.
+      - lambda: |-
+          if (id(g_lvgl_ready)) {
+            lv_obj_fade_out(id(slideshow_img), 500, 0);
+          }
       - online_image.set_url:
           id: immich_photo
           url: "${proxy_url}/random-photo"
