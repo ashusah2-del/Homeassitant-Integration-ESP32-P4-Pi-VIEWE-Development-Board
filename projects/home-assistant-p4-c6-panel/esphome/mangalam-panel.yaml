@@ -114,6 +114,25 @@ esphome:
       - lambda: |-
           // LVGL is up by now; flip the gate so cascading lambdas can run.
           id(g_lvgl_ready) = true;
+          // If the previous boot was a real fault (panic / watchdog /
+          // brownout), surface a full-screen banner to the user so they
+          // know the device recovered and how to reset if it keeps
+          // happening. Clean boots (poweron / clean OTA restart /
+          // deepsleep) silently skip the banner.
+          esp_reset_reason_t why = esp_reset_reason();
+          const char* reason = nullptr;
+          switch (why) {
+            case ESP_RST_PANIC:    reason = "Software fault (panic) - probably bad memory access"; break;
+            case ESP_RST_INT_WDT:  reason = "Interrupt watchdog - main loop was stuck too long"; break;
+            case ESP_RST_TASK_WDT: reason = "Task watchdog - a background task hung"; break;
+            case ESP_RST_WDT:      reason = "Hardware watchdog - the CPU stopped responding"; break;
+            case ESP_RST_BROWNOUT: reason = "Brownout - power supply dipped below 3.0V"; break;
+            default: break;  // ESP_RST_POWERON / SW / DEEPSLEEP / EXT — nothing to show
+          }
+          if (reason != nullptr) {
+            lv_label_set_text(id(crash_reason_lbl), (std::string("Reason: ") + reason).c_str());
+            lv_obj_clear_flag(id(crash_overlay), LV_OBJ_FLAG_HIDDEN);
+          }
           int pct = id(g_calendar_opa_pct);
           if (pct < 0) pct = 0;
           if (pct > 100) pct = 100;
@@ -128,6 +147,10 @@ esphome:
           char b[12];
           snprintf(b, sizeof(b), "%d %%", pct);
           lv_label_set_text(id(settings_calopa_val), b);
+      # Auto-dismiss the crash banner after 20 s so the panel doesn't
+      # stay stuck behind it if nobody is around to tap.
+      - delay: 20s
+      - lvgl.widget.hide: crash_overlay
 
 esp32:
   board: ${board_type}
