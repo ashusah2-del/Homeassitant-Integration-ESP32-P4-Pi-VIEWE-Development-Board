@@ -44,6 +44,29 @@ api:
               text: ""
           - script.execute: refresh_immich_slideshow
           - voice_assistant.start_continuous:
+          # If on_boot stashed a crash reason, push it to HA as a
+          # persistent notification so the user can review it the next
+          # time they look at HA. Cleared after sending so each crash
+          # reports exactly once per boot.
+          - if:
+              condition:
+                lambda: 'return !id(g_crash_report).empty();'
+              then:
+                - homeassistant.service:
+                    service: persistent_notification.create
+                    data:
+                      title: "Mangalam Panel — Recovered From Crash"
+                      notification_id: "mangalam_panel_crash"
+                      message: !lambda |-
+                        return std::string("Reason: ") + id(g_crash_report) +
+                               "\n\nThe firmware caught the fault and "
+                               "rebooted. The on-screen banner shows the same "
+                               "info and auto-dismisses after 20 seconds. "
+                               "If this keeps happening, check the latest "
+                               "esphome logs for the crash backtrace.";
+                - globals.set:
+                    id: g_crash_report
+                    value: '""'
   on_client_disconnected:
     - globals.set:
         id: g_ha_client_count

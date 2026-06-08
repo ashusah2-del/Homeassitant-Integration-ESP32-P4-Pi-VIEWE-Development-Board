@@ -132,6 +132,10 @@ esphome:
           if (reason != nullptr) {
             lv_label_set_text(id(crash_reason_lbl), (std::string("Reason: ") + reason).c_str());
             lv_obj_clear_flag(id(crash_overlay), LV_OBJ_FLAG_HIDDEN);
+            // Save the reason so the next HA reconnect pushes it as a
+            // persistent notification into HA — see push_crash_to_ha in
+            // core_ha.yaml's on_client_connected block.
+            id(g_crash_report) = reason;
           }
           int pct = id(g_calendar_opa_pct);
           if (pct < 0) pct = 0;
