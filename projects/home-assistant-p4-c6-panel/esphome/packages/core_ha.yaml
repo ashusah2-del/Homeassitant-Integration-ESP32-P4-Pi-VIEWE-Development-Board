@@ -245,6 +245,30 @@ text_sensor:
             snprintf(b, sizeof(b), "%d%% RH", (int)(h + 0.5f));
             lv_label_set_text(id(wx_humidity_lbl), b);
 
+  # Slideshow transition effect, paired with HA helper
+  # input_number.panel_transition_effect (recommended range 0–5 step 1
+  # mode=Box). Values: 0=Fade, 1=SlideLeft, 2=SlideRight, 3=SlideUp,
+  # 4=SlideDown, 5=Zoom. Drives the exit/entry animations in
+  # refresh_immich_slideshow + on_download_finished.
+  - platform: homeassistant
+    id: ha_transition_effect
+    entity_id: input_number.panel_transition_effect
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            int v = (int)atof(x.c_str());
+            if (v < 0) v = 0;
+            if (v > 5) v = 0;
+            id(g_transition_effect) = v;
+            if (id(g_lvgl_ready)) {
+              static const char* names[6] = {
+                "Fade", "Slide Left", "Slide Right",
+                "Slide Up", "Slide Down", "Zoom"
+              };
+              lv_label_set_text(id(settings_effect_val), names[v]);
+            }
+
   # Calendar overlay opacity in %, paired with HA helper
   # input_number.panel_calendar_opacity (recommended range 0–100 step 5
   # mode=Box). Drives the bg_opa of calendar_panel on the slideshow page.
