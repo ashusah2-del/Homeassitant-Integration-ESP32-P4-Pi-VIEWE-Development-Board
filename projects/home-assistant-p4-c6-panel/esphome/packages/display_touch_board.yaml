@@ -149,6 +149,14 @@ globals:
   # input_number.panel_calendar_opacity and is editable on the settings
   # page. restore_value: yes so a tuning sticks across reboots.
   - { id: g_calendar_opa_pct, type: int, restore_value: yes, initial_value: '70' }
+  # Slideshow transition effect: 0=Fade 1=SlideLeft 2=SlideRight
+  # 3=SlideUp 4=SlideDown 5=Zoom. Mirrors HA's
+  # input_number.panel_transition_effect helper (if it exists; setting
+  # is panel-local without it). The exit animation runs in
+  # refresh_immich_slideshow before the download starts; the entry
+  # animation runs from on_download_finished after the new image is
+  # decoded and positioned.
+  - { id: g_transition_effect, type: int, restore_value: yes, initial_value: '0' }
   # True once the on_boot lambda has run — every multi-widget opacity cascade,
   # the weather-state lambda, and the weather attribute label-update lambdas
   # gate themselves on this so a HA push that arrives at boot before LVGL is
@@ -280,25 +288,68 @@ online_image:
           // points at an empty buffer at boot and never re-resolves.
           lv_image_set_src(id(slideshow_img), dsc);
           lv_image_set_src(id(dash_bg_img), dsc);
+          int final_x = 0, final_y = 0;
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
-            // Widget auto-sizes to the actual decoded buffer. Centre the
-            // image horizontally across the full 1024-px panel — the
-            // calendar panel sits on top of the left 340 px at 70 % opacity
-            // so the photo shows through behind it.
             int dw = (int)dsc->header.w;
             int dh = (int)dsc->header.h;
-            int x = (1024 - dw) / 2;
-            int y = (600  - dh) / 2;
-            lv_obj_set_pos(id(slideshow_img), x, y);
+            final_x = (1024 - dw) / 2;
+            final_y = (600  - dh) / 2;
+          }
+          lv_obj_clear_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
+          // Entry animation matching the exit run in refresh_immich_slideshow.
+          switch (id(g_transition_effect)) {
+            case 0:  // Fade in
+              lv_obj_set_pos(id(slideshow_img), final_x, final_y);
+              lv_image_set_scale(id(slideshow_img), 256);
+              lv_obj_set_style_opa(id(slideshow_img), 0, 0);
+              lv_obj_fade_in(id(slideshow_img), 500, 0);
+              break;
+            case 1:  // Slide Left — enter from the right
+            case 2:  // Slide Right — enter from the left
+            case 3:  // Slide Up — enter from below
+            case 4: {  // Slide Down — enter from above
+              int start_x = final_x, start_y = final_y;
+              int e = id(g_transition_effect);
+              if (e == 1) start_x = 1024;
+              else if (e == 2) start_x = -1024;
+              else if (e == 3) start_y = 600;
+              else start_y = -600;
+              lv_obj_set_pos(id(slideshow_img), start_x, start_y);
+              lv_image_set_scale(id(slideshow_img), 256);
+              lv_obj_set_style_opa(id(slideshow_img), 255, 0);
+              lv_anim_t a;
+              lv_anim_init(&a);
+              lv_anim_set_var(&a, id(slideshow_img));
+              lv_anim_set_time(&a, 500);
+              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+              if (e == 1 || e == 2) {
+                lv_anim_set_values(&a, start_x, final_x);
+                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+              } else {
+                lv_anim_set_values(&a, start_y, final_y);
+                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+              }
+              lv_anim_start(&a);
+              break;
+            }
+            case 5: {  // Zoom — grow and fade in
+              lv_obj_set_pos(id(slideshow_img), final_x, final_y);
+              lv_image_set_scale(id(slideshow_img), 64);
+              lv_obj_set_style_opa(id(slideshow_img), 0, 0);
+              lv_obj_fade_in(id(slideshow_img), 500, 0);
+              lv_anim_t a;
+              lv_anim_init(&a);
+              lv_anim_set_var(&a, id(slideshow_img));
+              lv_anim_set_time(&a, 500);
+              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+              lv_anim_set_values(&a, 64, 256);
+              lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_image_set_scale);
+              lv_anim_start(&a);
+              break;
+            }
           }
           lv_obj_invalidate(id(slideshow_img));
           lv_obj_invalidate(id(dash_bg_img));
-          // Reveal the widget if a previous fallback hid it, force opa
-          // to 0 (in case fade_out hadn't started yet on a fast network),
-          // then fade in to match the fade_out in refresh_immich_slideshow.
-          lv_obj_clear_flag(id(slideshow_img), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_set_style_opa(id(slideshow_img), 0, 0);
-          lv_obj_fade_in(id(slideshow_img), 500, 0);
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
       - lvgl.widget.hide: error_bar
@@ -397,14 +448,63 @@ script:
       - globals.set:
           id: g_using_fallback
           value: 'false'
-      # Graceful transition: fade the current photo out while the next
-      # one downloads. The decode buffer is mutated mid-fetch, but the
-      # widget is at opa 0 by then so the partial frames are hidden.
-      # The matching fade-in runs from on_download_finished below.
+      # Graceful transition: run an exit animation on slideshow_img,
+      # delay for the duration, then start the download. The matching
+      # entry animation runs from on_download_finished below. Animation
+      # style is user-selectable on the settings page via the
+      # +/- "Slide transition effect" cycler.
       - lambda: |-
-          if (id(g_lvgl_ready)) {
-            lv_obj_fade_out(id(slideshow_img), 500, 0);
+          if (!id(g_lvgl_ready)) return;
+          int cur_x = lv_obj_get_x(id(slideshow_img));
+          int cur_y = lv_obj_get_y(id(slideshow_img));
+          switch (id(g_transition_effect)) {
+            case 0:  // Fade
+              lv_obj_fade_out(id(slideshow_img), 500, 0);
+              break;
+            case 1:  // Slide Left — exit left
+            case 2:  // Slide Right — exit right
+            case 3:  // Slide Up — exit up
+            case 4: {  // Slide Down — exit down
+              lv_anim_t a;
+              lv_anim_init(&a);
+              lv_anim_set_var(&a, id(slideshow_img));
+              lv_anim_set_time(&a, 500);
+              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+              int e = id(g_transition_effect);
+              if (e == 1) {
+                lv_anim_set_values(&a, cur_x, -1024);
+                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+              } else if (e == 2) {
+                lv_anim_set_values(&a, cur_x, 1024);
+                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+              } else if (e == 3) {
+                lv_anim_set_values(&a, cur_y, -600);
+                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+              } else {
+                lv_anim_set_values(&a, cur_y, 600);
+                lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+              }
+              lv_anim_start(&a);
+              break;
+            }
+            case 5: {  // Zoom — shrink and fade
+              lv_obj_fade_out(id(slideshow_img), 500, 0);
+              lv_anim_t a;
+              lv_anim_init(&a);
+              lv_anim_set_var(&a, id(slideshow_img));
+              lv_anim_set_time(&a, 500);
+              lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+              lv_anim_set_values(&a, 256, 64);
+              lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_image_set_scale);
+              lv_anim_start(&a);
+              break;
+            }
           }
+      # Hold for the 500 ms exit before the download mutates the buffer.
+      # On fade and zoom that's not strictly required (opa 0 hides the
+      # corruption) but the slide effects need a clean buffer at the
+      # exit endpoint or they'd flash garbled mid-animation.
+      - delay: 520ms
       - online_image.set_url:
           id: immich_photo
           url: "${proxy_url}/random-photo"
@@ -2836,7 +2936,7 @@ lvgl:
             x: 0
             y: 60
             width: 500
-            height: 490
+            height: 540
             bg_opa: TRANSP
             border_width: 0
             pad_left: 24
@@ -3108,6 +3208,74 @@ lvgl:
                         data:
                           entity_id: input_number.panel_calendar_opacity
                           value: !lambda 'return id(g_calendar_opa_pct);'
+
+              # ── Slideshow transition effect cycler ────────────
+              - label:
+                  x: 0
+                  y: 440
+                  text: "Slide transition effect:"
+                  text_font: montserrat_16
+                  text_color: 0xAAAAAA
+              - button:
+                  x: 0
+                  y: 468
+                  width: 56
+                  height: 40
+                  radius: 20
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "<"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_transition_effect) - 1;
+                        if (v < 0) v = 5;
+                        id(g_transition_effect) = v;
+                        static const char* names[6] = {
+                          "Fade", "Slide Left", "Slide Right",
+                          "Slide Up", "Slide Down", "Zoom"
+                        };
+                        lv_label_set_text(id(settings_effect_val), names[v]);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_transition_effect
+                          value: !lambda 'return id(g_transition_effect);'
+              - label:
+                  id: settings_effect_val
+                  x: 70
+                  y: 474
+                  width: 220
+                  text: "Fade"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - button:
+                  x: 296
+                  y: 468
+                  width: 56
+                  height: 40
+                  radius: 20
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: ">"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_transition_effect) + 1;
+                        if (v > 5) v = 0;
+                        id(g_transition_effect) = v;
+                        static const char* names[6] = {
+                          "Fade", "Slide Left", "Slide Right",
+                          "Slide Up", "Slide Down", "Zoom"
+                        };
+                        lv_label_set_text(id(settings_effect_val), names[v]);
+                    - homeassistant.service:
+                        service: input_number.set_value
+                        data:
+                          entity_id: input_number.panel_transition_effect
+                          value: !lambda 'return id(g_transition_effect);'
 
         # ── Setup guide (right half) ────────────────────────────
         - obj:
