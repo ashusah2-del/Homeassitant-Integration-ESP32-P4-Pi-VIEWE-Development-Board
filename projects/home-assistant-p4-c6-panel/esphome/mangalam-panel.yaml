@@ -132,9 +132,10 @@ esphome:
           if (reason != nullptr) {
             lv_label_set_text(id(crash_reason_lbl), (std::string("Reason: ") + reason).c_str());
             lv_obj_clear_flag(id(crash_overlay), LV_OBJ_FLAG_HIDDEN);
-            // Save the reason so the next HA reconnect pushes it as a
-            // persistent notification into HA — see push_crash_to_ha in
-            // core_ha.yaml's on_client_connected block.
+            // ha_disconnected_overlay is declared after crash_overlay in
+            // the YAML so by default it stacks on top. Force the crash
+            // banner to the front so it is readable before HA reconnects.
+            lv_obj_move_foreground(id(crash_overlay));
             id(g_crash_report) = reason;
           }
           int pct = id(g_calendar_opa_pct);
