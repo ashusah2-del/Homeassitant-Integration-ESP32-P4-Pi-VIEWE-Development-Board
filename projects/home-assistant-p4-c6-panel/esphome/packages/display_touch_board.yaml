@@ -539,9 +539,9 @@ script:
               break;
             }
           }
-          lv_obj_invalidate(in);
-          lv_obj_invalidate(out);
-          lv_obj_invalidate(id(dash_bg_img));
+          // The lv_anim_t callbacks invalidate dirty rects per frame; an
+          // extra explicit invalidate here would force a second full
+          // redraw on top of every step and contributes to flicker.
 
   # Shows the next embedded stock image (cycles through 2 pre-downloaded images).
   # No internet required — images are stored in device flash at build time.
@@ -746,6 +746,13 @@ lvgl:
   color_depth: 16
   byte_order: little_endian
   bg_color: 0x000000
+  # Full-screen render buffer (default is 25 % of screen). Without this
+  # LVGL splits each frame into 4 partial sub-frames and dispatches them
+  # to the MIPI DSI driver as the LCD is mid-scan — visible as tearing
+  # during the slideshow transitions. Full buffer = LVGL composes the
+  # whole frame before flushing, so the panel reads a coherent image.
+  # Costs ~1.2 MB PSRAM (1024 × 600 × RGB565), easily affordable.
+  buffer_size: 100%
   on_idle:
     timeout: "${idle_timeout}"
     then:
