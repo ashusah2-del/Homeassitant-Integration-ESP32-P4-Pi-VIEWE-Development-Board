@@ -195,10 +195,9 @@ online_image:
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
-          // LVGL 9: refresh the widget's src descriptor after each download
-          // so the new frame actually paints (the compile-time src: binding
-          // points at an empty buffer at boot and never re-resolves).
-          lv_image_set_src(id(cam1_widget), id(cam1_thumb).get_lv_image_dsc());
+          // Refresh widget src after each download so the new frame paints
+          // (compile-time src: binding points at an empty buffer at boot).
+          lv_img_set_src(id(cam1_widget), id(cam1_thumb).get_lv_img_dsc());
           lv_obj_invalidate(id(cam1_widget));
   - id: cam2_thumb
     url: "${proxy_url}/camera/${cam2_entity}?size=thumb"
@@ -210,10 +209,9 @@ online_image:
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
-          // LVGL 9: refresh the widget's src descriptor after each download
-          // so the new frame actually paints (the compile-time src: binding
-          // points at an empty buffer at boot and never re-resolves).
-          lv_image_set_src(id(cam2_widget), id(cam2_thumb).get_lv_image_dsc());
+          // Refresh widget src after each download so the new frame paints
+          // (compile-time src: binding points at an empty buffer at boot).
+          lv_img_set_src(id(cam2_widget), id(cam2_thumb).get_lv_img_dsc());
           lv_obj_invalidate(id(cam2_widget));
   - id: cam3_thumb
     url: "${proxy_url}/camera/${cam3_entity}?size=thumb"
@@ -225,10 +223,9 @@ online_image:
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
-          // LVGL 9: refresh the widget's src descriptor after each download
-          // so the new frame actually paints (the compile-time src: binding
-          // points at an empty buffer at boot and never re-resolves).
-          lv_image_set_src(id(cam3_widget), id(cam3_thumb).get_lv_image_dsc());
+          // Refresh widget src after each download so the new frame paints
+          // (compile-time src: binding points at an empty buffer at boot).
+          lv_img_set_src(id(cam3_widget), id(cam3_thumb).get_lv_img_dsc());
           lv_obj_invalidate(id(cam3_widget));
   - id: cam4_thumb
     url: "${proxy_url}/camera/${cam4_entity}?size=thumb"
@@ -240,10 +237,9 @@ online_image:
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
-          // LVGL 9: refresh the widget's src descriptor after each download
-          // so the new frame actually paints (the compile-time src: binding
-          // points at an empty buffer at boot and never re-resolves).
-          lv_image_set_src(id(cam4_widget), id(cam4_thumb).get_lv_image_dsc());
+          // Refresh widget src after each download so the new frame paints
+          // (compile-time src: binding points at an empty buffer at boot).
+          lv_img_set_src(id(cam4_widget), id(cam4_thumb).get_lv_img_dsc());
           lv_obj_invalidate(id(cam4_widget));
   # Live view — single component, URL is swapped per camera on tap. The
   # update is triggered manually on page show (and via a 3s interval that
@@ -258,7 +254,7 @@ online_image:
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
-          lv_image_set_src(id(camera_live_widget), id(camera_live_img).get_lv_image_dsc());
+          lv_img_set_src(id(camera_live_widget), id(camera_live_img).get_lv_img_dsc());
           lv_obj_invalidate(id(camera_live_widget));
 
   # Slideshow uses two online_image components (immich_photo and
@@ -281,7 +277,7 @@ online_image:
       - globals.set: { id: g_immich_ok,      value: 'true'  }
       - globals.set: { id: g_immich_retry,   value: '0'     }
       - globals.set: { id: g_slideshow_slot, value: '0'     }
-      - lambda: 'lv_image_set_src(id(dash_bg_img), id(immich_photo).get_lv_image_dsc());'
+      - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo).get_lv_img_dsc());'
       - script.execute: crossfade_to_active_slot
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
@@ -321,7 +317,7 @@ online_image:
       - globals.set: { id: g_immich_ok,      value: 'true'  }
       - globals.set: { id: g_immich_retry,   value: '0'     }
       - globals.set: { id: g_slideshow_slot, value: '1'     }
-      - lambda: 'lv_image_set_src(id(dash_bg_img), id(immich_photo_b).get_lv_image_dsc());'
+      - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo_b).get_lv_img_dsc());'
       - script.execute: crossfade_to_active_slot
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
@@ -444,11 +440,11 @@ script:
           bool a_active = (id(g_slideshow_slot) == 0);
           lv_obj_t* in  = a_active ? id(slideshow_img)   : id(slideshow_img_b);
           lv_obj_t* out = a_active ? id(slideshow_img_b) : id(slideshow_img);
-          auto dsc = a_active ? id(immich_photo).get_lv_image_dsc()
-                              : id(immich_photo_b).get_lv_image_dsc();
+          auto dsc = a_active ? id(immich_photo).get_lv_img_dsc()
+                              : id(immich_photo_b).get_lv_img_dsc();
           // Repoint the incoming widget at the freshly decoded buffer
           // (LVGL 9: compile-time src binding doesn't re-resolve).
-          lv_image_set_src(in, dsc);
+          lv_img_set_src(in, dsc);
           int final_x = 0, final_y = 0;
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
             final_x = (1024 - (int)dsc->header.w) / 2;
@@ -471,7 +467,7 @@ script:
           switch (e) {
             case 0: {  // Crossfade — new fades up while old fades out
               lv_obj_set_pos(in, final_x, final_y);
-              lv_image_set_scale(in, 256);
+              lv_img_set_zoom(in, 256);
               lv_obj_set_style_opa(in, 0, 0);
               lv_obj_fade_in(in, T, 0);
               lv_obj_fade_out(out, T, 0);
@@ -486,7 +482,7 @@ script:
               else if (e == 3) { in_start_y = 600;   out_end_y = -600;  }
               else             { in_start_y = -600;  out_end_y = 600;   }
               lv_obj_set_pos(in, in_start_x, in_start_y);
-              lv_image_set_scale(in, 256);
+              lv_img_set_zoom(in, 256);
               lv_obj_set_style_opa(in, 255, 0);
               lv_obj_set_style_opa(out, 255, 0);
               // Animate incoming → final
@@ -521,7 +517,7 @@ script:
             }
             case 5: {  // Zoom — new grows + fades in, old shrinks + fades out
               lv_obj_set_pos(in, final_x, final_y);
-              lv_image_set_scale(in, 64);
+              lv_img_set_zoom(in, 64);
               lv_obj_set_style_opa(in, 0, 0);
               lv_obj_fade_in(in, T, 0);
               lv_anim_t ai;
@@ -530,7 +526,7 @@ script:
               lv_anim_set_time(&ai, T);
               lv_anim_set_path_cb(&ai, lv_anim_path_ease_in_out);
               lv_anim_set_values(&ai, 64, 256);
-              lv_anim_set_exec_cb(&ai, (lv_anim_exec_xcb_t)lv_image_set_scale);
+              lv_anim_set_exec_cb(&ai, (lv_anim_exec_xcb_t)lv_img_set_zoom);
               lv_anim_start(&ai);
               lv_obj_fade_out(out, T, 0);
               lv_anim_t ao;
@@ -539,7 +535,7 @@ script:
               lv_anim_set_time(&ao, T);
               lv_anim_set_path_cb(&ao, lv_anim_path_ease_in_out);
               lv_anim_set_values(&ao, 256, 64);
-              lv_anim_set_exec_cb(&ao, (lv_anim_exec_xcb_t)lv_image_set_scale);
+              lv_anim_set_exec_cb(&ao, (lv_anim_exec_xcb_t)lv_img_set_zoom);
               lv_anim_start(&ao);
               break;
             }
