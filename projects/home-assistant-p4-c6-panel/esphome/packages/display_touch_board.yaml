@@ -391,7 +391,16 @@ script:
               lv_label_set_text(labels[i], "No events this week");
               lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
             } else if (idx < total) {
-              lv_label_set_text(labels[i], events[idx].c_str());
+              std::string ev = events[idx];
+              // Replace en-dash (U+2013, UTF-8: E2 80 93) and em-dash (U+2014, UTF-8: E2 80 94)
+              // with ASCII hyphen — LVGL built-in fonts don't include these glyphs.
+              for (size_t p = 0; p + 2 < ev.size(); ) {
+                if ((unsigned char)ev[p] == 0xE2 && (unsigned char)ev[p+1] == 0x80 &&
+                    ((unsigned char)ev[p+2] == 0x93 || (unsigned char)ev[p+2] == 0x94)) {
+                  ev.replace(p, 3, "-");
+                } else { p++; }
+              }
+              lv_label_set_text(labels[i], ev.c_str());
               lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
             } else {
               lv_label_set_text(labels[i], "");
