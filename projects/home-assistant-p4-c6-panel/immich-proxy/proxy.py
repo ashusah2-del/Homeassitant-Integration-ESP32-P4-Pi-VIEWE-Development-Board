@@ -54,17 +54,19 @@ def _sof_type(data: bytes) -> int | None:
     return None
 
 
-def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
-    """Re-encode via Pillow — always SOF0 baseline, resized to fit MAX_W x MAX_H.
+def _to_baseline_jpeg(jpeg_raw: bytes, max_w: int = None, max_h: int = None) -> bytes:
+    """Re-encode via Pillow — always SOF0 baseline, resized to fit max_w x max_h.
 
     subsampling=2 forces 4:2:0 chroma which halves the Cb/Cr data and
     cuts JPEGDEC's per-MCU work on the ESP32-P4 by ~30 %. Combined with
     a smaller MAX_W it brings the worst-case slideshow decode from
     ~5 s back under the 5 s task-watchdog window.
     """
+    w = max_w if max_w is not None else MAX_W
+    h = max_h if max_h is not None else MAX_H
     img = Image.open(io.BytesIO(jpeg_raw))
     img = img.convert("RGB")
-    img.thumbnail((MAX_W, MAX_H), Image.Resampling.LANCZOS)
+    img.thumbnail((w, h), Image.Resampling.LANCZOS)
     out = io.BytesIO()
     img.save(
         out,
@@ -77,7 +79,9 @@ def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
     return out.getvalue()
 
 
-def fetch_safe_jpeg() -> bytes | None:
+def fetch_safe_jpeg(max_w: int = None, max_h: int = None) -> bytes | None:
+    req_max_w = max_w if max_w is not None else MAX_W
+    req_max_h = max_h if max_h is not None else MAX_H
     for attempt in range(RETRIES):
         try:
             # Pull from favourites only — POST /api/search/random with
@@ -119,10 +123,10 @@ def fetch_safe_jpeg() -> bytes | None:
                 continue
             # ALWAYS resize+re-encode. Full-size JPEGs (1440x1920 ≈ 5.5MB RGB565)
             # exhaust ESP32 PSRAM during decode and crash the device.
-            result = _to_baseline_jpeg(jpeg_raw)
+            result = _to_baseline_jpeg(jpeg_raw, req_max_w, req_max_h)
             log.info(
                 "asset %s SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
-                asset_id, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
+                asset_id, sof, len(jpeg_raw), len(result), req_max_w, req_max_h,
             )
             return result
 
@@ -168,8 +172,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Immich slideshow
-        if self.path == "/random-photo":
-            jpeg = fetch_safe_jpeg()
+        # Optional query params: ?half=1 (cap to 512x600), or ?w=N&h=N
+        if self.path == "/random-photo" or self.path.startswith("/random-photo?"):
+            req_w, req_h = MAX_W, MAX_H
+            if "?" in self.path:
+                for kv in self.path.split("?", 1)[1].split("&"):
+                    if kv == "half=1":
+                        req_w, req_h = 512, MAX_H
+                    elif kv.startswith("w="):
+                        try: req_w = int(kv[2:])
+                        except ValueError: pass
+                    elif kv.startswith("h="):
+                        try: req_h = int(kv[2:])
+                        except ValueError: pass
+            jpeg = fetch_safe_jpeg(req_w, req_h)
             if jpeg:
                 self.send_response(200)
                 self.send_header("Content-Type", "image/jpeg")
