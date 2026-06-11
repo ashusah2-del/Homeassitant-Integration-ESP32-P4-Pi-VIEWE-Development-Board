@@ -295,9 +295,16 @@ online_image:
             lambda: 'return id(g_portrait_mode);'
           then:
             - globals.set: { id: g_using_fallback, value: 'false' }
-            - lambda: |-
-                id(g_portrait_dl_count)++;
-                if (id(g_portrait_dl_count) >= 2) id(show_portrait_pair).execute();
+            - lambda: 'id(g_portrait_dl_count)++;'
+            - if:
+                condition:
+                  lambda: 'return id(g_portrait_dl_count) == 1;'
+                then:
+                  # Left image ready — chain the right image download serially.
+                  - online_image.set_url:
+                      id: immich_photo_b
+                      url: "${proxy_url}/random-photo?half=1"
+                      update: true
           else:
             - globals.set: { id: g_using_fallback, value: 'false' }
             - globals.set: { id: g_slideshow_slot, value: '0'     }
@@ -458,13 +465,11 @@ script:
             lambda: 'return id(g_portrait_mode);'
           then:
             - globals.set: { id: g_portrait_dl_count, value: '0' }
-            # Kick off both slots concurrently — each gets a different random image.
+            # Serial download: fetch left image first; immich_photo's
+            # on_download_finished chains the right (immich_photo_b) download
+            # when count==1, then show_portrait_pair fires when count==2.
             - online_image.set_url:
                 id: immich_photo
-                url: "${proxy_url}/random-photo?half=1"
-                update: true
-            - online_image.set_url:
-                id: immich_photo_b
                 url: "${proxy_url}/random-photo?half=1"
                 update: true
           else:
