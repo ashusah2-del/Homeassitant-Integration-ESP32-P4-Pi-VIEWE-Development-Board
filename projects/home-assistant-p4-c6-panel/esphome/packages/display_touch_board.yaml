@@ -189,6 +189,7 @@ online_image:
     url: "${proxy_url}/camera/${cam1_entity}?size=thumb"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
     update_interval: 60s
@@ -203,6 +204,7 @@ online_image:
     url: "${proxy_url}/camera/${cam2_entity}?size=thumb"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
     update_interval: 60s
@@ -217,6 +219,7 @@ online_image:
     url: "${proxy_url}/camera/${cam3_entity}?size=thumb"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
     update_interval: 60s
@@ -231,6 +234,7 @@ online_image:
     url: "${proxy_url}/camera/${cam4_entity}?size=thumb"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
     update_interval: 60s
@@ -248,6 +252,7 @@ online_image:
     url: "${proxy_url}/camera/${cam1_entity}?size=full"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 600x340
     buffer_size: 65536
     update_interval: never
@@ -267,6 +272,7 @@ online_image:
     url: "${proxy_url}/random-photo"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 1024x600
     buffer_size: 65536
     update_interval: never
@@ -307,6 +313,7 @@ online_image:
     url: "${proxy_url}/random-photo"
     format: JPEG
     type: RGB565
+    byte_order: LITTLE_ENDIAN
     resize: 1024x600
     buffer_size: 65536
     update_interval: never
