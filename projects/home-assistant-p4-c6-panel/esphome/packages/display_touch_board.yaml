@@ -626,8 +626,9 @@ script:
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
 
   # Portrait side-by-side: called when both half-width downloads complete.
-  # Positions immich_photo on the left (x=0) and immich_photo_b on the right
-  # (x=512) then fades both in simultaneously over 1.5 s.
+  # Packs the two images edge-to-edge and centers the combined pair on the
+  # panel — no fixed x=512 split, so images of different actual widths sit
+  # flush against each other with no gap.
   - id: show_portrait_pair
     mode: single
     then:
@@ -639,11 +640,24 @@ script:
           lv_obj_move_background(rimg);
           lv_obj_move_background(limg);
           // Wire up fresh buffers.
-          lv_img_set_src(limg, id(immich_photo).get_lv_img_dsc());
-          lv_img_set_src(rimg, id(immich_photo_b).get_lv_img_dsc());
-          // Place left half at x=0, right half at x=512.
-          lv_obj_set_pos(limg, 0, 0);
-          lv_obj_set_pos(rimg, 512, 0);
+          auto dsc_l = id(immich_photo).get_lv_img_dsc();
+          auto dsc_r = id(immich_photo_b).get_lv_img_dsc();
+          lv_img_set_src(limg, dsc_l);
+          lv_img_set_src(rimg, dsc_r);
+          // Read actual decoded dimensions (fall back to 512/600 if null).
+          int w_l = (dsc_l != nullptr && dsc_l->header.w > 0) ? (int)dsc_l->header.w : 512;
+          int w_r = (dsc_r != nullptr && dsc_r->header.w > 0) ? (int)dsc_r->header.w : 512;
+          int h_l = (dsc_l != nullptr && dsc_l->header.h > 0) ? (int)dsc_l->header.h : 600;
+          int h_r = (dsc_r != nullptr && dsc_r->header.h > 0) ? (int)dsc_r->header.h : 600;
+          // Center the pair horizontally; right image abuts left with no gap.
+          int total_w = w_l + w_r;
+          int pair_x  = (1024 - total_w) / 2;
+          if (pair_x < 0) pair_x = 0;
+          // Vertically center each image independently.
+          int left_y  = (600 - h_l) / 2;
+          int right_y = (600 - h_r) / 2;
+          lv_obj_set_pos(limg, pair_x,         left_y);
+          lv_obj_set_pos(rimg, pair_x + w_l,   right_y);
           lv_img_set_zoom(limg, 256);
           lv_img_set_zoom(rimg, 256);
           // Fade both in from transparent.
@@ -654,7 +668,7 @@ script:
           lv_obj_fade_in(limg, 1500, 0);
           lv_obj_fade_in(rimg, 1500, 0);
           // Mirror left image on the dashboard background widget.
-          lv_img_set_src(id(dash_bg_img), id(immich_photo).get_lv_img_dsc());
+          lv_img_set_src(id(dash_bg_img), dsc_l);
       - lvgl.widget.hide: stock_fallback_img
       - lvgl.widget.hide: slideshow_placeholder_obj
       - lvgl.widget.hide: error_bar
