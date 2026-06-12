@@ -497,6 +497,11 @@ script:
               break;
             }
             case 1: case 2: case 3: case 4: {  // Slides — both translate
+              // Slides cover the full 1024px width including the calendar area.
+              // Temporarily make the calendar fully opaque so the image moving
+              // under its 70% transparency doesn't make the whole screen appear
+              // to slide. Restored after the animation by the ESPHome action below.
+              lv_obj_set_style_opa(id(calendar_panel), LV_OPA_COVER, 0);
               int in_start_x = final_x, in_start_y = final_y;
               int out_start_x = lv_obj_get_x(out), out_start_y = lv_obj_get_y(out);
               int out_end_x = out_start_x, out_end_y = out_start_y;
@@ -566,6 +571,20 @@ script:
           // The lv_anim_t callbacks invalidate dirty rects per frame; an
           // extra explicit invalidate here would force a second full
           // redraw on top of every step and contributes to flicker.
+      # Wait for the slide animation to finish, then restore the calendar's
+      # configured opacity. Only runs for slide effects (1-4); crossfade/zoom
+      # leave the calendar at its configured opacity throughout.
+      - if:
+          condition:
+            lambda: 'return id(g_transition_effect) >= 1 && id(g_transition_effect) <= 4;'
+          then:
+            - delay: 1600ms
+            - lambda: |-
+                if (!id(g_lvgl_ready)) return;
+                int pct = id(g_calendar_opa_pct);
+                if (pct < 0) pct = 0;
+                if (pct > 100) pct = 100;
+                lv_obj_set_style_opa(id(calendar_panel), (uint32_t)((pct * 255) / 100), 0);
 
   # Shows the next embedded stock image (cycles through 2 pre-downloaded images).
   # No internet required — images are stored in device flash at build time.
