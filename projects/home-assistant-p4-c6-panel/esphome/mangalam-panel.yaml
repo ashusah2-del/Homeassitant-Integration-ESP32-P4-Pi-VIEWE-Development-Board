@@ -8,8 +8,8 @@ substitutions:
   proxy_url: !secret immich_proxy_url
   idle_timeout: 30s
   fallback_ap_ssid: !secret fallback_ap_ssid
-  # Alexa Echo used for room-button announcements.
-  alexa_entity: "media_player.ashok_s_echo"
+  # HA script that handles room-button announcements (Alexa device set there).
+  announce_script: "script.panel_announce"
 
   # Room dashboard — 5 rooms with light + climate, mapped to Mangalam Pro HA entities.
   # Drawing Room uses a switch (no brightness); others are dimmable light entities.
