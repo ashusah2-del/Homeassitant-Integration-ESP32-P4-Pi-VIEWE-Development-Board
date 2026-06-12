@@ -47,6 +47,13 @@ voice_assistant:
   microphone: panel_mic
   media_player: panel_media_player
   use_wake_word: true
+  on_tts_start:
+    - homeassistant.service:
+        service: "${announce_script}"
+        variables:
+          msg: "return x;"
+        data_template:
+          message: "{{ msg }}"
 
 sensor:
   - platform: adc
