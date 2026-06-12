@@ -10,7 +10,7 @@ substitutions:
   fallback_ap_ssid: !secret fallback_ap_ssid
   # HA media_player entity created by the media_player: speaker component in
   # audio_voice_board.yaml. Used for tts.speak announcements from room buttons.
-  panel_speaker_entity: "media_player.guition_p4_7inch_ha_panel_speaker"
+  panel_speaker_entity: "media_player.mangalam_guition_p4_7inch_ha_panel_speaker"
 
   # Room dashboard — 5 rooms with light + climate, mapped to Mangalam Pro HA entities.
   # Drawing Room uses a switch (no brightness); others are dimmable light entities.
