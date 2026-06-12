@@ -165,13 +165,6 @@ globals:
   # so the visible image is never disturbed mid-fetch; on_download_finished
   # then crossfades old → new with no blank moment.
   - { id: g_slideshow_slot, type: int, restore_value: no, initial_value: '0' }
-  # Portrait side-by-side mode — alternates with landscape each refresh.
-  # When true, both online_image slots download a half-width (?half=1) image
-  # and are placed at x=0 and x=512 side by side.
-  - { id: g_portrait_mode,     type: bool, restore_value: no, initial_value: 'false' }
-  # Counts how many of the two portrait-slot downloads have completed;
-  # show_portrait_pair fires when this reaches 2.
-  - { id: g_portrait_dl_count, type: int,  restore_value: no, initial_value: '0' }
   # True once the on_boot lambda has run — every multi-widget opacity cascade,
   # the weather-state lambda, and the weather attribute label-update lambdas
   # gate themselves on this so a HA push that arrives at boot before LVGL is
@@ -288,35 +281,18 @@ online_image:
     request_headers:
       Accept: image/jpeg
     on_download_finished:
-      - globals.set: { id: g_immich_ok,    value: 'true' }
-      - globals.set: { id: g_immich_retry, value: '0'    }
-      - if:
-          condition:
-            lambda: 'return id(g_portrait_mode);'
-          then:
-            - globals.set: { id: g_using_fallback, value: 'false' }
-            - lambda: 'id(g_portrait_dl_count)++;'
-            - if:
-                condition:
-                  lambda: 'return id(g_portrait_dl_count) == 1;'
-                then:
-                  # Left image ready — chain the right image download serially.
-                  - online_image.set_url:
-                      id: immich_photo_b
-                      url: "${proxy_url}/random-photo?half=1"
-                      update: true
-          else:
-            - globals.set: { id: g_using_fallback, value: 'false' }
-            - globals.set: { id: g_slideshow_slot, value: '0'     }
-            - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo).get_lv_img_dsc());'
-            - script.execute: crossfade_to_active_slot
-            - lvgl.widget.hide: stock_fallback_img
-            - lvgl.widget.hide: slideshow_placeholder_obj
-            - lvgl.widget.hide: error_bar
-            - lvgl.label.update: { id: dash_error_lbl, text: "" }
+      - globals.set: { id: g_using_fallback, value: 'false' }
+      - globals.set: { id: g_immich_ok,      value: 'true'  }
+      - globals.set: { id: g_immich_retry,   value: '0'     }
+      - globals.set: { id: g_slideshow_slot, value: '0'     }
+      - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo).get_lv_img_dsc());'
+      - script.execute: crossfade_to_active_slot
+      - lvgl.widget.hide: stock_fallback_img
+      - lvgl.widget.hide: slideshow_placeholder_obj
+      - lvgl.widget.hide: error_bar
+      - lvgl.label.update: { id: dash_error_lbl, text: "" }
     on_error:
-      - globals.set: { id: g_immich_ok,      value: 'false' }
-      - globals.set: { id: g_portrait_mode,  value: 'false' }
+      - globals.set: { id: g_immich_ok, value: 'false' }
       - if:
           condition:
             lambda: return !id(g_using_fallback) && id(g_immich_retry) < 3;
@@ -346,28 +322,18 @@ online_image:
     request_headers:
       Accept: image/jpeg
     on_download_finished:
-      - globals.set: { id: g_immich_ok,    value: 'true' }
-      - globals.set: { id: g_immich_retry, value: '0'    }
-      - if:
-          condition:
-            lambda: 'return id(g_portrait_mode);'
-          then:
-            - globals.set: { id: g_using_fallback, value: 'false' }
-            - lambda: |-
-                id(g_portrait_dl_count)++;
-                if (id(g_portrait_dl_count) >= 2) id(show_portrait_pair).execute();
-          else:
-            - globals.set: { id: g_using_fallback, value: 'false' }
-            - globals.set: { id: g_slideshow_slot, value: '1'     }
-            - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo_b).get_lv_img_dsc());'
-            - script.execute: crossfade_to_active_slot
-            - lvgl.widget.hide: stock_fallback_img
-            - lvgl.widget.hide: slideshow_placeholder_obj
-            - lvgl.widget.hide: error_bar
-            - lvgl.label.update: { id: dash_error_lbl, text: "" }
+      - globals.set: { id: g_using_fallback, value: 'false' }
+      - globals.set: { id: g_immich_ok,      value: 'true'  }
+      - globals.set: { id: g_immich_retry,   value: '0'     }
+      - globals.set: { id: g_slideshow_slot, value: '1'     }
+      - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo_b).get_lv_img_dsc());'
+      - script.execute: crossfade_to_active_slot
+      - lvgl.widget.hide: stock_fallback_img
+      - lvgl.widget.hide: slideshow_placeholder_obj
+      - lvgl.widget.hide: error_bar
+      - lvgl.label.update: { id: dash_error_lbl, text: "" }
     on_error:
-      - globals.set: { id: g_immich_ok,     value: 'false' }
-      - globals.set: { id: g_portrait_mode, value: 'false' }
+      - globals.set: { id: g_immich_ok, value: 'false' }
       - if:
           condition:
             lambda: return !id(g_using_fallback) && id(g_immich_retry) < 3;
@@ -455,38 +421,29 @@ script:
   - id: refresh_immich_slideshow
     mode: restart
     then:
-      - globals.set: { id: g_using_fallback, value: 'false' }
-      # Alternate portrait (two half-width side-by-side) and landscape (one
-      # full-width) on each refresh tick. Portrait uses ?half=1 to ask the
-      # proxy to cap images at 512x600 instead of 800x600.
-      - lambda: 'id(g_portrait_mode) = !id(g_portrait_mode);'
+      - globals.set:
+          id: g_using_fallback
+          value: 'false'
+      # Double-buffered slideshow: kick off the download into the slot
+      # that's currently NOT on screen. The visible slot keeps painting
+      # at full opacity throughout the fetch+decode (no exit animation
+      # here). When the new buffer finishes, on_download_finished triggers
+      # crossfade_to_active_slot, which runs the slide/fade/zoom on both
+      # widgets simultaneously so the previous image overlaps the new
+      # one mid-transition.
       - if:
           condition:
-            lambda: 'return id(g_portrait_mode);'
+            lambda: 'return id(g_slideshow_slot) == 0;'
           then:
-            - globals.set: { id: g_portrait_dl_count, value: '0' }
-            # Serial download: fetch left image first; immich_photo's
-            # on_download_finished chains the right (immich_photo_b) download
-            # when count==1, then show_portrait_pair fires when count==2.
             - online_image.set_url:
-                id: immich_photo
-                url: "${proxy_url}/random-photo?half=1"
+                id: immich_photo_b
+                url: "${proxy_url}/random-photo"
                 update: true
           else:
-            # Landscape: double-buffered — download into the inactive slot only.
-            - if:
-                condition:
-                  lambda: 'return id(g_slideshow_slot) == 0;'
-                then:
-                  - online_image.set_url:
-                      id: immich_photo_b
-                      url: "${proxy_url}/random-photo"
-                      update: true
-                else:
-                  - online_image.set_url:
-                      id: immich_photo
-                      url: "${proxy_url}/random-photo"
-                      update: true
+            - online_image.set_url:
+                id: immich_photo
+                url: "${proxy_url}/random-photo"
+                update: true
 
   # Crossfade the just-loaded slot in while the previously-visible slot
   # transitions out, with both animations running simultaneously so the
@@ -629,55 +586,6 @@ script:
           lv_obj_add_flag(id(slideshow_img),   LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_img_b), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
-
-  # Portrait side-by-side: called when both half-width downloads complete.
-  # Packs the two images edge-to-edge and centers the combined pair on the
-  # panel — no fixed x=512 split, so images of different actual widths sit
-  # flush against each other with no gap.
-  - id: show_portrait_pair
-    mode: single
-    then:
-      - lambda: |-
-          if (!id(g_lvgl_ready)) return;
-          lv_obj_t* limg = id(slideshow_img);
-          lv_obj_t* rimg = id(slideshow_img_b);
-          // Push both behind all overlay widgets.
-          lv_obj_move_background(rimg);
-          lv_obj_move_background(limg);
-          // Wire up fresh buffers.
-          auto dsc_l = id(immich_photo).get_lv_img_dsc();
-          auto dsc_r = id(immich_photo_b).get_lv_img_dsc();
-          lv_img_set_src(limg, dsc_l);
-          lv_img_set_src(rimg, dsc_r);
-          // Read actual decoded dimensions (fall back to 512/600 if null).
-          int w_l = (dsc_l != nullptr && dsc_l->header.w > 0) ? (int)dsc_l->header.w : 512;
-          int w_r = (dsc_r != nullptr && dsc_r->header.w > 0) ? (int)dsc_r->header.w : 512;
-          int h_l = (dsc_l != nullptr && dsc_l->header.h > 0) ? (int)dsc_l->header.h : 600;
-          int h_r = (dsc_r != nullptr && dsc_r->header.h > 0) ? (int)dsc_r->header.h : 600;
-          // Center the pair horizontally; right image abuts left with no gap.
-          int total_w = w_l + w_r;
-          int pair_x  = (1024 - total_w) / 2;
-          if (pair_x < 0) pair_x = 0;
-          // Vertically center each image independently.
-          int left_y  = (600 - h_l) / 2;
-          int right_y = (600 - h_r) / 2;
-          lv_obj_set_pos(limg, pair_x,         left_y);
-          lv_obj_set_pos(rimg, pair_x + w_l,   right_y);
-          lv_img_set_zoom(limg, 256);
-          lv_img_set_zoom(rimg, 256);
-          // Fade both in from transparent.
-          lv_obj_set_style_opa(limg, 0, 0);
-          lv_obj_set_style_opa(rimg, 0, 0);
-          lv_obj_clear_flag(limg, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_clear_flag(rimg, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_fade_in(limg, 1500, 0);
-          lv_obj_fade_in(rimg, 1500, 0);
-          // Mirror left image on the dashboard background widget.
-          lv_img_set_src(id(dash_bg_img), dsc_l);
-      - lvgl.widget.hide: stock_fallback_img
-      - lvgl.widget.hide: slideshow_placeholder_obj
-      - lvgl.widget.hide: error_bar
-      - lvgl.label.update: { id: dash_error_lbl, text: "" }
 
 interval:
   # Slideshow refresh — fires every minute, only executes the refresh
