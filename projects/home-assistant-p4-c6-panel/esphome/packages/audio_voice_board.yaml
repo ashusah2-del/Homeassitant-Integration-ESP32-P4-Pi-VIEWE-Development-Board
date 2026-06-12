@@ -45,7 +45,7 @@ micro_wake_word:
 voice_assistant:
   id: panel_va
   microphone: panel_mic
-  speaker: panel_spk
+  media_player: panel_media_player
   use_wake_word: true
 
 sensor:

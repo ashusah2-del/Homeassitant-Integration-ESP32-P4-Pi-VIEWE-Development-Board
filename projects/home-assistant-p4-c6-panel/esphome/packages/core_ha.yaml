@@ -103,6 +103,7 @@ safe_mode:
 time:
   - platform: homeassistant
     id: ha_time
+    timezone: Europe/London
 
 text_sensor:
   - platform: wifi_info
