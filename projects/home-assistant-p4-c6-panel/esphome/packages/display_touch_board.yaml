@@ -1379,6 +1379,17 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room1_light}"
+              - homeassistant.service:
+                  service: assist_satellite.announce
+                  data:
+                    entity_id: "${assist_satellite}"
+                  variables:
+                    msg: |-
+                      std::string s = id(room1_state).state;
+                      return s == "on" ? std::string("${room1_label} lights off")
+                                       : std::string("${room1_label} lights on");
+                  data_template:
+                    message: "{{ msg }}"
             widgets:
               - image:
                   id: room1_icon
@@ -1442,6 +1453,17 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room2_light}"
+              - homeassistant.service:
+                  service: assist_satellite.announce
+                  data:
+                    entity_id: "${assist_satellite}"
+                  variables:
+                    msg: |-
+                      std::string s = id(room2_state).state;
+                      return s == "on" ? std::string("${room2_label} lights off")
+                                       : std::string("${room2_label} lights on");
+                  data_template:
+                    message: "{{ msg }}"
             widgets:
               - image:
                   id: room2_icon
@@ -1518,6 +1540,17 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room3_light}"
+              - homeassistant.service:
+                  service: assist_satellite.announce
+                  data:
+                    entity_id: "${assist_satellite}"
+                  variables:
+                    msg: |-
+                      std::string s = id(room3_state).state;
+                      return s == "on" ? std::string("${room3_label} lights off")
+                                       : std::string("${room3_label} lights on");
+                  data_template:
+                    message: "{{ msg }}"
             widgets:
               - image:
                   id: room3_icon
@@ -1578,6 +1611,17 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room4_light}"
+              - homeassistant.service:
+                  service: assist_satellite.announce
+                  data:
+                    entity_id: "${assist_satellite}"
+                  variables:
+                    msg: |-
+                      std::string s = id(room4_state).state;
+                      return s == "on" ? std::string("${room4_label} lights off")
+                                       : std::string("${room4_label} lights on");
+                  data_template:
+                    message: "{{ msg }}"
             widgets:
               - image:
                   id: room4_icon
@@ -1654,6 +1698,17 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room5_light}"
+              - homeassistant.service:
+                  service: assist_satellite.announce
+                  data:
+                    entity_id: "${assist_satellite}"
+                  variables:
+                    msg: |-
+                      std::string s = id(room5_state).state;
+                      return s == "on" ? std::string("${room5_label} lights off")
+                                       : std::string("${room5_label} lights on");
+                  data_template:
+                    message: "{{ msg }}"
             widgets:
               - image:
                   id: room5_icon
@@ -1730,6 +1785,17 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room6_light}"
+              - homeassistant.service:
+                  service: assist_satellite.announce
+                  data:
+                    entity_id: "${assist_satellite}"
+                  variables:
+                    msg: |-
+                      std::string s = id(room6_state).state;
+                      return s == "on" ? std::string("${room6_label} lights off")
+                                       : std::string("${room6_label} lights on");
+                  data_template:
+                    message: "{{ msg }}"
             widgets:
               - image:
                   id: room6_icon
