@@ -1379,26 +1379,18 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room1_light}"
-              - microphone.stop_capture: panel_mic
-              - delay: 300ms
               - homeassistant.service:
-                  service: tts.speak
+                  service: media_player.play_media
                   data:
-                    entity_id: tts.piper
-                    media_player_entity_id: "${panel_speaker_entity}"
+                    entity_id: "${alexa_entity}"
+                    media_content_type: tts
                   variables:
                     msg: |-
                       std::string s = id(room1_state).state;
                       return s == "on" ? std::string("${room1_label} lights off")
                                        : std::string("${room1_label} lights on");
                   data_template:
-                    message: "{{ msg }}"
-              - delay: 800ms
-              - wait_until:
-                  condition:
-                    media_player.is_idle: panel_media_player
-                  timeout: 10s
-              - microphone.capture: panel_mic
+                    media_content_id: "{{ msg }}"
             widgets:
               - image:
                   id: room1_icon
@@ -1462,26 +1454,18 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room2_light}"
-              - microphone.stop_capture: panel_mic
-              - delay: 300ms
               - homeassistant.service:
-                  service: tts.speak
+                  service: media_player.play_media
                   data:
-                    entity_id: tts.piper
-                    media_player_entity_id: "${panel_speaker_entity}"
+                    entity_id: "${alexa_entity}"
+                    media_content_type: tts
                   variables:
                     msg: |-
                       std::string s = id(room2_state).state;
                       return s == "on" ? std::string("${room2_label} lights off")
                                        : std::string("${room2_label} lights on");
                   data_template:
-                    message: "{{ msg }}"
-              - delay: 800ms
-              - wait_until:
-                  condition:
-                    media_player.is_idle: panel_media_player
-                  timeout: 10s
-              - microphone.capture: panel_mic
+                    media_content_id: "{{ msg }}"
             widgets:
               - image:
                   id: room2_icon
@@ -1558,26 +1542,18 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room3_light}"
-              - microphone.stop_capture: panel_mic
-              - delay: 300ms
               - homeassistant.service:
-                  service: tts.speak
+                  service: media_player.play_media
                   data:
-                    entity_id: tts.piper
-                    media_player_entity_id: "${panel_speaker_entity}"
+                    entity_id: "${alexa_entity}"
+                    media_content_type: tts
                   variables:
                     msg: |-
                       std::string s = id(room3_state).state;
                       return s == "on" ? std::string("${room3_label} lights off")
                                        : std::string("${room3_label} lights on");
                   data_template:
-                    message: "{{ msg }}"
-              - delay: 800ms
-              - wait_until:
-                  condition:
-                    media_player.is_idle: panel_media_player
-                  timeout: 10s
-              - microphone.capture: panel_mic
+                    media_content_id: "{{ msg }}"
             widgets:
               - image:
                   id: room3_icon
@@ -1638,26 +1614,18 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room4_light}"
-              - microphone.stop_capture: panel_mic
-              - delay: 300ms
               - homeassistant.service:
-                  service: tts.speak
+                  service: media_player.play_media
                   data:
-                    entity_id: tts.piper
-                    media_player_entity_id: "${panel_speaker_entity}"
+                    entity_id: "${alexa_entity}"
+                    media_content_type: tts
                   variables:
                     msg: |-
                       std::string s = id(room4_state).state;
                       return s == "on" ? std::string("${room4_label} lights off")
                                        : std::string("${room4_label} lights on");
                   data_template:
-                    message: "{{ msg }}"
-              - delay: 800ms
-              - wait_until:
-                  condition:
-                    media_player.is_idle: panel_media_player
-                  timeout: 10s
-              - microphone.capture: panel_mic
+                    media_content_id: "{{ msg }}"
             widgets:
               - image:
                   id: room4_icon
@@ -1734,26 +1702,18 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room5_light}"
-              - microphone.stop_capture: panel_mic
-              - delay: 300ms
               - homeassistant.service:
-                  service: tts.speak
+                  service: media_player.play_media
                   data:
-                    entity_id: tts.piper
-                    media_player_entity_id: "${panel_speaker_entity}"
+                    entity_id: "${alexa_entity}"
+                    media_content_type: tts
                   variables:
                     msg: |-
                       std::string s = id(room5_state).state;
                       return s == "on" ? std::string("${room5_label} lights off")
                                        : std::string("${room5_label} lights on");
                   data_template:
-                    message: "{{ msg }}"
-              - delay: 800ms
-              - wait_until:
-                  condition:
-                    media_player.is_idle: panel_media_player
-                  timeout: 10s
-              - microphone.capture: panel_mic
+                    media_content_id: "{{ msg }}"
             widgets:
               - image:
                   id: room5_icon
@@ -1830,26 +1790,18 @@ lvgl:
                   service: homeassistant.toggle
                   data:
                     entity_id: "${room6_light}"
-              - microphone.stop_capture: panel_mic
-              - delay: 300ms
               - homeassistant.service:
-                  service: tts.speak
+                  service: media_player.play_media
                   data:
-                    entity_id: tts.piper
-                    media_player_entity_id: "${panel_speaker_entity}"
+                    entity_id: "${alexa_entity}"
+                    media_content_type: tts
                   variables:
                     msg: |-
                       std::string s = id(room6_state).state;
                       return s == "on" ? std::string("${room6_label} lights off")
                                        : std::string("${room6_label} lights on");
                   data_template:
-                    message: "{{ msg }}"
-              - delay: 800ms
-              - wait_until:
-                  condition:
-                    media_player.is_idle: panel_media_player
-                  timeout: 10s
-              - microphone.capture: panel_mic
+                    media_content_id: "{{ msg }}"
             widgets:
               - image:
                   id: room6_icon
