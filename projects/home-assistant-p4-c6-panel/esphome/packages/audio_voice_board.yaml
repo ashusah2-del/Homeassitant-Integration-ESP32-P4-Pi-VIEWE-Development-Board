@@ -39,6 +39,7 @@ media_player:
       format: FLAC
 
 micro_wake_word:
+  id: panel_mww
   models:
     - model: okay_nabu
 
@@ -46,6 +47,7 @@ voice_assistant:
   id: panel_va
   microphone: panel_mic
   media_player: panel_media_player
+  micro_wake_word: panel_mww
   use_wake_word: true
   on_wake_word_detected:
     - lambda: |-
