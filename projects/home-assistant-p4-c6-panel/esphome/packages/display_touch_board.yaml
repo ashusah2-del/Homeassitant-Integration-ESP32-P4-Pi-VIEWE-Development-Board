@@ -1380,9 +1380,10 @@ lvgl:
                   data:
                     entity_id: "${room1_light}"
               - homeassistant.service:
-                  service: assist_satellite.announce
+                  service: tts.speak
                   data:
-                    entity_id: "${assist_satellite}"
+                    entity_id: tts.piper
+                    media_player_entity_id: "${panel_speaker_entity}"
                   variables:
                     msg: |-
                       std::string s = id(room1_state).state;
@@ -1454,9 +1455,10 @@ lvgl:
                   data:
                     entity_id: "${room2_light}"
               - homeassistant.service:
-                  service: assist_satellite.announce
+                  service: tts.speak
                   data:
-                    entity_id: "${assist_satellite}"
+                    entity_id: tts.piper
+                    media_player_entity_id: "${panel_speaker_entity}"
                   variables:
                     msg: |-
                       std::string s = id(room2_state).state;
@@ -1541,9 +1543,10 @@ lvgl:
                   data:
                     entity_id: "${room3_light}"
               - homeassistant.service:
-                  service: assist_satellite.announce
+                  service: tts.speak
                   data:
-                    entity_id: "${assist_satellite}"
+                    entity_id: tts.piper
+                    media_player_entity_id: "${panel_speaker_entity}"
                   variables:
                     msg: |-
                       std::string s = id(room3_state).state;
@@ -1612,9 +1615,10 @@ lvgl:
                   data:
                     entity_id: "${room4_light}"
               - homeassistant.service:
-                  service: assist_satellite.announce
+                  service: tts.speak
                   data:
-                    entity_id: "${assist_satellite}"
+                    entity_id: tts.piper
+                    media_player_entity_id: "${panel_speaker_entity}"
                   variables:
                     msg: |-
                       std::string s = id(room4_state).state;
@@ -1699,9 +1703,10 @@ lvgl:
                   data:
                     entity_id: "${room5_light}"
               - homeassistant.service:
-                  service: assist_satellite.announce
+                  service: tts.speak
                   data:
-                    entity_id: "${assist_satellite}"
+                    entity_id: tts.piper
+                    media_player_entity_id: "${panel_speaker_entity}"
                   variables:
                     msg: |-
                       std::string s = id(room5_state).state;
@@ -1786,9 +1791,10 @@ lvgl:
                   data:
                     entity_id: "${room6_light}"
               - homeassistant.service:
-                  service: assist_satellite.announce
+                  service: tts.speak
                   data:
-                    entity_id: "${assist_satellite}"
+                    entity_id: tts.piper
+                    media_player_entity_id: "${panel_speaker_entity}"
                   variables:
                     msg: |-
                       std::string s = id(room6_state).state;

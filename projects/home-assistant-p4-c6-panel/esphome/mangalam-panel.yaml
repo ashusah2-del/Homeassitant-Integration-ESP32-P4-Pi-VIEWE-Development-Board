@@ -8,10 +8,9 @@ substitutions:
   proxy_url: !secret immich_proxy_url
   idle_timeout: 30s
   fallback_ap_ssid: !secret fallback_ap_ssid
-  # HA assist_satellite entity created automatically by the voice_assistant
-  # integration. Check HA → Settings → Devices & Services → ESPHome device
-  # to confirm the exact entity ID if announcements don't play.
-  assist_satellite: "assist_satellite.guition_p4_7inch_ha_panel"
+  # HA media_player entity created by the media_player: speaker component in
+  # audio_voice_board.yaml. Used for tts.speak announcements from room buttons.
+  panel_speaker_entity: "media_player.guition_p4_7inch_ha_panel_speaker"
 
   # Room dashboard — 5 rooms with light + climate, mapped to Mangalam Pro HA entities.
   # Drawing Room uses a switch (no brightness); others are dimmable light entities.

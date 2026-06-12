@@ -30,6 +30,14 @@ speaker:
     bits_per_sample: 16bit
     sample_rate: 48000
 
+media_player:
+  - platform: speaker
+    name: "Speaker"
+    id: panel_media_player
+    announcement_pipeline:
+      speaker: panel_spk
+      format: FLAC
+
 micro_wake_word:
   models:
     - model: okay_nabu
