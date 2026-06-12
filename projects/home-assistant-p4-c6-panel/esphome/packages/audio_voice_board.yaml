@@ -47,13 +47,49 @@ voice_assistant:
   microphone: panel_mic
   media_player: panel_media_player
   use_wake_word: true
+  on_wake_word_detected:
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x003300), 0);
+        lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0x00EE00), 0);
+        lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0x00EE00), 0);
+        lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_mic_label), "Listening...");
+        lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(0x00EE00), 0);
+        lv_obj_clear_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(id(va_mic_overlay));
+  on_stt_end:
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x332200), 0);
+        lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_mic_label), "Thinking...");
+        lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(0xFFAA00), 0);
   on_tts_start:
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x000D33), 0);
+        lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0x4488FF), 0);
+        lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0x4488FF), 0);
+        lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_mic_label), "Responding...");
+        lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(0x4488FF), 0);
     - homeassistant.service:
         service: "${announce_script}"
         variables:
           msg: "return x;"
         data_template:
           message: "{{ msg }}"
+  on_end:
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+  on_error:
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
 
 sensor:
   - platform: adc

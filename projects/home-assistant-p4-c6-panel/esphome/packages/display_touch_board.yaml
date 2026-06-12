@@ -71,6 +71,11 @@ image:
     type: grayscale
     resize: 96x96
     transparency: alpha_channel
+  - file: mdi:microphone
+    id: img_mic
+    type: grayscale
+    resize: 32x32
+    transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
   # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
@@ -1295,6 +1300,37 @@ lvgl:
             hidden: true
             on_click:
               - lvgl.page.show: dashboard_page
+
+        # ── Voice assistant state pill — hidden until wake word fires ──
+        # Floats over the photo area bottom-centre. Color shifts per state:
+        # green=Listening  amber=Thinking  blue=Responding.
+        # Sits after tap_zone_btn so it renders on top of everything.
+        - obj:
+            id: va_mic_overlay
+            align: BOTTOM_MID
+            x: 170
+            y: -50
+            width: 210
+            height: 52
+            bg_color: 0x003300
+            bg_opa: 88%
+            radius: 26
+            border_width: 2
+            border_color: 0x00EE00
+            hidden: true
+            widgets:
+              - image:
+                  id: va_mic_icon
+                  src: img_mic
+                  align: LEFT_MID
+                  x: 10
+              - label:
+                  id: va_mic_label
+                  align: LEFT_MID
+                  x: 50
+                  text: "Listening..."
+                  text_font: montserrat_18
+                  text_color: 0x00EE00
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 2 — DASHBOARD
