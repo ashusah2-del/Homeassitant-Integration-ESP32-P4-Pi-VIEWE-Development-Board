@@ -42,6 +42,9 @@ micro_wake_word:
   id: panel_mww
   models:
     - model: okay_nabu
+  on_wake_word_detected:
+    - voice_assistant.start:
+        id: panel_va
 
 voice_assistant:
   id: panel_va
@@ -49,6 +52,12 @@ voice_assistant:
   media_player: panel_media_player
   micro_wake_word: panel_mww
   use_wake_word: true
+  on_client_connected:
+    - micro_wake_word.start:
+        id: panel_mww
+  on_client_disconnected:
+    - micro_wake_word.stop:
+        id: panel_mww
   on_wake_word_detected:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
@@ -88,10 +97,14 @@ voice_assistant:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
         lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+    - micro_wake_word.start:
+        id: panel_mww
   on_error:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
         lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+    - micro_wake_word.start:
+        id: panel_mww
 
 sensor:
   - platform: adc
