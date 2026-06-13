@@ -106,7 +106,7 @@ external_components:
   # inference loop to prevent TWDT starvation. Survives container restarts.
   - source:
       type: local
-      path: custom_components
+      path: my_components
     components: [micro_wake_word]
 
 esphome:
