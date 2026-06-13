@@ -57,10 +57,9 @@ def _sof_type(data: bytes) -> int | None:
 def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
     """Re-encode via Pillow — always SOF0 baseline, resized to fit MAX_W x MAX_H.
 
-    subsampling=2 forces 4:2:0 chroma which halves the Cb/Cr data and
-    cuts JPEGDEC's per-MCU work on the ESP32-P4 by ~30 %. Combined with
-    a smaller MAX_W it brings the worst-case slideshow decode from
-    ~5 s back under the 5 s task-watchdog window.
+    Uses 4:4:4 (subsampling=0) to avoid MCU block misalignment corruption
+    on JPEGDEC — 4:2:0 requires dimensions to be exact multiples of 16
+    which photos essentially never satisfy, producing horizontal banding.
     """
     img = Image.open(io.BytesIO(jpeg_raw))
     img = img.convert("RGB")
@@ -72,7 +71,7 @@ def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
         quality=JPEG_QUALITY,
         optimize=False,
         progressive=False,
-        subsampling=2,
+        subsampling=0,  # 4:4:4 — avoids MCU misalignment corruption on non-16px-multiple dimensions
     )
     return out.getvalue()
 
@@ -151,7 +150,7 @@ def fetch_camera_snapshot(entity_name: str, size_w: int, size_h: int) -> bytes |
             quality=JPEG_QUALITY,
             optimize=False,
             progressive=False,
-            subsampling=2,
+            subsampling=0,  # 4:4:4 — safer for JPEGDEC on ESP32
         )
         result = out.getvalue()
         log.info("camera %s: %d → %d bytes (resized to <=%dx%d)",
