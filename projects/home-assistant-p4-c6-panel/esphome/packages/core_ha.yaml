@@ -19,9 +19,11 @@ i2c:
 api:
   encryption:
     key: !secret api_encryption_key
-  # Default is 5; we've seen the dashboard's stuck "esphome logs" subprocesses
-  # plus HA + an occasional debug session exhaust slots and lock out HA.
-  max_connections: 12
+  # ESPHome dashboard log-subscriber threads accumulate as zombie connections
+  # (they stay alive in the container even after browser tabs close). With 12
+  # slots they can easily fill up and lock HA out. 6 is enough for HA + a few
+  # simultaneous debug sessions; restart esphome container to clear zombies.
+  max_connections: 6
   # Only run setup/teardown on first-connect / last-disconnect.
   # Multiple clients connect (HA, log streams, etc.) — running refresh and
   # voice_assistant.start_continuous on every connect blocked the API loop

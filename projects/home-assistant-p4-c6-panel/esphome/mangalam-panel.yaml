@@ -100,6 +100,15 @@ substitutions:
   cam4_name: "Garden"
   cam4_entity: garden
 
+external_components:
+  # Patched micro_wake_word: 32KB inference task stack (P4 uses bytes not
+  # words, so the default 3072 was only 3KB), plus a 1ms vTaskDelay per
+  # inference loop to prevent TWDT starvation. Survives container restarts.
+  - source:
+      type: local
+      path: custom_components
+    components: [micro_wake_word]
+
 esphome:
   name: ${node_name}
   friendly_name: ${friendly_name}
