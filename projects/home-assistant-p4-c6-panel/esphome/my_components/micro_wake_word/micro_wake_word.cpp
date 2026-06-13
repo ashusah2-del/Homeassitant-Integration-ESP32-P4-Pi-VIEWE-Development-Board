@@ -22,7 +22,11 @@ static const ssize_t DETECTION_QUEUE_LENGTH = 5;
 
 static const size_t DATA_TIMEOUT_MS = 50;
 
-static const uint32_t RING_BUFFER_DURATION_MS = 120;
+// P4 RISC-V TFLite inference can take 200-400ms per window — far longer than
+// the default 120ms ring buffer. When the buffer overflows it resets, dropping
+// audio and breaking the wake-word window. 500ms covers the worst-case inference
+// cycle with margin; cost is ~16KB of PSRAM on a 32MB device.
+static const uint32_t RING_BUFFER_DURATION_MS = 500;
 
 static const uint32_t INFERENCE_TASK_STACK_SIZE = 32768;
 static const UBaseType_t INFERENCE_TASK_PRIORITY = 3;
