@@ -127,7 +127,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_strip_s1)  = (bool)root["s1"];
                       id(g_strip_s2)  = (bool)root["s2"];
@@ -149,7 +149,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_tuya_dr_on) = (bool)root["on"];
                       return true;
@@ -162,7 +162,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_tuya_garden_on) = (bool)root["on"];
                       return true;
@@ -180,7 +180,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_mukta_locked) = (bool)root["locked"];
                       return true;
@@ -198,7 +198,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_tuya_alarm) = (bool)root["alarm"];
                       return true;
@@ -211,7 +211,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_smoke_alarm) = (bool)root["state"];
                       return true;
@@ -224,7 +224,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_co_alarm) = (bool)root["state"];
                       return true;
@@ -237,7 +237,7 @@ script:
           on_response:
             then:
               - lambda: |-
-                  if (status_code == 200) {
+                  if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_water_alarm) = (bool)root["state"];
                       return true;
@@ -363,7 +363,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) {
+                                      if (response->status_code == 200) {
                                         id(g_strip_s1) = false;
                                         id(tuya_apply_ui).execute();
                                       }
@@ -374,7 +374,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) {
+                                      if (response->status_code == 200) {
                                         id(g_strip_s1) = true;
                                         id(tuya_apply_ui).execute();
                                       }
@@ -410,7 +410,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_s2) = false; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_s2) = false; id(tuya_apply_ui).execute(); }
                         else:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/on"
@@ -418,7 +418,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_s2) = true; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_s2) = true; id(tuya_apply_ui).execute(); }
                   widgets:
                     - label: { align: TOP_MID, y: 8, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label:
@@ -451,7 +451,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_s3) = false; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_s3) = false; id(tuya_apply_ui).execute(); }
                         else:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/on"
@@ -459,7 +459,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_s3) = true; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_s3) = true; id(tuya_apply_ui).execute(); }
                   widgets:
                     - label: { align: TOP_MID, y: 8, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label:
@@ -492,7 +492,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_s4) = false; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_s4) = false; id(tuya_apply_ui).execute(); }
                         else:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/on"
@@ -500,7 +500,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_s4) = true; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_s4) = true; id(tuya_apply_ui).execute(); }
                   widgets:
                     - label: { align: TOP_MID, y: 8, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label:
@@ -533,7 +533,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_usb) = false; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_usb) = false; id(tuya_apply_ui).execute(); }
                         else:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/on"
@@ -541,7 +541,7 @@ lvgl:
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (status_code == 200) { id(g_strip_usb) = true; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code == 200) { id(g_strip_usb) = true; id(tuya_apply_ui).execute(); }
                   widgets:
                     - label: { align: TOP_MID, y: 8, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
                     - label:
@@ -604,7 +604,7 @@ lvgl:
                         on_response:
                           then:
                             - lambda: |-
-                                if (status_code == 200) {
+                                if (response->status_code == 200) {
                                   id(g_mukta_locked) = false;
                                   id(tuya_apply_ui).execute();
                                 }
@@ -625,7 +625,7 @@ lvgl:
                         on_response:
                           then:
                             - lambda: |-
-                                if (status_code == 200) {
+                                if (response->status_code == 200) {
                                   id(g_mukta_locked) = true;
                                   id(tuya_apply_ui).execute();
                                 }
@@ -685,7 +685,7 @@ lvgl:
                         on_response:
                           then:
                             - lambda: |-
-                                if (status_code == 200) { id(g_tuya_dr_on) = true; id(tuya_apply_ui).execute(); }
+                                if (response->status_code == 200) { id(g_tuya_dr_on) = true; id(tuya_apply_ui).execute(); }
               - button:
                   x: 242
                   y: 52
@@ -703,7 +703,7 @@ lvgl:
                         on_response:
                           then:
                             - lambda: |-
-                                if (status_code == 200) { id(g_tuya_dr_on) = false; id(tuya_apply_ui).execute(); }
+                                if (response->status_code == 200) { id(g_tuya_dr_on) = false; id(tuya_apply_ui).execute(); }
 
               # Separator
               - obj:
@@ -750,7 +750,7 @@ lvgl:
                         on_response:
                           then:
                             - lambda: |-
-                                if (status_code == 200) { id(g_tuya_garden_on) = true; id(tuya_apply_ui).execute(); }
+                                if (response->status_code == 200) { id(g_tuya_garden_on) = true; id(tuya_apply_ui).execute(); }
               - button:
                   x: 242
                   y: 120
@@ -768,7 +768,7 @@ lvgl:
                         on_response:
                           then:
                             - lambda: |-
-                                if (status_code == 200) { id(g_tuya_garden_on) = false; id(tuya_apply_ui).execute(); }
+                                if (response->status_code == 200) { id(g_tuya_garden_on) = false; id(tuya_apply_ui).execute(); }
 
               - label:
                   align: BOTTOM_MID
