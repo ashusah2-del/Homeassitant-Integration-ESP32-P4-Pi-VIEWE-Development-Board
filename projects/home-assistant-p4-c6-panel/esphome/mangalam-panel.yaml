@@ -6,6 +6,7 @@ substitutions:
   immich_url: !secret immich_server_url
   immich_api_key: !secret immich_api_key
   proxy_url: !secret immich_proxy_url
+  tuya_bridge_url: !secret tuya_bridge_url
   idle_timeout: 30s
   fallback_ap_ssid: !secret fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
@@ -210,6 +211,7 @@ packages:
   core: !include packages/core_ha.yaml
   display_touch: !include packages/display_touch_board.yaml
   audio_voice: !include packages/audio_voice_board.yaml
+  tuya: !include packages/tuya_page.yaml
 
 wifi:
   ssid: !secret wifi_ssid

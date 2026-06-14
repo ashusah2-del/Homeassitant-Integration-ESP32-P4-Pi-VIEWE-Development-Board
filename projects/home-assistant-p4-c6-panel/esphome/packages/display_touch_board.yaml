@@ -2887,7 +2887,7 @@ lvgl:
       on_swipe_right:
         - lvgl.page.show: presence_page
       on_swipe_left:
-        - lvgl.page.show: slideshow_page
+        - lvgl.page.show: tuya_page
       widgets:
         - obj:
             width: 1024
@@ -2902,7 +2902,7 @@ lvgl:
             widgets:
               - label: { align: LEFT_MID, x: 20, text: "Cameras", text_font: montserrat_24, text_color: 0xFFFFFF }
               - label: { align: CENTER, text: "Tap a tile to view", text_font: montserrat_18, text_color: 0xAAAAAA }
-              - label: { align: RIGHT_MID, x: -20, text: "< Presence    Slideshow >", text_font: montserrat_16, text_color: 0x69F0AE }
+              - label: { align: RIGHT_MID, x: -20, text: "< Presence    Tuya >", text_font: montserrat_16, text_color: 0x69F0AE }
 
         # Camera tiles — 2x2 grid, each 480×255
         - obj:
