@@ -1,0 +1,4 @@
+# Live device config with local keys — never commit
+devices.json
+__pycache__/
+*.pyc

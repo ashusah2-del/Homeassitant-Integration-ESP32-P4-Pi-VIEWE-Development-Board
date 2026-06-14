@@ -1,0 +1,17 @@
+[Unit]
+Description=Tuya Local Bridge — direct LAN control for ESP32-P4 panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mangalam
+WorkingDirectory=/home/mangalam/docker/tuya-bridge
+ExecStart=/usr/bin/python3 bridge.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
