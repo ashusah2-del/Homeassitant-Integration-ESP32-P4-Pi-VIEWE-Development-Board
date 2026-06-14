@@ -1,0 +1,987 @@
+# ─── Tuya Local page ──────────────────────────────────────────────────────────
+# Direct LAN control of Tuya devices via tuya-bridge (port 8766).
+# No Home Assistant involvement — the bridge talks Tuya local protocol.
+#
+# Device layout (3 × 2 grid, 320 × 228 each):
+#   Row 1: Power Strip (bedroom) | Mukta Lock | Drawing/Garden Plugs
+#   Row 2: Multifunction Alarm   | Safety Sensors (smoke/CO/water) | (info)
+#
+# Navigation: Cameras → [swipe left] → Tuya → [swipe left] → Slideshow
+
+globals:
+  # Power Strip sockets (Bedroom, Zigbee via gateway)
+  - id: g_strip_s1
+    type: bool
+    restore_value: false
+  - id: g_strip_s2
+    type: bool
+    restore_value: false
+  - id: g_strip_s3
+    type: bool
+    restore_value: false
+  - id: g_strip_s4
+    type: bool
+    restore_value: false
+  - id: g_strip_usb
+    type: bool
+    restore_value: false
+  # WiFi plugs
+  - id: g_tuya_dr_on
+    type: bool
+    restore_value: false
+  - id: g_tuya_garden_on
+    type: bool
+    restore_value: false
+  # Lock
+  - id: g_mukta_locked
+    type: bool
+    restore_value: false
+    initial_value: 'true'
+  # Safety sensors
+  - id: g_smoke_alarm
+    type: bool
+    restore_value: false
+  - id: g_co_alarm
+    type: bool
+    restore_value: false
+  - id: g_water_alarm
+    type: bool
+    restore_value: false
+  # Multifunction alarm
+  - id: g_tuya_alarm
+    type: bool
+    restore_value: false
+  # Page-active gate (only poll when tuya_page is visible)
+  - id: g_tuya_page_active
+    type: bool
+    restore_value: false
+
+script:
+  # ── Apply current state to all LVGL widgets ──────────────────────────────
+  - id: tuya_apply_ui
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+
+          // Power strip socket buttons
+          struct { lv_obj_t* btn; lv_obj_t* lbl; bool state; } sockets[] = {
+            { id(strip_s1_btn), id(strip_s1_lbl), id(g_strip_s1) },
+            { id(strip_s2_btn), id(strip_s2_lbl), id(g_strip_s2) },
+            { id(strip_s3_btn), id(strip_s3_lbl), id(g_strip_s3) },
+            { id(strip_s4_btn), id(strip_s4_lbl), id(g_strip_s4) },
+            { id(strip_usb_btn), id(strip_usb_lbl), id(g_strip_usb) },
+          };
+          for (auto& s : sockets) {
+            lv_obj_set_style_bg_color(s.btn,
+              s.state ? lv_color_hex(0x1B5E20) : lv_color_hex(0x212121), 0);
+            lv_label_set_text(s.lbl, s.state ? "ON" : "OFF");
+            lv_obj_set_style_text_color(s.lbl,
+              s.state ? lv_color_hex(0x69F0AE) : lv_color_hex(0x666666), 0);
+          }
+
+          // WiFi plugs
+          lv_label_set_text(id(tuya_dr_lbl),
+            id(g_tuya_dr_on) ? "ON" : "OFF");
+          lv_obj_set_style_text_color(id(tuya_dr_lbl),
+            id(g_tuya_dr_on) ? lv_color_hex(0x69F0AE) : lv_color_hex(0x666666), 0);
+
+          lv_label_set_text(id(tuya_garden_lbl),
+            id(g_tuya_garden_on) ? "ON" : "OFF");
+          lv_obj_set_style_text_color(id(tuya_garden_lbl),
+            id(g_tuya_garden_on) ? lv_color_hex(0x69F0AE) : lv_color_hex(0x666666), 0);
+
+          // Lock
+          lv_label_set_text(id(mukta_lock_lbl),
+            id(g_mukta_locked) ? "LOCKED" : "UNLOCKED");
+          lv_obj_set_style_text_color(id(mukta_lock_lbl),
+            id(g_mukta_locked) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
+
+          // Safety sensors
+          const char* smoke_txt  = id(g_smoke_alarm) ? "! SMOKE !" : "CLEAR";
+          const char* co_txt     = id(g_co_alarm)    ? "! CO !"    : "CLEAR";
+          const char* water_txt  = id(g_water_alarm) ? "! WATER !" : "CLEAR";
+          lv_label_set_text(id(smoke_state_lbl),  smoke_txt);
+          lv_label_set_text(id(co_state_lbl),     co_txt);
+          lv_label_set_text(id(water_state_lbl),  water_txt);
+          lv_obj_set_style_text_color(id(smoke_state_lbl),
+            id(g_smoke_alarm) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
+          lv_obj_set_style_text_color(id(co_state_lbl),
+            id(g_co_alarm)    ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
+          lv_obj_set_style_text_color(id(water_state_lbl),
+            id(g_water_alarm) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
+
+          // Multifunction alarm
+          lv_label_set_text(id(alarm_state_lbl),
+            id(g_tuya_alarm) ? "! ALARM !" : "OK");
+          lv_obj_set_style_text_color(id(alarm_state_lbl),
+            id(g_tuya_alarm) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
+
+  # ── Fetch Power Strip state ───────────────────────────────────────────────
+  - id: tuya_poll_strip
+    mode: single
+    then:
+      - http_request.get:
+          url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_strip_s1)  = (bool)root["s1"];
+                      id(g_strip_s2)  = (bool)root["s2"];
+                      id(g_strip_s3)  = (bool)root["s3"];
+                      id(g_strip_s4)  = (bool)root["s4"];
+                      id(g_strip_usb) = (bool)root["usb"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+
+  # ── Fetch WiFi plug states ────────────────────────────────────────────────
+  - id: tuya_poll_plugs
+    mode: single
+    then:
+      - http_request.get:
+          url: "${tuya_bridge_url}/simple/1571285310521cd5c87c"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_tuya_dr_on) = (bool)root["on"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+      - http_request.get:
+          url: "${tuya_bridge_url}/simple/1571285350029127c9f3"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_tuya_garden_on) = (bool)root["on"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+
+  # ── Fetch Lock state ──────────────────────────────────────────────────────
+  - id: tuya_poll_lock
+    mode: single
+    then:
+      - http_request.get:
+          url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_mukta_locked) = (bool)root["locked"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+
+  # ── Fetch Alarm + Sensors ─────────────────────────────────────────────────
+  - id: tuya_poll_sensors
+    mode: single
+    then:
+      - http_request.get:
+          url: "${tuya_bridge_url}/alarm/bf504b80ba9e1483b07vzc"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_tuya_alarm) = (bool)root["alarm"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+      - http_request.get:
+          url: "${tuya_bridge_url}/sensor/bfd389d3ddd79b5678utvs"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_smoke_alarm) = (bool)root["state"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+      - http_request.get:
+          url: "${tuya_bridge_url}/sensor/bff359c0e1a9090ad4ehuk"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_co_alarm) = (bool)root["state"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+      - http_request.get:
+          url: "${tuya_bridge_url}/sensor/bf8c8b69c7a5212d95lgfa"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_water_alarm) = (bool)root["state"];
+                      return true;
+                    });
+                    id(tuya_apply_ui).execute();
+                  }
+
+  # ── Poll all when page is active ──────────────────────────────────────────
+  - id: tuya_refresh_all
+    mode: single
+    then:
+      - script.execute: tuya_poll_strip
+      - script.execute: tuya_poll_plugs
+      - script.execute: tuya_poll_lock
+      - script.execute: tuya_poll_sensors
+
+interval:
+  - interval: 30s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_tuya_page_active);'
+          then:
+            - script.execute: tuya_refresh_all
+
+lvgl:
+  pages:
+    - id: tuya_page
+      bg_color: 0x060C08
+      on_load:
+        - lambda: |-
+            id(g_tuya_page_active) = true;
+        - script.execute: tuya_refresh_all
+      on_unload:
+        - lambda: |-
+            id(g_tuya_page_active) = false;
+      on_swipe_right:
+        - lvgl.page.show: camera_page
+      on_swipe_left:
+        - lvgl.page.show: slideshow_page
+      widgets:
+
+        # ── Top bar ─────────────────────────────────────────────────────────
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0F1A14
+            bg_opa: 96%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E5A3E
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Tuya Local"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - label:
+                  align: CENTER
+                  text: "Direct Device Control"
+                  text_font: montserrat_18
+                  text_color: 0xAAAAAA
+              - label:
+                  align: RIGHT_MID
+                  x: -20
+                  text: "< Cameras    Slideshow >"
+                  text_font: montserrat_16
+                  text_color: 0x69F0AE
+
+        # ══ Row 1 ════════════════════════════════════════════════════════════
+
+        # ── Card 1: Bedroom Power Strip (4+1 Zigbee) ────────────────────────
+        - obj:
+            x: 20
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x0A1A14
+            bg_opa: 95%
+            border_color: 0x1E5A3E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "Bedroom Strip"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - label:
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 14
+                  text: "4+1"
+                  text_font: montserrat_16
+                  text_color: 0x666666
+
+              # Socket 1
+              - obj:
+                  id: strip_s1_btn
+                  x: 14
+                  y: 50
+                  width: 82
+                  height: 64
+                  radius: 10
+                  bg_color: 0x212121
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s1);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) {
+                                        id(g_strip_s1) = false;
+                                        id(tuya_apply_ui).execute();
+                                      }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) {
+                                        id(g_strip_s1) = true;
+                                        id(tuya_apply_ui).execute();
+                                      }
+                  widgets:
+                    - label: { align: TOP_MID, y: 8, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label:
+                        id: strip_s1_lbl
+                        align: BOTTOM_MID
+                        y: -8
+                        text: "--"
+                        text_font: montserrat_14
+                        text_color: 0x666666
+
+              # Socket 2
+              - obj:
+                  id: strip_s2_btn
+                  x: 104
+                  y: 50
+                  width: 82
+                  height: 64
+                  radius: 10
+                  bg_color: 0x212121
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s2);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_s2) = false; id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_s2) = true; id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 8, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label:
+                        id: strip_s2_lbl
+                        align: BOTTOM_MID
+                        y: -8
+                        text: "--"
+                        text_font: montserrat_14
+                        text_color: 0x666666
+
+              # Socket 3
+              - obj:
+                  id: strip_s3_btn
+                  x: 194
+                  y: 50
+                  width: 82
+                  height: 64
+                  radius: 10
+                  bg_color: 0x212121
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s3);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_s3) = false; id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_s3) = true; id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 8, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label:
+                        id: strip_s3_lbl
+                        align: BOTTOM_MID
+                        y: -8
+                        text: "--"
+                        text_font: montserrat_14
+                        text_color: 0x666666
+
+              # Socket 4
+              - obj:
+                  id: strip_s4_btn
+                  x: 14
+                  y: 126
+                  width: 130
+                  height: 64
+                  radius: 10
+                  bg_color: 0x212121
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s4);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_s4) = false; id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_s4) = true; id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 8, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label:
+                        id: strip_s4_lbl
+                        align: BOTTOM_MID
+                        y: -8
+                        text: "--"
+                        text_font: montserrat_14
+                        text_color: 0x666666
+
+              # USB
+              - obj:
+                  id: strip_usb_btn
+                  x: 152
+                  y: 126
+                  width: 130
+                  height: 64
+                  radius: 10
+                  bg_color: 0x212121
+                  border_width: 1
+                  border_color: 0x1A3A5E
+                  on_click:
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_usb);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_usb) = false; id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (status_code == 200) { id(g_strip_usb) = true; id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 8, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
+                    - label:
+                        id: strip_usb_lbl
+                        align: BOTTOM_MID
+                        y: -8
+                        text: "--"
+                        text_font: montserrat_14
+                        text_color: 0x666666
+
+        # ── Card 2: Mukta Lock ───────────────────────────────────────────────
+        - obj:
+            x: 352
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x0A1A14
+            bg_opa: 95%
+            border_color: 0x1E5A3E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "Mukta Lock"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - label:
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 14
+                  text: "Knob"
+                  text_font: montserrat_16
+                  text_color: 0x666666
+              - label:
+                  id: mukta_lock_lbl
+                  align: CENTER
+                  y: -16
+                  text: "----"
+                  text_font: montserrat_28
+                  text_color: 0x666666
+              - button:
+                  align: BOTTOM_LEFT
+                  x: 16
+                  y: -14
+                  width: 130
+                  height: 40
+                  radius: 10
+                  bg_color: 0x1A2840
+                  text: "UNLOCK"
+                  text_font: montserrat_16
+                  on_click:
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/unlock"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (status_code == 200) {
+                                  id(g_mukta_locked) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
+              - button:
+                  align: BOTTOM_RIGHT
+                  x: -16
+                  y: -14
+                  width: 130
+                  height: 40
+                  radius: 10
+                  bg_color: 0x2A1822
+                  text: "LOCK"
+                  text_font: montserrat_16
+                  on_click:
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/lock"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (status_code == 200) {
+                                  id(g_mukta_locked) = true;
+                                  id(tuya_apply_ui).execute();
+                                }
+
+        # ── Card 3: WiFi Plugs (Drawing Room + Garden) ───────────────────────
+        - obj:
+            x: 684
+            y: 70
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x0A1A14
+            bg_opa: 95%
+            border_color: 0x1E5A3E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "WiFi Plugs"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+
+              # Drawing Room plug
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 52
+                  text: "Drawing Room"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+              - label:
+                  id: tuya_dr_lbl
+                  align: TOP_LEFT
+                  x: 16
+                  y: 76
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x666666
+              - button:
+                  x: 174
+                  y: 52
+                  width: 60
+                  height: 36
+                  radius: 8
+                  bg_color: 0x1B5E20
+                  text: "ON"
+                  text_font: montserrat_14
+                  align: TOP_LEFT
+                  on_click:
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/on"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (status_code == 200) { id(g_tuya_dr_on) = true; id(tuya_apply_ui).execute(); }
+              - button:
+                  x: 242
+                  y: 52
+                  width: 60
+                  height: 36
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  align: TOP_LEFT
+                  on_click:
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/off"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (status_code == 200) { id(g_tuya_dr_on) = false; id(tuya_apply_ui).execute(); }
+
+              # Separator
+              - obj:
+                  x: 10
+                  y: 108
+                  width: 300
+                  height: 1
+                  align: TOP_LEFT
+                  bg_color: 0x2E5A3E
+                  bg_opa: 60%
+                  border_width: 0
+                  pad_all: 0
+
+              # Garden plug
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 120
+                  text: "Garden"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+              - label:
+                  id: tuya_garden_lbl
+                  align: TOP_LEFT
+                  x: 16
+                  y: 144
+                  text: "--"
+                  text_font: montserrat_18
+                  text_color: 0x666666
+              - button:
+                  x: 174
+                  y: 120
+                  width: 60
+                  height: 36
+                  radius: 8
+                  bg_color: 0x1B5E20
+                  text: "ON"
+                  text_font: montserrat_14
+                  align: TOP_LEFT
+                  on_click:
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/simple/1571285350029127c9f3/on"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (status_code == 200) { id(g_tuya_garden_on) = true; id(tuya_apply_ui).execute(); }
+              - button:
+                  x: 242
+                  y: 120
+                  width: 60
+                  height: 36
+                  radius: 8
+                  bg_color: 0x2A1822
+                  text: "OFF"
+                  text_font: montserrat_14
+                  align: TOP_LEFT
+                  on_click:
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/simple/1571285350029127c9f3/off"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (status_code == 200) { id(g_tuya_garden_on) = false; id(tuya_apply_ui).execute(); }
+
+              - label:
+                  align: BOTTOM_MID
+                  y: -8
+                  text: "Direct LAN — no cloud"
+                  text_font: montserrat_12
+                  text_color: 0x3A6A4E
+
+        # ══ Row 2 ════════════════════════════════════════════════════════════
+
+        # ── Card 4: Multifunction Alarm ──────────────────────────────────────
+        - obj:
+            x: 20
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x0A1A14
+            bg_opa: 95%
+            border_color: 0x1E5A3E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "Alarm"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - label:
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 14
+                  text: "Multi"
+                  text_font: montserrat_16
+                  text_color: 0x666666
+              - label:
+                  id: alarm_state_lbl
+                  align: CENTER
+                  y: -10
+                  text: "----"
+                  text_font: montserrat_32
+                  text_color: 0x666666
+              - button:
+                  align: BOTTOM_MID
+                  y: -14
+                  width: 180
+                  height: 40
+                  radius: 10
+                  bg_color: 0x162044
+                  text: "REFRESH"
+                  text_font: montserrat_16
+                  on_click:
+                    - script.execute: tuya_poll_sensors
+
+        # ── Card 5: Safety Sensors ───────────────────────────────────────────
+        - obj:
+            x: 352
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x0A1A14
+            bg_opa: 95%
+            border_color: 0x1E5A3E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "Safety Sensors"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+
+              # Smoke
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 56
+                  text: "Smoke"
+                  text_font: montserrat_18
+                  text_color: 0xCCCCCC
+              - label:
+                  id: smoke_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 56
+                  text: "----"
+                  text_font: montserrat_18
+                  text_color: 0x666666
+
+              # CO
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 100
+                  text: "CO"
+                  text_font: montserrat_18
+                  text_color: 0xCCCCCC
+              - label:
+                  id: co_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 100
+                  text: "----"
+                  text_font: montserrat_18
+                  text_color: 0x666666
+
+              # Water
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 144
+                  text: "Water"
+                  text_font: montserrat_18
+                  text_color: 0xCCCCCC
+              - label:
+                  id: water_state_lbl
+                  align: TOP_RIGHT
+                  x: -16
+                  y: 144
+                  text: "----"
+                  text_font: montserrat_18
+                  text_color: 0x666666
+
+              - button:
+                  align: BOTTOM_MID
+                  y: -14
+                  width: 180
+                  height: 36
+                  radius: 10
+                  bg_color: 0x162044
+                  text: "REFRESH"
+                  text_font: montserrat_14
+                  on_click:
+                    - script.execute: tuya_poll_sensors
+
+        # ── Card 6: Quick Info ───────────────────────────────────────────────
+        - obj:
+            x: 684
+            y: 308
+            width: 320
+            height: 228
+            align: TOP_LEFT
+            bg_color: 0x080E0A
+            bg_opa: 90%
+            border_color: 0x1E3A2E
+            border_width: 1
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 12
+                  text: "Device Info"
+                  text_font: montserrat_18
+                  text_color: 0xAAAAAA
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 46
+                  text: "4+1 Power Strip"
+                  text_font: montserrat_14
+                  text_color: 0x66AA88
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 68
+                  text: "Zigbee via GW018-DM"
+                  text_font: montserrat_12
+                  text_color: 0x4A6A5A
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 96
+                  text: "Mukta Lock"
+                  text_font: montserrat_14
+                  text_color: 0x66AA88
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 118
+                  text: "BLE via BT Gateway"
+                  text_font: montserrat_12
+                  text_color: 0x4A6A5A
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 146
+                  text: "DR Plug  192.168.55.56"
+                  text_font: montserrat_12
+                  text_color: 0x4A6A5A
+              - label:
+                  align: TOP_LEFT
+                  x: 16
+                  y: 164
+                  text: "Garden   192.168.55.72"
+                  text_font: montserrat_12
+                  text_color: 0x4A6A5A
+              - button:
+                  align: BOTTOM_MID
+                  y: -14
+                  width: 180
+                  height: 36
+                  radius: 10
+                  bg_color: 0x0F2018
+                  text: "REFRESH ALL"
+                  text_font: montserrat_14
+                  on_click:
+                    - script.execute: tuya_refresh_all
