@@ -2,14 +2,17 @@
 # Direct LAN control of Tuya devices via tuya-bridge (port 8766).
 # No Home Assistant involvement — the bridge talks Tuya local protocol.
 #
-# Device layout (3 × 2 grid, 320 × 228 each):
-#   Row 1: Power Strip (bedroom) | Mukta Lock | Drawing/Garden Plugs
-#   Row 2: Multifunction Alarm   | Safety Sensors (smoke/CO/water) | (info)
+# Layout:
+#   Row 1 (full width): Bedroom Power Strip | Power Switch  (both 4+1 Zigbee)
+#   Row 2: Locks (Mukta + Bedroom Knob) | WiFi Plugs (Drawing Room + Garden)
+#   Row 3: Safety Sensors (Smoke/CO/Water) | Alarm
 #
+# Strip buttons use optimistic toggle (immediate visual + revert on error).
+# All other controls update on HTTP 200; show "---" on error.
 # Navigation: Cameras → [swipe left] → Tuya → [swipe left] → Slideshow
 
 globals:
-  # Power Strip sockets (Bedroom, Zigbee via gateway)
+  # ── Bedroom Power Strip (Zigbee sub via gateway at .60) ─────────────────────
   - id: g_strip_s1
     type: bool
     restore_value: false
@@ -25,116 +28,226 @@ globals:
   - id: g_strip_usb
     type: bool
     restore_value: false
-  # WiFi plugs
+  - id: g_strip_online
+    type: bool
+    restore_value: false
+
+  # ── Power Switch (Zigbee sub via gateway at .60) ─────────────────────────────
+  - id: g_switch_s1
+    type: bool
+    restore_value: false
+  - id: g_switch_s2
+    type: bool
+    restore_value: false
+  - id: g_switch_s3
+    type: bool
+    restore_value: false
+  - id: g_switch_s4
+    type: bool
+    restore_value: false
+  - id: g_switch_usb
+    type: bool
+    restore_value: false
+  - id: g_switch_online
+    type: bool
+    restore_value: false
+
+  # ── WiFi Plugs ───────────────────────────────────────────────────────────────
   - id: g_tuya_dr_on
+    type: bool
+    restore_value: false
+  - id: g_tuya_dr_online
     type: bool
     restore_value: false
   - id: g_tuya_garden_on
     type: bool
     restore_value: false
-  # Lock
+  - id: g_tuya_garden_online
+    type: bool
+    restore_value: false
+
+  # ── Mukta Lock (BLE via BT gateway at .66) ───────────────────────────────────
   - id: g_mukta_locked
     type: bool
     restore_value: false
     initial_value: 'true'
-  # Safety sensors
-  - id: g_smoke_alarm
+  - id: g_mukta_online
     type: bool
     restore_value: false
-  - id: g_co_alarm
+
+  # ── Bedroom Knob (BLE via BT gateway at .66, simple on/off) ──────────────────
+  - id: g_bedroom_on
     type: bool
     restore_value: false
-  - id: g_water_alarm
+  - id: g_bedroom_online
     type: bool
     restore_value: false
-  # Multifunction alarm
-  - id: g_tuya_alarm
-    type: bool
+
+  # ── Safety sensors: -1 = no data yet, 0 = clear, 1 = alarm ──────────────────
+  - id: g_smoke_state
+    type: int
     restore_value: false
-  # Page-active gate (only poll when tuya_page is visible)
+    initial_value: '-1'
+  - id: g_co_state
+    type: int
+    restore_value: false
+    initial_value: '-1'
+  - id: g_water_state
+    type: int
+    restore_value: false
+    initial_value: '-1'
+
+  # ── Multifunction alarm: -1 = no data, 0 = ok, 1 = alarm ────────────────────
+  - id: g_alarm_state
+    type: int
+    restore_value: false
+    initial_value: '-1'
+
+  # ── Page gate ────────────────────────────────────────────────────────────────
   - id: g_tuya_page_active
     type: bool
     restore_value: false
 
 script:
-  # ── Apply current state to LVGL widgets via ESPHome LVGL actions ──────────
+  # ── Apply all state to LVGL widgets ──────────────────────────────────────────
   - id: tuya_apply_ui
     mode: single
     then:
-      # Power Strip — S1
+      # Strip 1 — S1
       - lvgl.obj.update:
           id: strip_s1_btn
-          bg_color: !lambda 'return lv_color_hex(id(g_strip_s1) ? 0x1B5E20 : 0x212121);'
+          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s1) ? 0x1B5E20U : 0x212121U));'
       - lvgl.label.update:
           id: strip_s1_lbl
-          text: !lambda 'return std::string(id(g_strip_s1) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_strip_s1) ? 0x69F0AE : 0x666666);'
-      # Power Strip — S2
+          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s1) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s1) ? 0x69F0AEU : 0x666666U));'
+      # Strip 1 — S2
       - lvgl.obj.update:
           id: strip_s2_btn
-          bg_color: !lambda 'return lv_color_hex(id(g_strip_s2) ? 0x1B5E20 : 0x212121);'
+          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s2) ? 0x1B5E20U : 0x212121U));'
       - lvgl.label.update:
           id: strip_s2_lbl
-          text: !lambda 'return std::string(id(g_strip_s2) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_strip_s2) ? 0x69F0AE : 0x666666);'
-      # Power Strip — S3
+          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s2) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s2) ? 0x69F0AEU : 0x666666U));'
+      # Strip 1 — S3
       - lvgl.obj.update:
           id: strip_s3_btn
-          bg_color: !lambda 'return lv_color_hex(id(g_strip_s3) ? 0x1B5E20 : 0x212121);'
+          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s3) ? 0x1B5E20U : 0x212121U));'
       - lvgl.label.update:
           id: strip_s3_lbl
-          text: !lambda 'return std::string(id(g_strip_s3) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_strip_s3) ? 0x69F0AE : 0x666666);'
-      # Power Strip — S4
+          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s3) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s3) ? 0x69F0AEU : 0x666666U));'
+      # Strip 1 — S4
       - lvgl.obj.update:
           id: strip_s4_btn
-          bg_color: !lambda 'return lv_color_hex(id(g_strip_s4) ? 0x1B5E20 : 0x212121);'
+          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s4) ? 0x1B5E20U : 0x212121U));'
       - lvgl.label.update:
           id: strip_s4_lbl
-          text: !lambda 'return std::string(id(g_strip_s4) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_strip_s4) ? 0x69F0AE : 0x666666);'
-      # Power Strip — USB
+          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s4) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s4) ? 0x69F0AEU : 0x666666U));'
+      # Strip 1 — USB
       - lvgl.obj.update:
           id: strip_usb_btn
-          bg_color: !lambda 'return lv_color_hex(id(g_strip_usb) ? 0x1B5E20 : 0x212121);'
+          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_usb) ? 0x1A3A7EU : 0x212121U));'
       - lvgl.label.update:
           id: strip_usb_lbl
-          text: !lambda 'return std::string(id(g_strip_usb) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_strip_usb) ? 0x69F0AE : 0x666666);'
+          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_usb) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_usb) ? 0xAABBFFU : 0x666666U));'
+      # Strip 1 status badge
+      - lvgl.label.update:
+          id: strip_status_lbl
+          text: !lambda 'return std::string(id(g_strip_online) ? "ONLINE" : "OFFLINE");'
+          text_color: !lambda 'return lv_color_hex(id(g_strip_online) ? 0x69F0AEU : 0xFF8F00U);'
+
+      # Strip 2 — S1
+      - lvgl.obj.update:
+          id: switch_s1_btn
+          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s1) ? 0x1B5E20U : 0x212121U));'
+      - lvgl.label.update:
+          id: switch_s1_lbl
+          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s1) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s1) ? 0x69F0AEU : 0x666666U));'
+      # Strip 2 — S2
+      - lvgl.obj.update:
+          id: switch_s2_btn
+          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s2) ? 0x1B5E20U : 0x212121U));'
+      - lvgl.label.update:
+          id: switch_s2_lbl
+          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s2) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s2) ? 0x69F0AEU : 0x666666U));'
+      # Strip 2 — S3
+      - lvgl.obj.update:
+          id: switch_s3_btn
+          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s3) ? 0x1B5E20U : 0x212121U));'
+      - lvgl.label.update:
+          id: switch_s3_lbl
+          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s3) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s3) ? 0x69F0AEU : 0x666666U));'
+      # Strip 2 — S4
+      - lvgl.obj.update:
+          id: switch_s4_btn
+          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s4) ? 0x1B5E20U : 0x212121U));'
+      - lvgl.label.update:
+          id: switch_s4_lbl
+          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s4) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s4) ? 0x69F0AEU : 0x666666U));'
+      # Strip 2 — USB
+      - lvgl.obj.update:
+          id: switch_usb_btn
+          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_usb) ? 0x1A3A7EU : 0x212121U));'
+      - lvgl.label.update:
+          id: switch_usb_lbl
+          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_usb) ? "ON" : "OFF") : std::string("--");'
+          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_usb) ? 0xAABBFFU : 0x666666U));'
+      # Strip 2 status badge
+      - lvgl.label.update:
+          id: switch_status_lbl
+          text: !lambda 'return std::string(id(g_switch_online) ? "ONLINE" : "OFFLINE");'
+          text_color: !lambda 'return lv_color_hex(id(g_switch_online) ? 0x69F0AEU : 0xFF8F00U);'
+
+      # Mukta Lock
+      - lvgl.label.update:
+          id: mukta_lock_lbl
+          text: !lambda 'return id(g_mukta_online) ? std::string(id(g_mukta_locked) ? "LOCKED" : "UNLOCKED") : std::string("---");'
+          text_color: !lambda 'return lv_color_hex(id(g_mukta_online) ? (id(g_mukta_locked) ? 0xFF5252U : 0x69F0AEU) : 0xFF8F00U);'
+
+      # Bedroom Knob
+      - lvgl.label.update:
+          id: bedroom_lbl
+          text: !lambda 'return id(g_bedroom_online) ? std::string(id(g_bedroom_on) ? "UNLOCKED" : "LOCKED") : std::string("---");'
+          text_color: !lambda 'return lv_color_hex(id(g_bedroom_online) ? (id(g_bedroom_on) ? 0x69F0AEU : 0xFF5252U) : 0xFF8F00U);'
+
       # WiFi Plugs
       - lvgl.label.update:
           id: tuya_dr_lbl
-          text: !lambda 'return std::string(id(g_tuya_dr_on) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_tuya_dr_on) ? 0x69F0AE : 0x666666);'
+          text: !lambda 'return id(g_tuya_dr_online) ? std::string(id(g_tuya_dr_on) ? "ON" : "OFF") : std::string("---");'
+          text_color: !lambda 'return lv_color_hex(id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U);'
       - lvgl.label.update:
           id: tuya_garden_lbl
-          text: !lambda 'return std::string(id(g_tuya_garden_on) ? "ON" : "OFF");'
-          text_color: !lambda 'return lv_color_hex(id(g_tuya_garden_on) ? 0x69F0AE : 0x666666);'
-      # Lock
-      - lvgl.label.update:
-          id: mukta_lock_lbl
-          text: !lambda 'return std::string(id(g_mukta_locked) ? "LOCKED" : "UNLOCKED");'
-          text_color: !lambda 'return lv_color_hex(id(g_mukta_locked) ? 0xFF5252 : 0x69F0AE);'
+          text: !lambda 'return id(g_tuya_garden_online) ? std::string(id(g_tuya_garden_on) ? "ON" : "OFF") : std::string("---");'
+          text_color: !lambda 'return lv_color_hex(id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U);'
+
       # Safety sensors
       - lvgl.label.update:
           id: smoke_state_lbl
-          text: !lambda 'return std::string(id(g_smoke_alarm) ? "! SMOKE !" : "CLEAR");'
-          text_color: !lambda 'return lv_color_hex(id(g_smoke_alarm) ? 0xFF5252 : 0x69F0AE);'
+          text: !lambda 'return id(g_smoke_state) < 0 ? std::string("?") : std::string(id(g_smoke_state) ? "! SMOKE !" : "CLEAR");'
+          text_color: !lambda 'return lv_color_hex(id(g_smoke_state) < 0 ? 0xFF8F00U : (id(g_smoke_state) ? 0xFF5252U : 0x69F0AEU));'
       - lvgl.label.update:
           id: co_state_lbl
-          text: !lambda 'return std::string(id(g_co_alarm) ? "! CO !" : "CLEAR");'
-          text_color: !lambda 'return lv_color_hex(id(g_co_alarm) ? 0xFF5252 : 0x69F0AE);'
+          text: !lambda 'return id(g_co_state) < 0 ? std::string("?") : std::string(id(g_co_state) ? "! CO !" : "CLEAR");'
+          text_color: !lambda 'return lv_color_hex(id(g_co_state) < 0 ? 0xFF8F00U : (id(g_co_state) ? 0xFF5252U : 0x69F0AEU));'
       - lvgl.label.update:
           id: water_state_lbl
-          text: !lambda 'return std::string(id(g_water_alarm) ? "! WATER !" : "CLEAR");'
-          text_color: !lambda 'return lv_color_hex(id(g_water_alarm) ? 0xFF5252 : 0x69F0AE);'
+          text: !lambda 'return id(g_water_state) < 0 ? std::string("?") : std::string(id(g_water_state) ? "! WATER !" : "CLEAR");'
+          text_color: !lambda 'return lv_color_hex(id(g_water_state) < 0 ? 0xFF8F00U : (id(g_water_state) ? 0xFF5252U : 0x69F0AEU));'
+
       # Alarm
       - lvgl.label.update:
           id: alarm_state_lbl
-          text: !lambda 'return std::string(id(g_tuya_alarm) ? "! ALARM !" : "OK");'
-          text_color: !lambda 'return lv_color_hex(id(g_tuya_alarm) ? 0xFF5252 : 0x69F0AE);'
+          text: !lambda 'return id(g_alarm_state) < 0 ? std::string("?") : std::string(id(g_alarm_state) ? "! ALARM !" : "OK");'
+          text_color: !lambda 'return lv_color_hex(id(g_alarm_state) < 0 ? 0xFF8F00U : (id(g_alarm_state) ? 0xFF5252U : 0x69F0AEU));'
 
-  # ── Fetch Power Strip state ───────────────────────────────────────────────
+  # ── Fetch Bedroom Power Strip state ──────────────────────────────────────────
   - id: tuya_poll_strip
     mode: single
     then:
@@ -151,12 +264,40 @@ script:
                       id(g_strip_s3)  = (bool)root["s3"];
                       id(g_strip_s4)  = (bool)root["s4"];
                       id(g_strip_usb) = (bool)root["usb"];
+                      id(g_strip_online) = true;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_strip_online) = false;
                   }
+                  id(tuya_apply_ui).execute();
 
-  # ── Fetch WiFi plug states ────────────────────────────────────────────────
+  # ── Fetch Power Switch state ──────────────────────────────────────────────────
+  - id: tuya_poll_switch
+    mode: single
+    then:
+      - http_request.get:
+          url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_switch_s1)  = (bool)root["s1"];
+                      id(g_switch_s2)  = (bool)root["s2"];
+                      id(g_switch_s3)  = (bool)root["s3"];
+                      id(g_switch_s4)  = (bool)root["s4"];
+                      id(g_switch_usb) = (bool)root["usb"];
+                      id(g_switch_online) = true;
+                      return true;
+                    });
+                  } else {
+                    id(g_switch_online) = false;
+                  }
+                  id(tuya_apply_ui).execute();
+
+  # ── Fetch WiFi plug states ────────────────────────────────────────────────────
   - id: tuya_poll_plugs
     mode: single
     then:
@@ -168,11 +309,14 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_tuya_dr_on) = (bool)root["on"];
+                      id(g_tuya_dr_on)     = (bool)root["on"];
+                      id(g_tuya_dr_online) = true;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_tuya_dr_online) = false;
                   }
+                  id(tuya_apply_ui).execute();
       - http_request.get:
           url: "${tuya_bridge_url}/simple/1571285350029127c9f3"
           capture_response: true
@@ -181,13 +325,16 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_tuya_garden_on) = (bool)root["on"];
+                      id(g_tuya_garden_on)     = (bool)root["on"];
+                      id(g_tuya_garden_online) = true;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_tuya_garden_online) = false;
                   }
+                  id(tuya_apply_ui).execute();
 
-  # ── Fetch Lock state ──────────────────────────────────────────────────────
+  # ── Fetch Mukta Lock state ────────────────────────────────────────────────────
   - id: tuya_poll_lock
     mode: single
     then:
@@ -200,12 +347,36 @@ script:
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
                       id(g_mukta_locked) = (bool)root["locked"];
+                      id(g_mukta_online) = true;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_mukta_online) = false;
                   }
+                  id(tuya_apply_ui).execute();
 
-  # ── Fetch Alarm + Sensors ─────────────────────────────────────────────────
+  # ── Fetch Bedroom Knob state ──────────────────────────────────────────────────
+  - id: tuya_poll_bedroom
+    mode: single
+    then:
+      - http_request.get:
+          url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code == 200) {
+                    json::parse_json(body, [](JsonObject root) -> bool {
+                      id(g_bedroom_on)     = (bool)root["on"];
+                      id(g_bedroom_online) = true;
+                      return true;
+                    });
+                  } else {
+                    id(g_bedroom_online) = false;
+                  }
+                  id(tuya_apply_ui).execute();
+
+  # ── Fetch Alarm + Safety Sensors ─────────────────────────────────────────────
   - id: tuya_poll_sensors
     mode: single
     then:
@@ -217,11 +388,13 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_tuya_alarm) = (bool)root["alarm"];
+                      id(g_alarm_state) = root["alarm"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_alarm_state) = -1;
                   }
+                  id(tuya_apply_ui).execute();
       - http_request.get:
           url: "${tuya_bridge_url}/sensor/bfd389d3ddd79b5678utvs"
           capture_response: true
@@ -230,11 +403,13 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_smoke_alarm) = (bool)root["state"];
+                      id(g_smoke_state) = root["state"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_smoke_state) = -1;
                   }
+                  id(tuya_apply_ui).execute();
       - http_request.get:
           url: "${tuya_bridge_url}/sensor/bff359c0e1a9090ad4ehuk"
           capture_response: true
@@ -243,11 +418,13 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_co_alarm) = (bool)root["state"];
+                      id(g_co_state) = root["state"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_co_state) = -1;
                   }
+                  id(tuya_apply_ui).execute();
       - http_request.get:
           url: "${tuya_bridge_url}/sensor/bf8c8b69c7a5212d95lgfa"
           capture_response: true
@@ -256,19 +433,23 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_water_alarm) = (bool)root["state"];
+                      id(g_water_state) = root["state"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                    id(tuya_apply_ui).execute();
+                  } else {
+                    id(g_water_state) = -1;
                   }
+                  id(tuya_apply_ui).execute();
 
-  # ── Poll all when page is active ──────────────────────────────────────────
+  # ── Poll all devices ──────────────────────────────────────────────────────────
   - id: tuya_refresh_all
     mode: single
     then:
       - script.execute: tuya_poll_strip
+      - script.execute: tuya_poll_switch
       - script.execute: tuya_poll_plugs
       - script.execute: tuya_poll_lock
+      - script.execute: tuya_poll_bedroom
       - script.execute: tuya_poll_sensors
 
 interval:
@@ -298,7 +479,7 @@ lvgl:
         - lvgl.page.show: slideshow_page
       widgets:
 
-        # ── Top bar ─────────────────────────────────────────────────────────
+        # ── Top bar ─────────────────────────────────────────────────────────────
         - obj:
             width: 1024
             height: 58
@@ -328,14 +509,15 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0x69F0AE
 
-        # ══ Row 1 ════════════════════════════════════════════════════════════
-
-        # ── Card 1: Bedroom Power Strip (4+1 Zigbee) ────────────────────────
+        # ══ Row 1: Both Power Strips (full width) ════════════════════════════════
+        # Card: x=20, y=70, w=984, h=162
+        # Left half (x 0–482): Bedroom Power Strip
+        # Right half (x 502–984): Power Switch
         - obj:
             x: 20
             y: 70
-            width: 320
-            height: 228
+            width: 984
+            height: 162
             align: TOP_LEFT
             bg_color: 0x0A1A14
             bg_opa: 95%
@@ -344,238 +526,458 @@ lvgl:
             radius: 14
             pad_all: 0
             widgets:
+
+              # ─ Left title: Bedroom Power Strip ─────────────────────────────
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 12
+                  x: 14
+                  y: 8
                   text: "Bedroom Strip"
-                  text_font: montserrat_20
+                  text_font: montserrat_18
                   text_color: 0xFFFFFF
               - label:
-                  align: TOP_RIGHT
-                  x: -16
-                  y: 14
-                  text: "4+1"
-                  text_font: montserrat_16
-                  text_color: 0x666666
+                  id: strip_status_lbl
+                  align: TOP_LEFT
+                  x: 200
+                  y: 10
+                  text: "OFFLINE"
+                  text_font: montserrat_14
+                  text_color: 0xFF8F00
 
-              # Socket 1
+              # ─ Vertical divider ─────────────────────────────────────────────
+              - obj:
+                  align: TOP_LEFT
+                  x: 491
+                  y: 8
+                  width: 2
+                  height: 146
+                  bg_color: 0x1E5A3E
+                  bg_opa: 80%
+                  border_width: 0
+                  pad_all: 0
+
+              # ─ Right title: Power Switch ─────────────────────────────────────
+              - label:
+                  align: TOP_LEFT
+                  x: 506
+                  y: 8
+                  text: "Power Switch"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+              - label:
+                  id: switch_status_lbl
+                  align: TOP_LEFT
+                  x: 694
+                  y: 10
+                  text: "OFFLINE"
+                  text_font: montserrat_14
+                  text_color: 0xFF8F00
+
+              # ─ Strip 1 socket buttons (y=40, h=108, x: 14,106,198,290,382) ─
+              # S1
               - obj:
                   id: strip_s1_btn
+                  align: TOP_LEFT
                   x: 14
-                  y: 50
+                  y: 40
                   width: 82
-                  height: 64
+                  height: 108
                   radius: 10
-                  bg_color: 0x212121
+                  bg_color: 0x181818
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
+                    - lambda: |-
+                        id(g_strip_s1) = !id(g_strip_s1);
+                        id(tuya_apply_ui).execute();
                     - if:
                         condition:
                           lambda: 'return id(g_strip_s1);'
                         then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code == 200) {
-                                        id(g_strip_s1) = false;
-                                        id(tuya_apply_ui).execute();
-                                      }
-                        else:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/on"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) {
-                                        id(g_strip_s1) = true;
+                                      if (response->status_code != 200) {
+                                        id(g_strip_s1) = !id(g_strip_s1);
                                         id(tuya_apply_ui).execute();
                                       }
-                  widgets:
-                    - label: { align: TOP_MID, y: 8, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label:
-                        id: strip_s1_lbl
-                        align: BOTTOM_MID
-                        y: -8
-                        text: "--"
-                        text_font: montserrat_14
-                        text_color: 0x666666
-
-              # Socket 2
-              - obj:
-                  id: strip_s2_btn
-                  x: 104
-                  y: 50
-                  width: 82
-                  height: 64
-                  radius: 10
-                  bg_color: 0x212121
-                  border_width: 1
-                  border_color: 0x2E5A3E
-                  on_click:
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s2);'
-                        then:
+                        else:
                           - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/off"
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/off"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_s2) = false; id(tuya_apply_ui).execute(); }
-                        else:
+                                      if (response->status_code != 200) {
+                                        id(g_strip_s1) = !id(g_strip_s1);
+                                        id(tuya_apply_ui).execute();
+                                      }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label:
+                        id: strip_s1_lbl
+                        align: BOTTOM_MID
+                        y: -10
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0x333333
+              # S2
+              - obj:
+                  id: strip_s2_btn
+                  align: TOP_LEFT
+                  x: 106
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_strip_s2) = !id(g_strip_s2);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s2);'
+                        then:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/on"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_s2) = true; id(tuya_apply_ui).execute(); }
-                  widgets:
-                    - label: { align: TOP_MID, y: 8, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label:
-                        id: strip_s2_lbl
-                        align: BOTTOM_MID
-                        y: -8
-                        text: "--"
-                        text_font: montserrat_14
-                        text_color: 0x666666
-
-              # Socket 3
-              - obj:
-                  id: strip_s3_btn
-                  x: 194
-                  y: 50
-                  width: 82
-                  height: 64
-                  radius: 10
-                  bg_color: 0x212121
-                  border_width: 1
-                  border_color: 0x2E5A3E
-                  on_click:
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s3);'
-                        then:
+                                      if (response->status_code != 200) { id(g_strip_s2) = !id(g_strip_s2); id(tuya_apply_ui).execute(); }
+                        else:
                           - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/off"
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/off"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_s3) = false; id(tuya_apply_ui).execute(); }
-                        else:
+                                      if (response->status_code != 200) { id(g_strip_s2) = !id(g_strip_s2); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: strip_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # S3
+              - obj:
+                  id: strip_s3_btn
+                  align: TOP_LEFT
+                  x: 198
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_strip_s3) = !id(g_strip_s3);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s3);'
+                        then:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/on"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_s3) = true; id(tuya_apply_ui).execute(); }
-                  widgets:
-                    - label: { align: TOP_MID, y: 8, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label:
-                        id: strip_s3_lbl
-                        align: BOTTOM_MID
-                        y: -8
-                        text: "--"
-                        text_font: montserrat_14
-                        text_color: 0x666666
-
-              # Socket 4
-              - obj:
-                  id: strip_s4_btn
-                  x: 14
-                  y: 126
-                  width: 130
-                  height: 64
-                  radius: 10
-                  bg_color: 0x212121
-                  border_width: 1
-                  border_color: 0x2E5A3E
-                  on_click:
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s4);'
-                        then:
+                                      if (response->status_code != 200) { id(g_strip_s3) = !id(g_strip_s3); id(tuya_apply_ui).execute(); }
+                        else:
                           - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/off"
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/off"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_s4) = false; id(tuya_apply_ui).execute(); }
-                        else:
+                                      if (response->status_code != 200) { id(g_strip_s3) = !id(g_strip_s3); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: strip_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # S4
+              - obj:
+                  id: strip_s4_btn
+                  align: TOP_LEFT
+                  x: 290
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_strip_s4) = !id(g_strip_s4);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_s4);'
+                        then:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/on"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_s4) = true; id(tuya_apply_ui).execute(); }
-                  widgets:
-                    - label: { align: TOP_MID, y: 8, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label:
-                        id: strip_s4_lbl
-                        align: BOTTOM_MID
-                        y: -8
-                        text: "--"
-                        text_font: montserrat_14
-                        text_color: 0x666666
-
-              # USB
-              - obj:
-                  id: strip_usb_btn
-                  x: 152
-                  y: 126
-                  width: 130
-                  height: 64
-                  radius: 10
-                  bg_color: 0x212121
-                  border_width: 1
-                  border_color: 0x1A3A5E
-                  on_click:
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_usb);'
-                        then:
+                                      if (response->status_code != 200) { id(g_strip_s4) = !id(g_strip_s4); id(tuya_apply_ui).execute(); }
+                        else:
                           - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/off"
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/off"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_usb) = false; id(tuya_apply_ui).execute(); }
-                        else:
+                                      if (response->status_code != 200) { id(g_strip_s4) = !id(g_strip_s4); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: strip_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # USB
+              - obj:
+                  id: strip_usb_btn
+                  align: TOP_LEFT
+                  x: 382
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x1A3A5E
+                  on_click:
+                    - lambda: |-
+                        id(g_strip_usb) = !id(g_strip_usb);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_strip_usb);'
+                        then:
                           - http_request.post:
                               url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/on"
                               body: ""
                               on_response:
                                 then:
                                   - lambda: |-
-                                      if (response->status_code == 200) { id(g_strip_usb) = true; id(tuya_apply_ui).execute(); }
+                                      if (response->status_code != 200) { id(g_strip_usb) = !id(g_strip_usb); id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_strip_usb) = !id(g_strip_usb); id(tuya_apply_ui).execute(); }
                   widgets:
-                    - label: { align: TOP_MID, y: 8, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
-                    - label:
-                        id: strip_usb_lbl
-                        align: BOTTOM_MID
-                        y: -8
-                        text: "--"
-                        text_font: montserrat_14
-                        text_color: 0x666666
+                    - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
+                    - label: { id: strip_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
 
-        # ── Card 2: Mukta Lock ───────────────────────────────────────────────
+              # ─ Strip 2 socket buttons (x: 506,598,690,782,874) ──────────────
+              # S1
+              - obj:
+                  id: switch_s1_btn
+                  align: TOP_LEFT
+                  x: 506
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_switch_s1) = !id(g_switch_s1);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_switch_s1);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s1) = !id(g_switch_s1); id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s1) = !id(g_switch_s1); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: switch_s1_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # S2
+              - obj:
+                  id: switch_s2_btn
+                  align: TOP_LEFT
+                  x: 598
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_switch_s2) = !id(g_switch_s2);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_switch_s2);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s2) = !id(g_switch_s2); id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s2) = !id(g_switch_s2); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: switch_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # S3
+              - obj:
+                  id: switch_s3_btn
+                  align: TOP_LEFT
+                  x: 690
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_switch_s3) = !id(g_switch_s3);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_switch_s3);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s3) = !id(g_switch_s3); id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s3) = !id(g_switch_s3); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: switch_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # S4
+              - obj:
+                  id: switch_s4_btn
+                  align: TOP_LEFT
+                  x: 782
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x2E5A3E
+                  on_click:
+                    - lambda: |-
+                        id(g_switch_s4) = !id(g_switch_s4);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_switch_s4);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s4) = !id(g_switch_s4); id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_s4) = !id(g_switch_s4); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { id: switch_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+              # USB
+              - obj:
+                  id: switch_usb_btn
+                  align: TOP_LEFT
+                  x: 874
+                  y: 40
+                  width: 82
+                  height: 108
+                  radius: 10
+                  bg_color: 0x181818
+                  border_width: 1
+                  border_color: 0x1A3A5E
+                  on_click:
+                    - lambda: |-
+                        id(g_switch_usb) = !id(g_switch_usb);
+                        id(tuya_apply_ui).execute();
+                    - if:
+                        condition:
+                          lambda: 'return id(g_switch_usb);'
+                        then:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/on"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_usb) = !id(g_switch_usb); id(tuya_apply_ui).execute(); }
+                        else:
+                          - http_request.post:
+                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/off"
+                              body: ""
+                              on_response:
+                                then:
+                                  - lambda: |-
+                                      if (response->status_code != 200) { id(g_switch_usb) = !id(g_switch_usb); id(tuya_apply_ui).execute(); }
+                  widgets:
+                    - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
+                    - label: { id: switch_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
+
+        # ══ Row 2 Left: Locks ════════════════════════════════════════════════════
+        # Card: x=20, y=242, w=486, h=162
+        # Left half (x 0–239): Mukta Lock
+        # Right half (x 247–486): Bedroom Knob
         - obj:
-            x: 352
-            y: 70
-            width: 320
-            height: 228
+            x: 20
+            y: 242
+            width: 486
+            height: 162
             align: TOP_LEFT
             bg_color: 0x0A1A14
             bg_opa: 95%
@@ -584,76 +986,166 @@ lvgl:
             radius: 14
             pad_all: 0
             widgets:
+
+              # ─ Vertical divider ─────────────────────────────────────────────
+              - obj:
+                  align: TOP_LEFT
+                  x: 241
+                  y: 8
+                  width: 2
+                  height: 146
+                  bg_color: 0x1E5A3E
+                  bg_opa: 70%
+                  border_width: 0
+                  pad_all: 0
+
+              # ─ Mukta Lock (left half) ───────────────────────────────────────
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 12
+                  x: 12
+                  y: 8
                   text: "Mukta Lock"
-                  text_font: montserrat_20
+                  text_font: montserrat_16
                   text_color: 0xFFFFFF
               - label:
-                  align: TOP_RIGHT
-                  x: -16
-                  y: 14
-                  text: "Knob"
-                  text_font: montserrat_16
-                  text_color: 0x666666
-              - label:
                   id: mukta_lock_lbl
-                  align: CENTER
-                  y: -16
-                  text: "----"
-                  text_font: montserrat_28
-                  text_color: 0x666666
+                  align: TOP_LEFT
+                  x: 12
+                  y: 46
+                  text: "---"
+                  text_font: montserrat_20
+                  text_color: 0xFF8F00
               - button:
-                  align: BOTTOM_LEFT
-                  x: 16
-                  y: -14
-                  width: 130
-                  height: 40
+                  align: TOP_LEFT
+                  x: 12
+                  y: 112
+                  width: 100
+                  height: 36
                   radius: 10
                   bg_color: 0x1A2840
                   text: "UNLOCK"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   on_click:
+                    - lambda: |-
+                        id(g_mukta_locked) = false;
+                        id(g_mukta_online) = true;
+                        id(tuya_apply_ui).execute();
                     - http_request.post:
                         url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/unlock"
                         body: ""
                         on_response:
                           then:
                             - lambda: |-
-                                if (response->status_code == 200) {
-                                  id(g_mukta_locked) = false;
+                                if (response->status_code != 200) {
+                                  id(g_mukta_online) = false;
                                   id(tuya_apply_ui).execute();
                                 }
               - button:
-                  align: BOTTOM_RIGHT
-                  x: -16
-                  y: -14
-                  width: 130
-                  height: 40
+                  align: TOP_LEFT
+                  x: 120
+                  y: 112
+                  width: 100
+                  height: 36
                   radius: 10
                   bg_color: 0x2A1822
                   text: "LOCK"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   on_click:
+                    - lambda: |-
+                        id(g_mukta_locked) = true;
+                        id(g_mukta_online) = true;
+                        id(tuya_apply_ui).execute();
                     - http_request.post:
                         url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/lock"
                         body: ""
                         on_response:
                           then:
                             - lambda: |-
-                                if (response->status_code == 200) {
-                                  id(g_mukta_locked) = true;
+                                if (response->status_code != 200) {
+                                  id(g_mukta_online) = false;
                                   id(tuya_apply_ui).execute();
                                 }
 
-        # ── Card 3: WiFi Plugs (Drawing Room + Garden) ───────────────────────
+              # ─ Bedroom Knob (right half, x starts at 249) ───────────────────
+              - label:
+                  align: TOP_LEFT
+                  x: 255
+                  y: 8
+                  text: "Bedroom"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+              - label:
+                  align: TOP_LEFT
+                  x: 255
+                  y: 28
+                  text: "Knob Lock"
+                  text_font: montserrat_12
+                  text_color: 0x666666
+              - label:
+                  id: bedroom_lbl
+                  align: TOP_LEFT
+                  x: 255
+                  y: 56
+                  text: "---"
+                  text_font: montserrat_20
+                  text_color: 0xFF8F00
+              - button:
+                  align: TOP_LEFT
+                  x: 255
+                  y: 112
+                  width: 100
+                  height: 36
+                  radius: 10
+                  bg_color: 0x1A2840
+                  text: "UNLOCK"
+                  text_font: montserrat_14
+                  on_click:
+                    - lambda: |-
+                        id(g_bedroom_on) = true;
+                        id(g_bedroom_online) = true;
+                        id(tuya_apply_ui).execute();
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/on"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (response->status_code != 200) {
+                                  id(g_bedroom_online) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
+              - button:
+                  align: TOP_LEFT
+                  x: 363
+                  y: 112
+                  width: 100
+                  height: 36
+                  radius: 10
+                  bg_color: 0x2A1822
+                  text: "LOCK"
+                  text_font: montserrat_14
+                  on_click:
+                    - lambda: |-
+                        id(g_bedroom_on) = false;
+                        id(g_bedroom_online) = true;
+                        id(tuya_apply_ui).execute();
+                    - http_request.post:
+                        url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/off"
+                        body: ""
+                        on_response:
+                          then:
+                            - lambda: |-
+                                if (response->status_code != 200) {
+                                  id(g_bedroom_online) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
+
+        # ══ Row 2 Right: WiFi Plugs ══════════════════════════════════════════════
         - obj:
-            x: 684
-            y: 70
-            width: 320
-            height: 228
+            x: 518
+            y: 242
+            width: 486
+            height: 162
             align: TOP_LEFT
             bg_color: 0x0A1A14
             bg_opa: 95%
@@ -664,145 +1156,164 @@ lvgl:
             widgets:
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 12
+                  x: 14
+                  y: 8
                   text: "WiFi Plugs"
-                  text_font: montserrat_20
+                  text_font: montserrat_18
                   text_color: 0xFFFFFF
 
               # Drawing Room plug
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 52
+                  x: 14
+                  y: 44
                   text: "Drawing Room"
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
               - label:
                   id: tuya_dr_lbl
                   align: TOP_LEFT
-                  x: 16
-                  y: 76
-                  text: "--"
+                  x: 14
+                  y: 64
+                  text: "---"
                   text_font: montserrat_18
-                  text_color: 0x666666
+                  text_color: 0xFF8F00
               - button:
-                  x: 174
-                  y: 52
-                  width: 60
-                  height: 36
+                  align: TOP_LEFT
+                  x: 350
+                  y: 44
+                  width: 58
+                  height: 34
                   radius: 8
                   bg_color: 0x1B5E20
                   text: "ON"
                   text_font: montserrat_14
-                  align: TOP_LEFT
                   on_click:
+                    - lambda: |-
+                        id(g_tuya_dr_on) = true;
+                        id(g_tuya_dr_online) = true;
+                        id(tuya_apply_ui).execute();
                     - http_request.post:
                         url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/on"
                         body: ""
                         on_response:
                           then:
                             - lambda: |-
-                                if (response->status_code == 200) { id(g_tuya_dr_on) = true; id(tuya_apply_ui).execute(); }
+                                if (response->status_code != 200) {
+                                  id(g_tuya_dr_online) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
               - button:
-                  x: 242
-                  y: 52
-                  width: 60
-                  height: 36
+                  align: TOP_LEFT
+                  x: 416
+                  y: 44
+                  width: 58
+                  height: 34
                   radius: 8
                   bg_color: 0x2A1822
                   text: "OFF"
                   text_font: montserrat_14
-                  align: TOP_LEFT
                   on_click:
+                    - lambda: |-
+                        id(g_tuya_dr_on) = false;
+                        id(g_tuya_dr_online) = true;
+                        id(tuya_apply_ui).execute();
                     - http_request.post:
                         url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/off"
                         body: ""
                         on_response:
                           then:
                             - lambda: |-
-                                if (response->status_code == 200) { id(g_tuya_dr_on) = false; id(tuya_apply_ui).execute(); }
+                                if (response->status_code != 200) {
+                                  id(g_tuya_dr_online) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
 
               # Separator
               - obj:
-                  x: 10
-                  y: 108
-                  width: 300
-                  height: 1
                   align: TOP_LEFT
+                  x: 10
+                  y: 106
+                  width: 466
+                  height: 1
                   bg_color: 0x2E5A3E
-                  bg_opa: 60%
+                  bg_opa: 50%
                   border_width: 0
                   pad_all: 0
 
               # Garden plug
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 120
+                  x: 14
+                  y: 114
                   text: "Garden"
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
               - label:
                   id: tuya_garden_lbl
                   align: TOP_LEFT
-                  x: 16
-                  y: 144
-                  text: "--"
+                  x: 14
+                  y: 134
+                  text: "---"
                   text_font: montserrat_18
-                  text_color: 0x666666
+                  text_color: 0xFF8F00
               - button:
-                  x: 174
-                  y: 120
-                  width: 60
-                  height: 36
+                  align: TOP_LEFT
+                  x: 350
+                  y: 114
+                  width: 58
+                  height: 34
                   radius: 8
                   bg_color: 0x1B5E20
                   text: "ON"
                   text_font: montserrat_14
-                  align: TOP_LEFT
                   on_click:
+                    - lambda: |-
+                        id(g_tuya_garden_on) = true;
+                        id(g_tuya_garden_online) = true;
+                        id(tuya_apply_ui).execute();
                     - http_request.post:
                         url: "${tuya_bridge_url}/simple/1571285350029127c9f3/on"
                         body: ""
                         on_response:
                           then:
                             - lambda: |-
-                                if (response->status_code == 200) { id(g_tuya_garden_on) = true; id(tuya_apply_ui).execute(); }
+                                if (response->status_code != 200) {
+                                  id(g_tuya_garden_online) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
               - button:
-                  x: 242
-                  y: 120
-                  width: 60
-                  height: 36
+                  align: TOP_LEFT
+                  x: 416
+                  y: 114
+                  width: 58
+                  height: 34
                   radius: 8
                   bg_color: 0x2A1822
                   text: "OFF"
                   text_font: montserrat_14
-                  align: TOP_LEFT
                   on_click:
+                    - lambda: |-
+                        id(g_tuya_garden_on) = false;
+                        id(g_tuya_garden_online) = true;
+                        id(tuya_apply_ui).execute();
                     - http_request.post:
                         url: "${tuya_bridge_url}/simple/1571285350029127c9f3/off"
                         body: ""
                         on_response:
                           then:
                             - lambda: |-
-                                if (response->status_code == 200) { id(g_tuya_garden_on) = false; id(tuya_apply_ui).execute(); }
+                                if (response->status_code != 200) {
+                                  id(g_tuya_garden_online) = false;
+                                  id(tuya_apply_ui).execute();
+                                }
 
-              - label:
-                  align: BOTTOM_MID
-                  y: -8
-                  text: "Direct LAN — no cloud"
-                  text_font: montserrat_12
-                  text_color: 0x3A6A4E
-
-        # ══ Row 2 ════════════════════════════════════════════════════════════
-
-        # ── Card 4: Multifunction Alarm ──────────────────────────────────────
+        # ══ Row 3 Left: Safety Sensors ═══════════════════════════════════════════
         - obj:
             x: 20
-            y: 308
-            width: 320
-            height: 228
+            y: 414
+            width: 486
+            height: 162
             align: TOP_LEFT
             bg_color: 0x0A1A14
             bg_opa: 95%
@@ -813,114 +1324,114 @@ lvgl:
             widgets:
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 12
-                  text: "Alarm"
-                  text_font: montserrat_20
+                  x: 14
+                  y: 8
+                  text: "Safety Sensors"
+                  text_font: montserrat_18
                   text_color: 0xFFFFFF
-              - label:
-                  align: TOP_RIGHT
-                  x: -16
-                  y: 14
-                  text: "Multi"
-                  text_font: montserrat_16
-                  text_color: 0x666666
-              - label:
-                  id: alarm_state_lbl
-                  align: CENTER
-                  y: -10
-                  text: "----"
-                  text_font: montserrat_32
-                  text_color: 0x666666
               - button:
-                  align: BOTTOM_MID
-                  y: -14
-                  width: 180
-                  height: 40
-                  radius: 10
+                  align: TOP_RIGHT
+                  x: -14
+                  y: 6
+                  width: 90
+                  height: 28
+                  radius: 8
                   bg_color: 0x162044
                   text: "REFRESH"
-                  text_font: montserrat_16
+                  text_font: montserrat_12
                   on_click:
                     - script.execute: tuya_poll_sensors
-
-        # ── Card 5: Safety Sensors ───────────────────────────────────────────
-        - obj:
-            x: 352
-            y: 308
-            width: 320
-            height: 228
-            align: TOP_LEFT
-            bg_color: 0x0A1A14
-            bg_opa: 95%
-            border_color: 0x1E5A3E
-            border_width: 2
-            radius: 14
-            pad_all: 0
-            widgets:
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 12
-                  text: "Safety Sensors"
-                  text_font: montserrat_20
-                  text_color: 0xFFFFFF
 
               # Smoke
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 56
+                  x: 14
+                  y: 52
                   text: "Smoke"
                   text_font: montserrat_18
                   text_color: 0xCCCCCC
               - label:
                   id: smoke_state_lbl
                   align: TOP_RIGHT
-                  x: -16
-                  y: 56
-                  text: "----"
+                  x: -14
+                  y: 52
+                  text: "?"
                   text_font: montserrat_18
-                  text_color: 0x666666
+                  text_color: 0xFF8F00
 
               # CO
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 100
+                  x: 14
+                  y: 92
                   text: "CO"
                   text_font: montserrat_18
                   text_color: 0xCCCCCC
               - label:
                   id: co_state_lbl
                   align: TOP_RIGHT
-                  x: -16
-                  y: 100
-                  text: "----"
+                  x: -14
+                  y: 92
+                  text: "?"
                   text_font: montserrat_18
-                  text_color: 0x666666
+                  text_color: 0xFF8F00
 
               # Water
               - label:
                   align: TOP_LEFT
-                  x: 16
-                  y: 144
+                  x: 14
+                  y: 132
                   text: "Water"
                   text_font: montserrat_18
                   text_color: 0xCCCCCC
               - label:
                   id: water_state_lbl
                   align: TOP_RIGHT
-                  x: -16
-                  y: 144
-                  text: "----"
+                  x: -14
+                  y: 132
+                  text: "?"
                   text_font: montserrat_18
-                  text_color: 0x666666
+                  text_color: 0xFF8F00
 
+        # ══ Row 3 Right: Alarm ════════════════════════════════════════════════════
+        - obj:
+            x: 518
+            y: 414
+            width: 486
+            height: 162
+            align: TOP_LEFT
+            bg_color: 0x0A1A14
+            bg_opa: 95%
+            border_color: 0x1E5A3E
+            border_width: 2
+            radius: 14
+            pad_all: 0
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 14
+                  y: 8
+                  text: "Alarm"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - label:
+                  align: TOP_LEFT
+                  x: 14
+                  y: 32
+                  text: "Multifunction"
+                  text_font: montserrat_14
+                  text_color: 0x666666
+              - label:
+                  id: alarm_state_lbl
+                  align: CENTER
+                  y: 0
+                  text: "?"
+                  text_font: montserrat_28
+                  text_color: 0xFF8F00
               - button:
                   align: BOTTOM_MID
                   y: -14
-                  width: 180
+                  width: 160
                   height: 36
                   radius: 10
                   bg_color: 0x162044
@@ -928,78 +1439,3 @@ lvgl:
                   text_font: montserrat_14
                   on_click:
                     - script.execute: tuya_poll_sensors
-
-        # ── Card 6: Quick Info ───────────────────────────────────────────────
-        - obj:
-            x: 684
-            y: 308
-            width: 320
-            height: 228
-            align: TOP_LEFT
-            bg_color: 0x080E0A
-            bg_opa: 90%
-            border_color: 0x1E3A2E
-            border_width: 1
-            radius: 14
-            pad_all: 0
-            widgets:
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 12
-                  text: "Device Info"
-                  text_font: montserrat_18
-                  text_color: 0xAAAAAA
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 46
-                  text: "4+1 Power Strip"
-                  text_font: montserrat_14
-                  text_color: 0x66AA88
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 68
-                  text: "Zigbee via GW018-DM"
-                  text_font: montserrat_12
-                  text_color: 0x4A6A5A
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 96
-                  text: "Mukta Lock"
-                  text_font: montserrat_14
-                  text_color: 0x66AA88
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 118
-                  text: "BLE via BT Gateway"
-                  text_font: montserrat_12
-                  text_color: 0x4A6A5A
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 146
-                  text: "DR Plug  192.168.55.56"
-                  text_font: montserrat_12
-                  text_color: 0x4A6A5A
-              - label:
-                  align: TOP_LEFT
-                  x: 16
-                  y: 164
-                  text: "Garden   192.168.55.72"
-                  text_font: montserrat_12
-                  text_color: 0x4A6A5A
-              - button:
-                  align: BOTTOM_MID
-                  y: -14
-                  width: 180
-                  height: 36
-                  radius: 10
-                  bg_color: 0x0F2018
-                  text: "REFRESH ALL"
-                  text_font: montserrat_14
-                  on_click:
-                    - script.execute: tuya_refresh_all
