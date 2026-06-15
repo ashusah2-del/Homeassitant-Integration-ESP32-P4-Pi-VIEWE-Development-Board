@@ -186,8 +186,8 @@ esp32:
     type: esp-idf
     advanced:
       enable_idf_experimental_features: yes
-      # 8KB default overflows with 300+ LVGL objects (tuya page adds 50). 16KB gives headroom.
-      loop_task_stack_size: 16384
+      # 8KB default overflows with 300+ LVGL objects (tuya page adds 50). 32KB gives headroom.
+      loop_task_stack_size: 32768
     sdkconfig_options:
       CONFIG_SPIRAM_XIP_FROM_PSRAM: y
       # Raise TWDT from 5s to 12s — slideshow image decode (≤2s) and
