@@ -57,65 +57,82 @@ globals:
     restore_value: false
 
 script:
-  # ── Apply current state to all LVGL widgets ──────────────────────────────
+  # ── Apply current state to LVGL widgets via ESPHome LVGL actions ──────────
   - id: tuya_apply_ui
     mode: single
     then:
-      - lambda: |-
-          if (!id(g_lvgl_ready)) return;
-
-          // Power strip socket buttons
-          struct { lv_obj_t* btn; lv_obj_t* lbl; bool state; } sockets[] = {
-            { id(strip_s1_btn), id(strip_s1_lbl), id(g_strip_s1) },
-            { id(strip_s2_btn), id(strip_s2_lbl), id(g_strip_s2) },
-            { id(strip_s3_btn), id(strip_s3_lbl), id(g_strip_s3) },
-            { id(strip_s4_btn), id(strip_s4_lbl), id(g_strip_s4) },
-            { id(strip_usb_btn), id(strip_usb_lbl), id(g_strip_usb) },
-          };
-          for (auto& s : sockets) {
-            lv_obj_set_style_bg_color(s.btn,
-              s.state ? lv_color_hex(0x1B5E20) : lv_color_hex(0x212121), 0);
-            lv_label_set_text(s.lbl, s.state ? "ON" : "OFF");
-            lv_obj_set_style_text_color(s.lbl,
-              s.state ? lv_color_hex(0x69F0AE) : lv_color_hex(0x666666), 0);
-          }
-
-          // WiFi plugs
-          lv_label_set_text(id(tuya_dr_lbl),
-            id(g_tuya_dr_on) ? "ON" : "OFF");
-          lv_obj_set_style_text_color(id(tuya_dr_lbl),
-            id(g_tuya_dr_on) ? lv_color_hex(0x69F0AE) : lv_color_hex(0x666666), 0);
-
-          lv_label_set_text(id(tuya_garden_lbl),
-            id(g_tuya_garden_on) ? "ON" : "OFF");
-          lv_obj_set_style_text_color(id(tuya_garden_lbl),
-            id(g_tuya_garden_on) ? lv_color_hex(0x69F0AE) : lv_color_hex(0x666666), 0);
-
-          // Lock
-          lv_label_set_text(id(mukta_lock_lbl),
-            id(g_mukta_locked) ? "LOCKED" : "UNLOCKED");
-          lv_obj_set_style_text_color(id(mukta_lock_lbl),
-            id(g_mukta_locked) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
-
-          // Safety sensors
-          const char* smoke_txt  = id(g_smoke_alarm) ? "! SMOKE !" : "CLEAR";
-          const char* co_txt     = id(g_co_alarm)    ? "! CO !"    : "CLEAR";
-          const char* water_txt  = id(g_water_alarm) ? "! WATER !" : "CLEAR";
-          lv_label_set_text(id(smoke_state_lbl),  smoke_txt);
-          lv_label_set_text(id(co_state_lbl),     co_txt);
-          lv_label_set_text(id(water_state_lbl),  water_txt);
-          lv_obj_set_style_text_color(id(smoke_state_lbl),
-            id(g_smoke_alarm) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
-          lv_obj_set_style_text_color(id(co_state_lbl),
-            id(g_co_alarm)    ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
-          lv_obj_set_style_text_color(id(water_state_lbl),
-            id(g_water_alarm) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
-
-          // Multifunction alarm
-          lv_label_set_text(id(alarm_state_lbl),
-            id(g_tuya_alarm) ? "! ALARM !" : "OK");
-          lv_obj_set_style_text_color(id(alarm_state_lbl),
-            id(g_tuya_alarm) ? lv_color_hex(0xFF5252) : lv_color_hex(0x69F0AE), 0);
+      # Power Strip — S1
+      - lvgl.obj.update:
+          id: strip_s1_btn
+          bg_color: !lambda 'return lv_color_hex(id(g_strip_s1) ? 0x1B5E20 : 0x212121);'
+      - lvgl.label.update:
+          id: strip_s1_lbl
+          text: !lambda 'return std::string(id(g_strip_s1) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_strip_s1) ? 0x69F0AE : 0x666666);'
+      # Power Strip — S2
+      - lvgl.obj.update:
+          id: strip_s2_btn
+          bg_color: !lambda 'return lv_color_hex(id(g_strip_s2) ? 0x1B5E20 : 0x212121);'
+      - lvgl.label.update:
+          id: strip_s2_lbl
+          text: !lambda 'return std::string(id(g_strip_s2) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_strip_s2) ? 0x69F0AE : 0x666666);'
+      # Power Strip — S3
+      - lvgl.obj.update:
+          id: strip_s3_btn
+          bg_color: !lambda 'return lv_color_hex(id(g_strip_s3) ? 0x1B5E20 : 0x212121);'
+      - lvgl.label.update:
+          id: strip_s3_lbl
+          text: !lambda 'return std::string(id(g_strip_s3) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_strip_s3) ? 0x69F0AE : 0x666666);'
+      # Power Strip — S4
+      - lvgl.obj.update:
+          id: strip_s4_btn
+          bg_color: !lambda 'return lv_color_hex(id(g_strip_s4) ? 0x1B5E20 : 0x212121);'
+      - lvgl.label.update:
+          id: strip_s4_lbl
+          text: !lambda 'return std::string(id(g_strip_s4) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_strip_s4) ? 0x69F0AE : 0x666666);'
+      # Power Strip — USB
+      - lvgl.obj.update:
+          id: strip_usb_btn
+          bg_color: !lambda 'return lv_color_hex(id(g_strip_usb) ? 0x1B5E20 : 0x212121);'
+      - lvgl.label.update:
+          id: strip_usb_lbl
+          text: !lambda 'return std::string(id(g_strip_usb) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_strip_usb) ? 0x69F0AE : 0x666666);'
+      # WiFi Plugs
+      - lvgl.label.update:
+          id: tuya_dr_lbl
+          text: !lambda 'return std::string(id(g_tuya_dr_on) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_tuya_dr_on) ? 0x69F0AE : 0x666666);'
+      - lvgl.label.update:
+          id: tuya_garden_lbl
+          text: !lambda 'return std::string(id(g_tuya_garden_on) ? "ON" : "OFF");'
+          text_color: !lambda 'return lv_color_hex(id(g_tuya_garden_on) ? 0x69F0AE : 0x666666);'
+      # Lock
+      - lvgl.label.update:
+          id: mukta_lock_lbl
+          text: !lambda 'return std::string(id(g_mukta_locked) ? "LOCKED" : "UNLOCKED");'
+          text_color: !lambda 'return lv_color_hex(id(g_mukta_locked) ? 0xFF5252 : 0x69F0AE);'
+      # Safety sensors
+      - lvgl.label.update:
+          id: smoke_state_lbl
+          text: !lambda 'return std::string(id(g_smoke_alarm) ? "! SMOKE !" : "CLEAR");'
+          text_color: !lambda 'return lv_color_hex(id(g_smoke_alarm) ? 0xFF5252 : 0x69F0AE);'
+      - lvgl.label.update:
+          id: co_state_lbl
+          text: !lambda 'return std::string(id(g_co_alarm) ? "! CO !" : "CLEAR");'
+          text_color: !lambda 'return lv_color_hex(id(g_co_alarm) ? 0xFF5252 : 0x69F0AE);'
+      - lvgl.label.update:
+          id: water_state_lbl
+          text: !lambda 'return std::string(id(g_water_alarm) ? "! WATER !" : "CLEAR");'
+          text_color: !lambda 'return lv_color_hex(id(g_water_alarm) ? 0xFF5252 : 0x69F0AE);'
+      # Alarm
+      - lvgl.label.update:
+          id: alarm_state_lbl
+          text: !lambda 'return std::string(id(g_tuya_alarm) ? "! ALARM !" : "OK");'
+          text_color: !lambda 'return lv_color_hex(id(g_tuya_alarm) ? 0xFF5252 : 0x69F0AE);'
 
   # ── Fetch Power Strip state ───────────────────────────────────────────────
   - id: tuya_poll_strip
