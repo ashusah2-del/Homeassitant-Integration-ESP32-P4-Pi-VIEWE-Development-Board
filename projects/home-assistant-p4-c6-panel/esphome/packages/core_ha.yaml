@@ -976,6 +976,80 @@ text_sensor:
             lv_obj_set_style_img_recolor(id(pres12_dot), on ? lv_color_hex(0x10D080) : lv_color_hex(0x444444), 0);
             lv_obj_set_style_img_recolor_opa(id(pres12_dot), LV_OPA_COVER, 0);
 
+  # Energy page values. These are text_sensor subscriptions because Home
+  # Assistant entity states may arrive as strings with decimals, units, or
+  # unavailable; the page only needs display text.
+  - platform: homeassistant
+    id: energy_grid_power_s
+    entity_id: "${energy_grid_power}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            lv_label_set_text(id(energy_grid_val), v.c_str());
+  - platform: homeassistant
+    id: energy_solar_power_s
+    entity_id: "${energy_solar_power}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            lv_label_set_text(id(energy_solar_val), v.c_str());
+  - platform: homeassistant
+    id: energy_home_power_s
+    entity_id: "${energy_home_power}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            lv_label_set_text(id(energy_home_val), v.c_str());
+  - platform: homeassistant
+    id: energy_battery_power_s
+    entity_id: "${energy_battery_power}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            lv_label_set_text(id(energy_battery_val), v.c_str());
+  - platform: homeassistant
+    id: energy_battery_soc_s
+    entity_id: "${energy_battery_soc}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " %";
+            lv_label_set_text(id(energy_battery_soc_val), v.c_str());
+  - platform: homeassistant
+    id: energy_today_import_s
+    entity_id: "${energy_today_import}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_energy_unit}";
+            lv_label_set_text(id(energy_import_val), v.c_str());
+  - platform: homeassistant
+    id: energy_today_export_s
+    entity_id: "${energy_today_export}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_energy_unit}";
+            lv_label_set_text(id(energy_export_val), v.c_str());
+
 sensor:
   - platform: uptime
     name: "Panel Uptime"

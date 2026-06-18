@@ -7,12 +7,12 @@ Raspberry Pi 5.
 
 The panel replaces a wall-mounted HA dashboard tablet. It boots to a
 photo-frame style **Immich slideshow** when idle, then exposes
-**six purpose-built pages of live home controls** by swipe gesture:
+**seven purpose-built pages of live home controls** by swipe gesture:
 
 ```
-slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ cameras ◀─swipe─▶ tuya
-   ▲                                                                                          │
-   └────── 30s idle timeout ───────────────────────────────────────────────────────────────────┘
+slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ energy ◀─swipe─▶ cameras ◀─swipe─▶ tuya
+   ▲                                                                                                     │
+   └────── 30s idle timeout ──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -95,7 +95,22 @@ grey = CLEAR) and an ACTIVE/CLEAR label.
 | Side Door | `binary_sensor.side_door_motion_detected` |
 | Garden | `binary_sensor.garden_motion_detected` |
 
-### 5. Cameras (`camera_page` + `camera_view_page`)
+### 5. Energy (`energy_page`)
+
+A Home Assistant-driven energy diagram between Presence and Cameras.
+It shows grid, solar, home load, battery power/state of charge, and
+today's import/export totals. The HA entities are configured via
+substitutions in `mangalam-panel.yaml`:
+
+- `energy_grid_power`
+- `energy_solar_power`
+- `energy_home_power`
+- `energy_battery_power`
+- `energy_battery_soc`
+- `energy_today_import`
+- `energy_today_export`
+
+### 6. Cameras (`camera_page` + `camera_view_page`)
 
 2×2 grid of 4 Eufy outdoor cameras. Thumbnails refresh from the proxy
 every 60 seconds; tapping a tile opens `camera_view_page` with the
@@ -112,14 +127,14 @@ interval was removed after it caused the panel to crash with
 | Side Door | `camera.side_door` |
 | Garden | `camera.garden` |
 
-### 6. Tuya local (`tuya_page`)
+### 7. Tuya local (`tuya_page`)
 
 Direct LAN control of Tuya devices via the `tuya-bridge` Python service
 (port 8766). Power strips, locks, WiFi plugs, smoke/CO/water sensors,
 and alarm — no Home Assistant round-trip required. Swipe right from
 Cameras, left to return to the slideshow.
 
-### 7. Settings (`settings_page`)
+### 8. Settings (`settings_page`)
 
 Live status (HA connection, Immich, IP, RSSI, battery, uptime, firmware
 version, Tuya bridge) plus on-panel tunables:

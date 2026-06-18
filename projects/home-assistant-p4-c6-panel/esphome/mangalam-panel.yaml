@@ -90,6 +90,18 @@ substitutions:
   weather_entity: weather.forecast_home_2
   weather_location: "Home"
 
+  # Energy page — Home Assistant energy/power entities. Replace these with
+  # your real HA energy dashboard helpers if the defaults do not exist.
+  energy_grid_power: sensor.grid_power
+  energy_solar_power: sensor.solar_power
+  energy_home_power: sensor.home_power
+  energy_battery_power: sensor.battery_power
+  energy_battery_soc: sensor.battery_state_of_charge
+  energy_today_import: sensor.energy_import_today
+  energy_today_export: sensor.energy_export_today
+  energy_power_unit: "W"
+  energy_energy_unit: "kWh"
+
   # Camera page — four Eufy cameras. Thumbnails refresh every 60s on the
   # grid page; tap a card to open camera_view_page. Live view refreshes
   # on open and when the user taps Refresh (no auto-polling — avoids crashes).

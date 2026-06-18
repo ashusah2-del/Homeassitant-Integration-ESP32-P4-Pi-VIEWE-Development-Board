@@ -2616,7 +2616,7 @@ lvgl:
       on_swipe_right:
         - lvgl.page.show: tado_page
       on_swipe_left:
-        - lvgl.page.show: camera_page
+        - lvgl.page.show: energy_page
       widgets:
         - obj:
             width: 1024
@@ -2643,7 +2643,7 @@ lvgl:
               - label:
                   align: RIGHT_MID
                   x: -20
-                  text: "< Tado    Cameras >"
+                  text: "< Tado    Energy >"
                   text_font: montserrat_16
                   text_color: 0x69F0AE
 
@@ -2924,14 +2924,157 @@ lvgl:
               - label: { id: pres12_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
 
     # ═══════════════════════════════════════════════════════════
-    # PAGE 5 — CAMERA GRID (swipe left from Presence)
+    # PAGE 5 — ENERGY FLOW (swipe left from Presence)
+    # Live HA energy/power values arranged as a simple source -> home diagram.
+    # ═══════════════════════════════════════════════════════════
+    - id: energy_page
+      bg_color: 0x050C10
+      on_swipe_right:
+        - lvgl.page.show: presence_page
+      on_swipe_left:
+        - lvgl.page.show: camera_page
+      widgets:
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0D1A22
+            bg_opa: 96%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E5A6E
+            pad_all: 0
+            widgets:
+              - label: { align: LEFT_MID, x: 20, text: "Energy", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - label: { align: CENTER, text: "Home Assistant power flow", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: RIGHT_MID, x: -20, text: "< Presence    Cameras >", text_font: montserrat_16, text_color: 0x69F0AE }
+
+        # Main diagram canvas
+        - obj:
+            x: 30
+            y: 78
+            width: 964
+            height: 372
+            bg_color: 0x071118
+            bg_opa: 94%
+            border_color: 0x1E5A6E
+            border_width: 2
+            radius: 18
+            pad_all: 0
+            widgets:
+              # Flow lines
+              - obj: { x: 236, y: 82, width: 250, height: 6, bg_color: 0x44AAFF, border_width: 0, radius: 3 }
+              - obj: { x: 236, y: 276, width: 250, height: 6, bg_color: 0xFFD54F, border_width: 0, radius: 3 }
+              - obj: { x: 636, y: 184, width: 210, height: 6, bg_color: 0xFFB74D, border_width: 0, radius: 3 }
+              - obj: { x: 484, y: 86, width: 6, height: 194, bg_color: 0x2E6F80, border_width: 0, radius: 3 }
+              - label: { x: 360, y: 56, text: ">", text_font: montserrat_24, text_color: 0x44AAFF }
+              - label: { x: 360, y: 250, text: ">", text_font: montserrat_24, text_color: 0xFFD54F }
+              - label: { x: 742, y: 158, text: "<>", text_font: montserrat_20, text_color: 0xFFB74D }
+
+              # Grid source
+              - obj:
+                  x: 28
+                  y: 40
+                  width: 210
+                  height: 98
+                  bg_color: 0x102033
+                  bg_opa: 96%
+                  border_color: 0x44AAFF
+                  border_width: 2
+                  radius: 14
+                  pad_all: 0
+                  widgets:
+                    - label: { align: TOP_MID, y: 12, text: "GRID", text_font: montserrat_18, text_color: 0x44AAFF }
+                    - label: { id: energy_grid_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
+
+              # Solar source
+              - obj:
+                  x: 28
+                  y: 236
+                  width: 210
+                  height: 98
+                  bg_color: 0x302A08
+                  bg_opa: 96%
+                  border_color: 0xFFD54F
+                  border_width: 2
+                  radius: 14
+                  pad_all: 0
+                  widgets:
+                    - label: { align: TOP_MID, y: 12, text: "SOLAR", text_font: montserrat_18, text_color: 0xFFD54F }
+                    - label: { id: energy_solar_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
+
+              # Home load
+              - obj:
+                  x: 470
+                  y: 126
+                  width: 170
+                  height: 130
+                  bg_color: 0x14202E
+                  bg_opa: 100%
+                  border_color: 0x69F0AE
+                  border_width: 3
+                  radius: 22
+                  pad_all: 0
+                  widgets:
+                    - label: { align: TOP_MID, y: 18, text: "HOME", text_font: montserrat_20, text_color: 0x69F0AE }
+                    - label: { id: energy_home_val, align: CENTER, y: 22, text: "--", text_font: montserrat_30, text_color: 0xFFFFFF }
+
+              # Battery
+              - obj:
+                  x: 754
+                  y: 130
+                  width: 180
+                  height: 122
+                  bg_color: 0x2A1B08
+                  bg_opa: 96%
+                  border_color: 0xFFB74D
+                  border_width: 2
+                  radius: 14
+                  pad_all: 0
+                  widgets:
+                    - label: { align: TOP_MID, y: 12, text: "BATTERY", text_font: montserrat_18, text_color: 0xFFB74D }
+                    - label: { id: energy_battery_val, align: CENTER, y: 4, text: "--", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { id: energy_battery_soc_val, align: BOTTOM_MID, y: -12, text: "--", text_font: montserrat_18, text_color: 0xCCCCCC }
+
+        # Daily summary cards
+        - obj:
+            x: 30
+            y: 466
+            width: 464
+            height: 104
+            bg_color: 0x101722
+            bg_opa: 96%
+            border_color: 0x44AAFF
+            border_width: 2
+            radius: 16
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Imported today", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { id: energy_import_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
+        - obj:
+            x: 530
+            y: 466
+            width: 464
+            height: 104
+            bg_color: 0x101D12
+            bg_opa: 96%
+            border_color: 0xFFD54F
+            border_width: 2
+            radius: 16
+            pad_all: 0
+            widgets:
+              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Exported today", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { id: energy_export_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 6 — CAMERA GRID (swipe left from Energy)
     # Four Eufy cameras as thumbnails. Tap a thumbnail to open
     # camera_view_page with the larger live feed.
     # ═══════════════════════════════════════════════════════════
     - id: camera_page
       bg_color: 0x050510
       on_swipe_right:
-        - lvgl.page.show: presence_page
+        - lvgl.page.show: energy_page
       on_swipe_left:
         - lvgl.page.show: tuya_page
       widgets:
@@ -2948,7 +3091,7 @@ lvgl:
             widgets:
               - label: { align: LEFT_MID, x: 20, text: "Cameras", text_font: montserrat_24, text_color: 0xFFFFFF }
               - label: { align: CENTER, text: "Tap a tile to view", text_font: montserrat_18, text_color: 0xAAAAAA }
-              - label: { align: RIGHT_MID, x: -20, text: "< Presence    Tuya >", text_font: montserrat_16, text_color: 0x69F0AE }
+              - label: { align: RIGHT_MID, x: -20, text: "< Energy    Tuya >", text_font: montserrat_16, text_color: 0x69F0AE }
 
         # Camera tiles — 2x2 grid, each 480×255
         - obj:
