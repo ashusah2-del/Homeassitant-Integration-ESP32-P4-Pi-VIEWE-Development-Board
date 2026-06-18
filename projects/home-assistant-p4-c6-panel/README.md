@@ -53,9 +53,10 @@ The panel is backed by a small **Python proxy service** running on the
 Docker host (`docker/immich-proxy/`, not in this repo). It exposes two
 endpoints used by the panel:
 
-- `GET /random-photo` — re-encodes a random Immich preview as a
-  guaranteed SOF0 baseline JPEG resized to ≤ 512×400 (works around a
-  JPEGDEC 1.2.7 crash on SOF1 thumbnails)
+- `GET /random-photo` — re-encodes a random Immich image as a
+  guaranteed SOF0 baseline JPEG resized for the panel. It uses the full
+  image library by default; set `FAVORITES_ONLY=true` in `proxy.env` to
+  restrict the slideshow to favourites.
 - `GET /camera/<entity>?size=thumb|full` — re-encodes a Eufy camera
   snapshot at a panel-friendly size
 

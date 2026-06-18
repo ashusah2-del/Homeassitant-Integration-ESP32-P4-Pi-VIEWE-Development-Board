@@ -156,7 +156,8 @@ A small `BaseHTTPRequestHandler` Python service running as a systemd
 **user** service (`immich-proxy.service`) on the Docker host
 (`<docker-host-ip>:8765`). It exposes two endpoints used by the panel:
 
-- `GET /random-photo` — fetches a random IMAGE asset from Immich,
+- `GET /random-photo` — fetches a random IMAGE asset from Immich's full
+  library by default (`FAVORITES_ONLY=true` restricts it to favourites),
   follows the `?size=preview` thumbnail link, then **always**
   re-encodes via Pillow as SOF0 baseline JPEG resized to
   ≤ `MAX_W × MAX_H` (default 512 × 400). Removes both the SOF1
@@ -167,7 +168,8 @@ A small `BaseHTTPRequestHandler` Python service running as a systemd
   re-encodes via Pillow. Same SOF0 guarantee.
 
 Config lives in `proxy.env` (gitignored): Immich URL + API key, HA URL
-+ long-lived token, JPEG quality, retry count.
++ long-lived token, JPEG quality, retry count, and optional
+`FAVORITES_ONLY`.
 
 ### Home-Assistant integration
 

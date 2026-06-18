@@ -29,6 +29,7 @@ IMMICH_KEY   = os.environ["IMMICH_API_KEY"]
 PROXY_PORT   = int(os.environ.get("PROXY_PORT", "8765"))
 JPEG_QUALITY = int(os.environ.get("JPEG_QUALITY", "85"))
 RETRIES      = int(os.environ.get("RETRIES", "8"))
+FAVORITES_ONLY = os.environ.get("FAVORITES_ONLY", "false").lower() in ("1", "true", "yes", "on")
 # Home Assistant — only needed for the /camera/<name> endpoint.
 HA_URL       = os.environ.get("HA_URL", "").rstrip("/")
 HA_TOKEN     = os.environ.get("HA_TOKEN", "")
@@ -79,10 +80,12 @@ def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
 def fetch_safe_jpeg() -> bytes | None:
     for attempt in range(RETRIES):
         try:
-            # Pull from favourites only — POST /api/search/random with
-            # isFavorite:true. The legacy /api/assets/random endpoint has no
-            # favourite filter, so we use the search/random endpoint instead.
-            req_body = json.dumps({"size": 1, "type": "IMAGE", "isFavorite": True}).encode("utf-8")
+            # Pull from the whole image library by default. Set
+            # FAVORITES_ONLY=true in proxy.env to restore the old curated mode.
+            search = {"size": 1, "type": "IMAGE"}
+            if FAVORITES_ONLY:
+                search["isFavorite"] = True
+            req_body = json.dumps(search).encode("utf-8")
             req = urllib.request.Request(
                 f"{IMMICH_URL}/api/search/random",
                 data=req_body,
@@ -120,8 +123,8 @@ def fetch_safe_jpeg() -> bytes | None:
             # exhaust ESP32 PSRAM during decode and crash the device.
             result = _to_baseline_jpeg(jpeg_raw)
             log.info(
-                "asset %s SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
-                asset_id, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
+                "asset %s (%s) SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
+                asset_id, "favorites" if FAVORITES_ONLY else "all", sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
             )
             return result
 
