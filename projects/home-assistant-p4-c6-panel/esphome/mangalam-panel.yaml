@@ -8,6 +8,7 @@ substitutions:
   proxy_url: !secret immich_proxy_url
   tuya_bridge_url: !secret tuya_bridge_url
   idle_timeout: 30s
+  firmware_version: "0.3.1"
   fallback_ap_ssid: !secret fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"
@@ -90,8 +91,8 @@ substitutions:
   weather_location: "Home"
 
   # Camera page — four Eufy cameras. Thumbnails refresh every 60s on the
-  # grid page; tap a card to open camera_view_page where the live frame
-  # refreshes every 3s via the proxy.
+  # grid page; tap a card to open camera_view_page. Live view refreshes
+  # on open and when the user taps Refresh (no auto-polling — avoids crashes).
   cam1_name: "Front Door"
   cam1_entity: front_door
   cam2_name: "Front Bell"
@@ -115,7 +116,7 @@ esphome:
   friendly_name: ${friendly_name}
   project:
     name: local.home_assistant_p4_c6_panel
-    version: "0.2.0"
+    version: "${firmware_version}"
   on_boot:
     # Apply persistent UI tunings to LVGL widgets once everything is up.
     # Priority -100 means this runs after all other boot work, so the
@@ -173,6 +174,17 @@ esphome:
             "Slide Up", "Slide Down", "Zoom"
           };
           lv_label_set_text(id(settings_effect_val), eff_names[eff]);
+          // Sync backlight label with the restored light state.
+          float bl = id(panel_backlight).current_values.get_brightness();
+          if (bl >= 0.0f) {
+            int pct = (int)(bl * 100.0f + 0.5f);
+            if (pct < 10) pct = 10;
+            if (pct > 100) pct = 100;
+            id(g_backlight_pct) = pct;
+            char bb[8];
+            snprintf(bb, sizeof(bb), "%d%%", pct);
+            lv_label_set_text(id(settings_backlight_val), bb);
+          }
       # Auto-dismiss the crash banner after 20 s so the panel doesn't
       # stay stuck behind it if nobody is around to tap.
       - delay: 20s
@@ -190,10 +202,10 @@ esp32:
       loop_task_stack_size: 32768
     sdkconfig_options:
       CONFIG_SPIRAM_XIP_FROM_PSRAM: y
-      # Raise TWDT from 5s to 12s — slideshow image decode (≤2s) and
-      # voice-assistant session startup (≤2.5s) can stack on the main loop.
-      # Combined they don't exceed 12s; the default 5s was too tight.
-      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "12"
+      # Raise TWDT to 60s: slideshow (~2s) + up to 7 Tuya HTTP requests (~3s
+      # each) + 4 camera thumbnails can stack sequentially on the main loop.
+      # Worst case is ~30s; 60s gives headroom without hiding real hangs.
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "60"
 
 psram:
   speed: 200MHz
@@ -225,6 +237,7 @@ wifi:
   use_address: !secret panel_use_address
   on_connect:
     - script.execute: refresh_immich_slideshow
+    - script.execute: tuya_poll_health
   ap:
     ssid: !secret fallback_ap_ssid
     password: !secret fallback_ap_password

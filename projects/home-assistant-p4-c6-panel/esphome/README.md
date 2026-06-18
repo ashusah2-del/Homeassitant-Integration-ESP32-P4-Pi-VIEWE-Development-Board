@@ -7,12 +7,12 @@ Raspberry Pi 5.
 
 The panel replaces a wall-mounted HA dashboard tablet. It boots to a
 photo-frame style **Immich slideshow** when idle, then exposes
-**five purpose-built pages of live home controls** by swipe gesture:
+**six purpose-built pages of live home controls** by swipe gesture:
 
 ```
-slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ cameras
-   ▲                                                                        │
-   └────── 30s idle timeout ────────────────────────────────────────────────┘
+slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ cameras ◀─swipe─▶ tuya
+   ▲                                                                                          │
+   └────── 30s idle timeout ───────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -99,10 +99,10 @@ grey = CLEAR) and an ACTIVE/CLEAR label.
 
 2×2 grid of 4 Eufy outdoor cameras. Thumbnails refresh from the proxy
 every 60 seconds; tapping a tile opens `camera_view_page` with the
-larger live frame (up to 600×340). The "Back" button or a
-swipe-right returns to the grid. Live view refreshes only when
-the user re-taps a tile (the earlier 3-second polling interval was
-removed after it caused the panel to crash with
+larger live frame (up to 600×340). The "Back" button, a swipe-right,
+or the **Refresh** button controls the live view. Live frames refresh
+on open and when Refresh is tapped (the earlier 3-second polling
+interval was removed after it caused the panel to crash with
 "Instruction address misaligned" during the 800×500 decode).
 
 | Card | HA entity |
@@ -112,11 +112,25 @@ removed after it caused the panel to crash with
 | Side Door | `camera.side_door` |
 | Garden | `camera.garden` |
 
-### 6. Settings (`settings_page`)
+### 6. Tuya local (`tuya_page`)
 
-Read-only status: ESPHome version, IP, RSSI, HA connection state, and
-the active proxy URL. Reached from the "Settings" link in the
-dashboard's bottom bar.
+Direct LAN control of Tuya devices via the `tuya-bridge` Python service
+(port 8766). Power strips, locks, WiFi plugs, smoke/CO/water sensors,
+and alarm — no Home Assistant round-trip required. Swipe right from
+Cameras, left to return to the slideshow.
+
+### 7. Settings (`settings_page`)
+
+Live status (HA connection, Immich, IP, RSSI, battery, uptime, firmware
+version, Tuya bridge) plus on-panel tunables:
+
+- Slideshow interval (1–1440 min, syncs to `input_number.panel_slideshow_interval`)
+- Calendar overlay opacity (0–100 %, syncs to `input_number.panel_calendar_opacity`)
+- Slide transition effect (6 modes, syncs to `input_number.panel_transition_effect`)
+- Backlight brightness (10–100 %)
+
+Reached from the "Settings" link in the dashboard's bottom bar.
+Immich URL and calendar events can still be edited via HA helpers.
 
 ---
 
@@ -166,6 +180,7 @@ home-assistant-p4-c6-panel/esphome/
 │   ├── core_ha.yaml                    ← API, OTA, safe_mode, HA sensors
 │   ├── display_touch_board.yaml        ← LVGL UI, all pages, online_image, scripts
 │   ├── audio_voice_board.yaml          ← I2S codec, microWakeWord, voice assistant
+│   ├── tuya_local.yaml                 ← Tuya LAN page + HTTP scripts
 │   └── secrets.yaml                    ← (gitignored)
 └── secrets.yaml.example
 ```
@@ -231,6 +246,12 @@ visible so the next builder doesn't rediscover them.
   pile up, hold an API slot each, and eventually lock HA out. Bump
   `api.max_connections` and `docker restart esphome` if the panel
   goes "deaf" to HA pushes after an OTA.
+
+- **Don't run parallel Tuya HTTP on the Tuya page.** Firing six poll
+  scripts at once (~10 concurrent GETs) and calling the 40-step
+  `tuya_apply_ui` after every response used to freeze the panel and
+  trigger watchdog crashes. Polls are now sequential with a single UI
+  apply at the end; `g_tuya_busy` blocks taps during in-flight requests.
 
 - **Don't poll camera live view aggressively.** A 3-second polling
   loop on an 800×500 RGB565 image (≈ 720 KB working set per frame)

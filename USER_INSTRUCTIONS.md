@@ -9,6 +9,7 @@ This file tracks user instructions for this repository so they remain easy to re
 3. Always create and maintain a markdown file that records user instructions for persistent reference.
 4. Evaluate candidate repositories shared by the user for better device compatibility before deciding implementation direction.
 5. When asked to execute environment fixes (not just provide guidance), apply them directly end-to-end.
+6. Always commit completed project changes to the GitHub repository: https://github.com/ashusah2-del/Homeassitant-Integration-ESP32-P4-Pi-VIEWE-Development-Board
 
 ## Recent Repository Check Requests
 

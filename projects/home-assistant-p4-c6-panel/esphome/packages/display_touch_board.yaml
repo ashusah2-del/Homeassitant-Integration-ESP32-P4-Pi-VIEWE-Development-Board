@@ -137,10 +137,16 @@ globals:
   - { id: g_tado4_target, type: float, restore_value: no, initial_value: '20.0' }
   - { id: g_tado5_target, type: float, restore_value: no, initial_value: '20.0' }
   - { id: g_tado6_target, type: float, restore_value: no, initial_value: '20.0' }
-  # True while the camera_view_page is foregrounded. The 3-second
-  # camera-refresh interval only fires when this is set, so we don't poll
-  # HA constantly when no one's looking.
+  # True while the camera_view_page is foregrounded. Used to gate any
+  # camera-specific logic; live view is refreshed manually (open tile or
+  # Refresh button) — no auto-polling timer.
   - { id: g_on_camera_view, type: bool, restore_value: no, initial_value: 'false' }
+  # Proxy camera entity slug for the live-view page (e.g. "front_door").
+  - { id: g_camera_live_entity, type: std::string, restore_value: no, initial_value: '""' }
+  # Panel backlight brightness 10–100 %, editable on the settings page.
+  - { id: g_backlight_pct, type: int, restore_value: yes, initial_value: '80' }
+  # Tuya bridge reachability — updated by tuya_local health poll when included.
+  - { id: g_tuya_bridge_ok, type: bool, restore_value: no, initial_value: 'false' }
   # Bitmask of which dashboard lights are currently on. Bit i is for room i+1
   # (so bit 0 = Drawing, bit 1 = Office, …, bit 5 = Conservatory). The
   # all-lights toggle button uses this to decide whether tapping should
@@ -252,9 +258,9 @@ online_image:
           // (compile-time src: binding points at an empty buffer at boot).
           lv_img_set_src(id(cam4_widget), id(cam4_thumb).get_lv_img_dsc());
           lv_obj_invalidate(id(cam4_widget));
-  # Live view — single component, URL is swapped per camera on tap. The
-  # update is triggered manually on page show (and via a 3s interval that
-  # only fires while the camera_view_page is active, guarded by g_on_camera_view).
+  # Live view — single component, URL is swapped per camera on tap. Refreshed
+  # manually when a tile is opened or when the user taps Refresh on the
+  # live-view page (no timer — aggressive polling crashed the panel).
   - id: camera_live_img
     url: "${proxy_url}/camera/${cam1_entity}?size=full"
     format: JPEG
@@ -419,6 +425,23 @@ script:
           if (pages > 1) snprintf(b, sizeof(b), "%d/%d", page + 1, pages);
           else b[0] = '\0';
           lv_label_set_text(id(cal_page_lbl), b);
+
+  # Re-fetch the current live camera frame (manual refresh only).
+  - id: refresh_camera_live
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_camera_live_entity).empty();'
+          then:
+            - online_image.set_url:
+                id: camera_live_img
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/camera/") + id(g_camera_live_entity) +
+                         "?size=full&t=" + t;
+                update: true
 
   # Fetches a random baseline JPEG from the local proxy and displays it.
   # The proxy (immich-proxy.service on the Docker host) handles Immich API calls
@@ -727,6 +750,29 @@ interval:
             char b[24];
             snprintf(b, sizeof(b), "Signal: %.0f dBm", id(panel_wifi_rssi).state);
             return std::string(b);
+      - lvgl.label.update:
+          id: settings_battery_lbl
+          text: !lambda |-
+            char b[32];
+            snprintf(b, sizeof(b), "Battery: %.2f V", id(panel_battery_voltage).state);
+            return std::string(b);
+      - lvgl.label.update:
+          id: settings_uptime_lbl
+          text: !lambda |-
+            int s = (int)id(panel_uptime).state;
+            int h = s / 3600;
+            int m = (s % 3600) / 60;
+            char b[32];
+            snprintf(b, sizeof(b), "Uptime: %dh %02dm", h, m);
+            return std::string(b);
+      - lvgl.label.update:
+          id: settings_firmware_lbl
+          text: "Firmware: v${firmware_version}"
+      - lvgl.label.update:
+          id: settings_tuya_lbl
+          text: !lambda |-
+            return id(g_tuya_bridge_ok) ? std::string("Tuya bridge: Online")
+                                         : std::string("Tuya bridge: Offline");
       - lvgl.label.update:
           id: settings_immich_url_val
           text: !lambda |-
@@ -2918,6 +2964,7 @@ lvgl:
             radius: 12
             pad_all: 6
             on_click:
+              - lambda: 'id(g_camera_live_entity) = "${cam1_entity}";'
               - online_image.set_url:
                   id: camera_live_img
                   url: "${proxy_url}/camera/${cam1_entity}?size=full"
@@ -2956,6 +3003,7 @@ lvgl:
             radius: 12
             pad_all: 6
             on_click:
+              - lambda: 'id(g_camera_live_entity) = "${cam2_entity}";'
               - online_image.set_url:
                   id: camera_live_img
                   url: "${proxy_url}/camera/${cam2_entity}?size=full"
@@ -2983,6 +3031,7 @@ lvgl:
             radius: 12
             pad_all: 6
             on_click:
+              - lambda: 'id(g_camera_live_entity) = "${cam3_entity}";'
               - online_image.set_url:
                   id: camera_live_img
                   url: "${proxy_url}/camera/${cam3_entity}?size=full"
@@ -3010,6 +3059,7 @@ lvgl:
             radius: 12
             pad_all: 6
             on_click:
+              - lambda: 'id(g_camera_live_entity) = "${cam4_entity}";'
               - online_image.set_url:
                   id: camera_live_img
                   url: "${proxy_url}/camera/${cam4_entity}?size=full"
@@ -3027,8 +3077,8 @@ lvgl:
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 6 — CAMERA LIVE VIEW (opened by tapping a camera tile)
-    # Shows the selected camera at 800×500 max, refreshing every 3s
-    # via the camera-refresh interval (gated on g_on_camera_view).
+    # Shows the selected camera at up to 600x340. Refreshes on open and
+    # when the user taps Refresh — no auto-polling timer.
     # Tap "Back" or swipe right to return to the camera grid.
     # ═══════════════════════════════════════════════════════════
     - id: camera_view_page
@@ -3053,6 +3103,18 @@ lvgl:
                   text_font: montserrat_24
                   text_color: 0xFFFFFF
               - button:
+                  align: RIGHT_MID
+                  x: -140
+                  width: 120
+                  height: 38
+                  radius: 8
+                  bg_color: 0x1E5A3E
+                  text: "Refresh"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - script.execute: refresh_camera_live
+              - button:
                   align: LEFT_MID
                   x: 14
                   width: 120
@@ -3072,7 +3134,8 @@ lvgl:
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 7 — SETTINGS / ADMIN
-    # Read-only status + config display. Change settings via HA.
+    # Live status readout + on-panel tunables (slideshow, opacity,
+    # transition, backlight). Values sync to HA helpers where configured.
     # ═══════════════════════════════════════════════════════════
     - id: settings_page
       bg_color: 0x060610
@@ -3117,7 +3180,7 @@ lvgl:
             x: 0
             y: 60
             width: 500
-            height: 540
+            height: 640
             bg_opa: TRANSP
             border_width: 0
             pad_left: 24
@@ -3161,23 +3224,55 @@ lvgl:
                   text: "Signal: --"
                   text_font: montserrat_16
                   text_color: 0xEEEEEE
+              - label:
+                  id: settings_battery_lbl
+                  x: 0
+                  y: 146
+                  width: 460
+                  text: "Battery: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - label:
+                  id: settings_uptime_lbl
+                  x: 0
+                  y: 174
+                  width: 460
+                  text: "Uptime: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - label:
+                  id: settings_firmware_lbl
+                  x: 0
+                  y: 202
+                  width: 460
+                  text: "Firmware: v${firmware_version}"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
+              - label:
+                  id: settings_tuya_lbl
+                  x: 0
+                  y: 230
+                  width: 460
+                  text: "Tuya bridge: --"
+                  text_font: montserrat_16
+                  text_color: 0xEEEEEE
               - obj:
                   x: 0
-                  y: 154
+                  y: 266
                   width: 460
                   height: 2
                   bg_color: 0x1E3A6E
                   border_width: 0
               - label:
                   x: 0
-                  y: 166
+                  y: 278
                   text: "CONFIGURATION"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   id: settings_immich_url_lbl
                   x: 0
-                  y: 200
+                  y: 312
                   width: 460
                   text: "Immich URL:"
                   text_font: montserrat_16
@@ -3186,7 +3281,7 @@ lvgl:
               - label:
                   id: settings_immich_url_val
                   x: 0
-                  y: 224
+                  y: 336
                   width: 460
                   text: "--"
                   text_font: montserrat_16
@@ -3196,13 +3291,13 @@ lvgl:
               # ── Slideshow interval spinner ────────────────────
               - label:
                   x: 0
-                  y: 268
+                  y: 380
                   text: "Slideshow interval (minutes):"
                   text_font: montserrat_16
                   text_color: 0xAAAAAA
               - button:
                   x: 0
-                  y: 296
+                  y: 408
                   width: 56
                   height: 44
                   radius: 22
@@ -3228,14 +3323,14 @@ lvgl:
               - label:
                   id: settings_interval_val
                   x: 70
-                  y: 304
+                  y: 416
                   width: 120
                   text: "10 min"
                   text_font: montserrat_24
                   text_color: 0xFFFFFF
               - button:
                   x: 200
-                  y: 296
+                  y: 408
                   width: 56
                   height: 44
                   radius: 22
@@ -3261,7 +3356,7 @@ lvgl:
               # +/- 10 wide jumps so the user can move quickly through the range
               - button:
                   x: 270
-                  y: 296
+                  y: 408
                   width: 64
                   height: 44
                   radius: 8
@@ -3286,7 +3381,7 @@ lvgl:
                           value: !lambda 'return id(g_slideshow_interval_min);'
               - button:
                   x: 344
-                  y: 296
+                  y: 408
                   width: 64
                   height: 44
                   radius: 8
@@ -3313,13 +3408,13 @@ lvgl:
               # ── Calendar opacity spinner ──────────────────────
               - label:
                   x: 0
-                  y: 354
+                  y: 466
                   text: "Calendar overlay opacity:"
                   text_font: montserrat_16
                   text_color: 0xAAAAAA
               - button:
                   x: 0
-                  y: 382
+                  y: 494
                   width: 56
                   height: 44
                   radius: 22
@@ -3352,14 +3447,14 @@ lvgl:
               - label:
                   id: settings_calopa_val
                   x: 70
-                  y: 390
+                  y: 502
                   width: 120
                   text: "70 %"
                   text_font: montserrat_24
                   text_color: 0xFFFFFF
               - button:
                   x: 200
-                  y: 382
+                  y: 494
                   width: 56
                   height: 44
                   radius: 22
@@ -3393,13 +3488,13 @@ lvgl:
               # ── Slideshow transition effect cycler ────────────
               - label:
                   x: 0
-                  y: 440
+                  y: 552
                   text: "Slide transition effect:"
                   text_font: montserrat_16
                   text_color: 0xAAAAAA
               - button:
                   x: 0
-                  y: 468
+                  y: 580
                   width: 56
                   height: 40
                   radius: 20
@@ -3426,14 +3521,14 @@ lvgl:
               - label:
                   id: settings_effect_val
                   x: 70
-                  y: 474
+                  y: 586
                   width: 220
                   text: "Crossfade"
                   text_font: montserrat_20
                   text_color: 0xFFFFFF
               - button:
                   x: 296
-                  y: 468
+                  y: 580
                   width: 56
                   height: 40
                   radius: 20
@@ -3458,12 +3553,12 @@ lvgl:
                           entity_id: input_number.panel_transition_effect
                           value: !lambda 'return id(g_transition_effect);'
 
-        # ── Setup guide (right half) ────────────────────────────
+        # ── Backlight + setup guide (right half) ─────────────────
         - obj:
             x: 512
             y: 60
             width: 500
-            height: 490
+            height: 640
             bg_opa: TRANSP
             border_width: 0
             pad_left: 12
@@ -3473,49 +3568,114 @@ lvgl:
               - label:
                   x: 0
                   y: 0
-                  text: "CHANGE SETTINGS"
+                  text: "BACKLIGHT"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
                   y: 34
                   width: 476
-                  text: "Open Home Assistant and go to:"
+                  text: "Adjust panel brightness (10-100%):"
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
                   long_mode: WRAP
-              - label:
+              - button:
                   x: 0
-                  y: 64
-                  width: 476
-                  text: "Settings > Devices & Services\n> Helpers"
-                  text_font: montserrat_16
+                  y: 66
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "-"
+                  text_font: montserrat_24
                   text_color: 0xFFFFFF
-                  long_mode: WRAP
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_backlight_pct) - 10;
+                        if (v < 10) v = 10;
+                        id(g_backlight_pct) = v;
+                        char b[8];
+                        snprintf(b, sizeof(b), "%d%%", v);
+                        lv_label_set_text(id(settings_backlight_val), b);
+                    - light.turn_on:
+                        id: panel_backlight
+                        brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
               - label:
-                  x: 0
-                  y: 110
-                  width: 476
-                  text: "Edit: Panel Immich URL\nand Panel Calendar Events"
-                  text_font: montserrat_16
-                  text_color: 0xCCCCCC
-                  long_mode: WRAP
+                  id: settings_backlight_val
+                  x: 70
+                  y: 74
+                  width: 120
+                  text: "80%"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+              - button:
+                  x: 200
+                  y: 66
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x2E4A8E
+                  border_width: 0
+                  text: "+"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - lambda: |-
+                        int v = id(g_backlight_pct) + 10;
+                        if (v > 100) v = 100;
+                        id(g_backlight_pct) = v;
+                        char b[8];
+                        snprintf(b, sizeof(b), "%d%%", v);
+                        lv_label_set_text(id(settings_backlight_val), b);
+                    - light.turn_on:
+                        id: panel_backlight
+                        brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
               - obj:
                   x: 0
-                  y: 164
+                  y: 124
                   width: 476
                   height: 2
                   bg_color: 0x1E3A6E
                   border_width: 0
               - label:
                   x: 0
-                  y: 176
+                  y: 136
+                  text: "HA HELPERS"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label:
+                  x: 0
+                  y: 170
+                  width: 476
+                  text: "Slideshow, opacity and transition settings\nsync to HA helpers automatically."
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+                  long_mode: WRAP
+              - label:
+                  x: 0
+                  y: 216
+                  width: 476
+                  text: "Immich URL and calendar events can still\nbe edited in HA: Settings > Helpers"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+              - obj:
+                  x: 0
+                  y: 270
+                  width: 476
+                  height: 2
+                  bg_color: 0x1E3A6E
+                  border_width: 0
+              - label:
+                  x: 0
+                  y: 282
                   text: "WIFI SETUP"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 210
+                  y: 316
                   width: 476
                   text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
                   text_font: montserrat_16
@@ -3523,7 +3683,7 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 268
+                  y: 374
                   width: 476
                   text: "SSID: ${fallback_ap_ssid}"
                   text_font: montserrat_16
@@ -3531,34 +3691,29 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 296
+                  y: 402
                   width: 476
                   text: "Connect and open any webpage\nto configure WiFi."
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
                   long_mode: WRAP
-              # Hidden-ish test button: deliberately triggers a software
-              # panic so the crash overlay + HA persistent notification
-              # path can be verified end-to-end. Tap once to arm, second
-              # tap within 5 s actually crashes — single accidental taps
-              # do nothing.
               - obj:
                   x: 0
-                  y: 380
+                  y: 460
                   width: 476
                   height: 2
                   bg_color: 0x401010
                   border_width: 0
               - label:
                   x: 0
-                  y: 392
+                  y: 472
                   text: "DIAGNOSTICS"
                   text_font: montserrat_18
                   text_color: 0xFF6666
               - button:
                   id: test_crash_btn
                   x: 0
-                  y: 422
+                  y: 502
                   width: 280
                   height: 44
                   radius: 8
@@ -3571,9 +3726,6 @@ lvgl:
                         uint32_t now = millis();
                         if (now - last_tap_ms < 5000) {
                           ESP_LOGW("crashtest", "User-triggered crash via settings button");
-                          // Misaligned function pointer call → identical
-                          // signature to the organic crash, so we can
-                          // verify banner + HA notification path.
                           abort();
                         }
                         last_tap_ms = now;

@@ -28,11 +28,15 @@ compile_commands.json
 
 # ─── ESP-IDF build outputs ──────────────────────────────────────────────
 build/
+projects/home-assistant-p4-c6-panel/firmware/sdkconfig
 sdkconfig.old
 sdkconfig.ci
 managed_components/
 dependencies.lock
 .ccache/
+
+# ─── Local discovery snapshots ──────────────────────────────────────────
+snapshot.json
 
 # ─── Python venvs & caches ──────────────────────────────────────────────
 .venv/

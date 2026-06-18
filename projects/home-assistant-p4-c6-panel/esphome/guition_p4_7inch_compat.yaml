@@ -8,6 +8,7 @@ substitutions:
   proxy_url: !secret immich_proxy_url
   immich_slideshow_interval: 10min
   idle_timeout: 30s
+  firmware_version: "0.3.0"
   fallback_ap_ssid: !secret fallback_ap_ssid
 
   # Dashboard tiles — replace entity IDs with your own HA entities.
@@ -30,7 +31,7 @@ esphome:
   friendly_name: ${friendly_name}
   project:
     name: local.home_assistant_p4_c6_panel
-    version: "0.2.0"
+    version: "${firmware_version}"
 
 esp32:
   board: ${board_type}

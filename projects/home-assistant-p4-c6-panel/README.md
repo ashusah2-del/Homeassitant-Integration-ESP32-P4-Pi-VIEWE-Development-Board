@@ -21,11 +21,17 @@ UI driven directly by HA's native API.
 - **Presence** — 12 motion/occupancy sensors (indoor + outdoor) with
   recoloured `mdi:home` indicators
 - **Cameras** — 2×2 grid of Eufy thumbnails, tap any to open the
-  larger live view
-- **Settings** — read-only status display
+  larger live view (manual Refresh button, no auto-polling)
+- **Tuya local** — direct LAN control of strips, locks, plugs, and
+  safety sensors via the tuya-bridge service
+- **Settings** — live status, backlight, slideshow/opacity/transition tunables
 
 Navigation between pages is a left/right swipe gesture; the slideshow
-re-engages after 30 seconds of inactivity.
+re-engages after 30 seconds of inactivity:
+
+```
+slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ cameras ◀─swipe─▶ tuya
+```
 
 ## Repository layout
 

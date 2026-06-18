@@ -4,7 +4,9 @@ logger:
 json:
 
 http_request:
-  timeout: 15s
+  # Tuya page is the only http_request consumer; keep timeout short so a
+  # dead bridge fails fast instead of freezing the LVGL loop for 15s per call.
+  timeout: 5s
   follow_redirects: true
   verify_ssl: false
   useragent: GuitionP4Panel/1.0
@@ -977,6 +979,7 @@ text_sensor:
 sensor:
   - platform: uptime
     name: "Panel Uptime"
+    id: panel_uptime
   - platform: wifi_signal
     name: "Panel Wi-Fi RSSI"
     id: panel_wifi_rssi

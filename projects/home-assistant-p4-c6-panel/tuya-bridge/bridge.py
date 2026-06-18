@@ -27,7 +27,7 @@ import json
 import logging
 import os
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 import tinytuya
@@ -40,6 +40,11 @@ log = logging.getLogger("tuya-bridge")
 
 PORT = 8766
 DEVICES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "devices.json")
+
+
+class TuyaBridgeServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
 
 # ── Config loading ────────────────────────────────────────────────────────────
 
@@ -343,11 +348,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def _send(self, code, data):
         body = json.dumps(data).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", len(body))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", len(body))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            log.warning("client disconnected before response was sent")
 
     def _read_body(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -362,7 +370,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         kind = parts[0]
 
         if kind == "health":
-            self._send(200, {"ok": True, "version": "1.1"})
+            self._send(200, {"ok": True, "version": "1.2"})
 
         elif kind == "devices":
             code, data = handle_list_devices()
@@ -442,7 +450,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     log.info("Tuya local bridge starting on port %d", PORT)
     log.info("Devices file: %s", DEVICES_FILE)
-    server = HTTPServer(("0.0.0.0", PORT), BridgeHandler)
+    server = TuyaBridgeServer(("0.0.0.0", PORT), BridgeHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

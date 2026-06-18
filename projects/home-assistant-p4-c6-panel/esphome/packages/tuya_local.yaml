@@ -10,6 +10,11 @@
 # Strip buttons use optimistic toggle (immediate visual + revert on error).
 # All other controls update on HTTP 200; show "---" on error.
 # Navigation: Cameras → [swipe left] → Tuya → [swipe left] → Slideshow
+#
+# IMPORTANT: device polls run sequentially (one HTTP call at a time) and the
+# UI is refreshed once at the end. Parallel polls + repeated apply_ui used to
+# freeze/crash the panel. Full polling is intentionally manual/diagnostic only;
+# page load only checks bridge health so controls remain tappable immediately.
 
 globals:
   # ── Bedroom Power Strip (Zigbee sub via gateway at .60) ─────────────────────
@@ -108,150 +113,87 @@ globals:
     type: bool
     restore_value: false
 
+  # Blocks overlapping HTTP + LVGL refresh (prevents page freeze/crash).
+  - id: g_tuya_busy
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
 script:
-  # ── Apply all state to LVGL widgets ──────────────────────────────────────────
   - id: tuya_apply_ui
     mode: single
     then:
-      # Strip 1 — S1
-      - lvgl.obj.update:
-          id: strip_s1_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s1) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: strip_s1_lbl
-          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s1) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s1) ? 0x69F0AEU : 0x666666U));'
-      # Strip 1 — S2
-      - lvgl.obj.update:
-          id: strip_s2_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s2) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: strip_s2_lbl
-          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s2) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s2) ? 0x69F0AEU : 0x666666U));'
-      # Strip 1 — S3
-      - lvgl.obj.update:
-          id: strip_s3_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s3) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: strip_s3_lbl
-          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s3) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s3) ? 0x69F0AEU : 0x666666U));'
-      # Strip 1 — S4
-      - lvgl.obj.update:
-          id: strip_s4_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s4) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: strip_s4_lbl
-          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_s4) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s4) ? 0x69F0AEU : 0x666666U));'
-      # Strip 1 — USB
-      - lvgl.obj.update:
-          id: strip_usb_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_usb) ? 0x1A3A7EU : 0x212121U));'
-      - lvgl.label.update:
-          id: strip_usb_lbl
-          text: !lambda 'return id(g_strip_online) ? std::string(id(g_strip_usb) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_usb) ? 0xAABBFFU : 0x666666U));'
-      # Strip 1 status badge
-      - lvgl.label.update:
-          id: strip_status_lbl
-          text: !lambda 'return std::string(id(g_strip_online) ? "ONLINE" : "OFFLINE");'
-          text_color: !lambda 'return lv_color_hex(id(g_strip_online) ? 0x69F0AEU : 0xFF8F00U);'
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          if (id(g_tuya_busy) || !id(g_tuya_bridge_ok)) {
+            lv_label_set_text(id(tuya_loading_title), id(g_tuya_busy) ? "Controls are not ready" : "Tuya bridge offline");
+            lv_label_set_text(id(tuya_loading_hint), id(g_tuya_busy) ? "Waiting for Tuya request to finish..." : "Check tuya-bridge on port 8766");
+            lv_obj_clear_flag(id(tuya_loading_overlay), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(id(tuya_loading_overlay));
+          } else {
+            lv_obj_add_flag(id(tuya_loading_overlay), LV_OBJ_FLAG_HIDDEN);
+          }
+          // Bedroom power strip
+          lv_obj_set_style_bg_color(id(strip_s1_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s1) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s1_lbl), id(g_strip_online) ? (id(g_strip_s1) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(strip_s1_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s1) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(strip_s2_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s2) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s2_lbl), id(g_strip_online) ? (id(g_strip_s2) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(strip_s2_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s2) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(strip_s3_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s3) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s3_lbl), id(g_strip_online) ? (id(g_strip_s3) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(strip_s3_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s3) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(strip_s4_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s4) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s4_lbl), id(g_strip_online) ? (id(g_strip_s4) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(strip_s4_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s4) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(strip_usb_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_usb) ? 0x1A3A7EU : 0x212121U)), 0);
+          lv_label_set_text(id(strip_usb_lbl), id(g_strip_online) ? (id(g_strip_usb) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(strip_usb_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_usb) ? 0xAABBFFU : 0x666666U)), 0);
+          lv_label_set_text(id(strip_status_lbl), id(g_strip_online) ? "ONLINE" : "OFFLINE");
+          lv_obj_set_style_text_color(id(strip_status_lbl), lv_color_hex(id(g_strip_online) ? 0x69F0AEU : 0xFF8F00U), 0);
+          // Power switch strip
+          lv_obj_set_style_bg_color(id(switch_s1_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s1) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s1_lbl), id(g_switch_online) ? (id(g_switch_s1) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(switch_s1_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s1) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(switch_s2_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s2) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s2_lbl), id(g_switch_online) ? (id(g_switch_s2) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(switch_s2_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s2) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(switch_s3_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s3) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s3_lbl), id(g_switch_online) ? (id(g_switch_s3) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(switch_s3_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s3) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(switch_s4_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s4) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s4_lbl), id(g_switch_online) ? (id(g_switch_s4) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(switch_s4_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s4) ? 0x69F0AEU : 0x666666U)), 0);
+          lv_obj_set_style_bg_color(id(switch_usb_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_usb) ? 0x1A3A7EU : 0x212121U)), 0);
+          lv_label_set_text(id(switch_usb_lbl), id(g_switch_online) ? (id(g_switch_usb) ? "ON" : "OFF") : "--");
+          lv_obj_set_style_text_color(id(switch_usb_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_usb) ? 0xAABBFFU : 0x666666U)), 0);
+          lv_label_set_text(id(switch_status_lbl), id(g_switch_online) ? "ONLINE" : "OFFLINE");
+          lv_obj_set_style_text_color(id(switch_status_lbl), lv_color_hex(id(g_switch_online) ? 0x69F0AEU : 0xFF8F00U), 0);
+          // Locks + plugs
+          lv_label_set_text(id(mukta_lock_lbl), id(g_mukta_online) ? (id(g_mukta_locked) ? "LOCKED" : "UNLOCKED") : "---");
+          lv_obj_set_style_text_color(id(mukta_lock_lbl), lv_color_hex(id(g_mukta_online) ? (id(g_mukta_locked) ? 0xFF5252U : 0x69F0AEU) : 0xFF8F00U), 0);
+          lv_label_set_text(id(bedroom_lbl), id(g_bedroom_online) ? (id(g_bedroom_on) ? "UNLOCKED" : "LOCKED") : "---");
+          lv_obj_set_style_text_color(id(bedroom_lbl), lv_color_hex(id(g_bedroom_online) ? (id(g_bedroom_on) ? 0x69F0AEU : 0xFF5252U) : 0xFF8F00U), 0);
+          lv_label_set_text(id(tuya_dr_lbl), id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? "ON" : "OFF") : "---");
+          lv_obj_set_style_text_color(id(tuya_dr_lbl), lv_color_hex(id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U), 0);
+          lv_label_set_text(id(tuya_garden_lbl), id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? "ON" : "OFF") : "---");
+          lv_obj_set_style_text_color(id(tuya_garden_lbl), lv_color_hex(id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U), 0);
+          // Safety sensors
+          lv_label_set_text(id(smoke_state_lbl), id(g_smoke_state) < 0 ? "?" : (id(g_smoke_state) ? "! SMOKE !" : "CLEAR"));
+          lv_obj_set_style_text_color(id(smoke_state_lbl), lv_color_hex(id(g_smoke_state) < 0 ? 0xFF8F00U : (id(g_smoke_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_label_set_text(id(co_state_lbl), id(g_co_state) < 0 ? "?" : (id(g_co_state) ? "! CO !" : "CLEAR"));
+          lv_obj_set_style_text_color(id(co_state_lbl), lv_color_hex(id(g_co_state) < 0 ? 0xFF8F00U : (id(g_co_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_label_set_text(id(water_state_lbl), id(g_water_state) < 0 ? "?" : (id(g_water_state) ? "! WATER !" : "CLEAR"));
+          lv_obj_set_style_text_color(id(water_state_lbl), lv_color_hex(id(g_water_state) < 0 ? 0xFF8F00U : (id(g_water_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_label_set_text(id(alarm_state_lbl), id(g_alarm_state) < 0 ? "?" : (id(g_alarm_state) ? "! ALARM !" : "OK"));
+          lv_obj_set_style_text_color(id(alarm_state_lbl), lv_color_hex(id(g_alarm_state) < 0 ? 0xFF8F00U : (id(g_alarm_state) ? 0xFF5252U : 0x69F0AEU)), 0);
 
-      # Strip 2 — S1
-      - lvgl.obj.update:
-          id: switch_s1_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s1) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: switch_s1_lbl
-          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s1) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s1) ? 0x69F0AEU : 0x666666U));'
-      # Strip 2 — S2
-      - lvgl.obj.update:
-          id: switch_s2_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s2) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: switch_s2_lbl
-          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s2) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s2) ? 0x69F0AEU : 0x666666U));'
-      # Strip 2 — S3
-      - lvgl.obj.update:
-          id: switch_s3_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s3) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: switch_s3_lbl
-          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s3) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s3) ? 0x69F0AEU : 0x666666U));'
-      # Strip 2 — S4
-      - lvgl.obj.update:
-          id: switch_s4_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s4) ? 0x1B5E20U : 0x212121U));'
-      - lvgl.label.update:
-          id: switch_s4_lbl
-          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_s4) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s4) ? 0x69F0AEU : 0x666666U));'
-      # Strip 2 — USB
-      - lvgl.obj.update:
-          id: switch_usb_btn
-          bg_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_usb) ? 0x1A3A7EU : 0x212121U));'
-      - lvgl.label.update:
-          id: switch_usb_lbl
-          text: !lambda 'return id(g_switch_online) ? std::string(id(g_switch_usb) ? "ON" : "OFF") : std::string("--");'
-          text_color: !lambda 'return lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_usb) ? 0xAABBFFU : 0x666666U));'
-      # Strip 2 status badge
-      - lvgl.label.update:
-          id: switch_status_lbl
-          text: !lambda 'return std::string(id(g_switch_online) ? "ONLINE" : "OFFLINE");'
-          text_color: !lambda 'return lv_color_hex(id(g_switch_online) ? 0x69F0AEU : 0xFF8F00U);'
-
-      # Mukta Lock
-      - lvgl.label.update:
-          id: mukta_lock_lbl
-          text: !lambda 'return id(g_mukta_online) ? std::string(id(g_mukta_locked) ? "LOCKED" : "UNLOCKED") : std::string("---");'
-          text_color: !lambda 'return lv_color_hex(id(g_mukta_online) ? (id(g_mukta_locked) ? 0xFF5252U : 0x69F0AEU) : 0xFF8F00U);'
-
-      # Bedroom Knob
-      - lvgl.label.update:
-          id: bedroom_lbl
-          text: !lambda 'return id(g_bedroom_online) ? std::string(id(g_bedroom_on) ? "UNLOCKED" : "LOCKED") : std::string("---");'
-          text_color: !lambda 'return lv_color_hex(id(g_bedroom_online) ? (id(g_bedroom_on) ? 0x69F0AEU : 0xFF5252U) : 0xFF8F00U);'
-
-      # WiFi Plugs
-      - lvgl.label.update:
-          id: tuya_dr_lbl
-          text: !lambda 'return id(g_tuya_dr_online) ? std::string(id(g_tuya_dr_on) ? "ON" : "OFF") : std::string("---");'
-          text_color: !lambda 'return lv_color_hex(id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U);'
-      - lvgl.label.update:
-          id: tuya_garden_lbl
-          text: !lambda 'return id(g_tuya_garden_online) ? std::string(id(g_tuya_garden_on) ? "ON" : "OFF") : std::string("---");'
-          text_color: !lambda 'return lv_color_hex(id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U);'
-
-      # Safety sensors
-      - lvgl.label.update:
-          id: smoke_state_lbl
-          text: !lambda 'return id(g_smoke_state) < 0 ? std::string("?") : std::string(id(g_smoke_state) ? "! SMOKE !" : "CLEAR");'
-          text_color: !lambda 'return lv_color_hex(id(g_smoke_state) < 0 ? 0xFF8F00U : (id(g_smoke_state) ? 0xFF5252U : 0x69F0AEU));'
-      - lvgl.label.update:
-          id: co_state_lbl
-          text: !lambda 'return id(g_co_state) < 0 ? std::string("?") : std::string(id(g_co_state) ? "! CO !" : "CLEAR");'
-          text_color: !lambda 'return lv_color_hex(id(g_co_state) < 0 ? 0xFF8F00U : (id(g_co_state) ? 0xFF5252U : 0x69F0AEU));'
-      - lvgl.label.update:
-          id: water_state_lbl
-          text: !lambda 'return id(g_water_state) < 0 ? std::string("?") : std::string(id(g_water_state) ? "! WATER !" : "CLEAR");'
-          text_color: !lambda 'return lv_color_hex(id(g_water_state) < 0 ? 0xFF8F00U : (id(g_water_state) ? 0xFF5252U : 0x69F0AEU));'
-
-      # Alarm
-      - lvgl.label.update:
-          id: alarm_state_lbl
-          text: !lambda 'return id(g_alarm_state) < 0 ? std::string("?") : std::string(id(g_alarm_state) ? "! ALARM !" : "OK");'
-          text_color: !lambda 'return lv_color_hex(id(g_alarm_state) < 0 ? 0xFF8F00U : (id(g_alarm_state) ? 0xFF5252U : 0x69F0AEU));'
-
-  # ── Fetch Bedroom Power Strip state ──────────────────────────────────────────
-  - id: tuya_poll_strip
-    mode: single
+  - id: tuya_refresh_all
+    mode: restart
     then:
+      - lambda: 'id(g_tuya_busy) = true;'
       - http_request.get:
+
           url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy"
           capture_response: true
           on_response:
@@ -267,16 +209,14 @@ script:
                       id(g_strip_online) = true;
                       return true;
                     });
-                  } else {
-                    id(g_strip_online) = false;
-                  }
-                  id(tuya_apply_ui).execute();
-
-  # ── Fetch Power Switch state ──────────────────────────────────────────────────
-  - id: tuya_poll_switch
-    mode: single
-    then:
+                  } else { id(g_strip_online) = false; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_strip_online) = false;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob"
           capture_response: true
           on_response:
@@ -292,16 +232,14 @@ script:
                       id(g_switch_online) = true;
                       return true;
                     });
-                  } else {
-                    id(g_switch_online) = false;
-                  }
-                  id(tuya_apply_ui).execute();
-
-  # ── Fetch WiFi plug states ────────────────────────────────────────────────────
-  - id: tuya_poll_plugs
-    mode: single
-    then:
+                  } else { id(g_switch_online) = false; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_switch_online) = false;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/simple/1571285310521cd5c87c"
           capture_response: true
           on_response:
@@ -309,15 +247,18 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_tuya_dr_on)     = (bool)root["on"];
+                      id(g_tuya_dr_on) = (bool)root["on"];
                       id(g_tuya_dr_online) = true;
                       return true;
                     });
-                  } else {
-                    id(g_tuya_dr_online) = false;
-                  }
-                  id(tuya_apply_ui).execute();
+                  } else { id(g_tuya_dr_online) = false; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_tuya_dr_online) = false;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/simple/1571285350029127c9f3"
           capture_response: true
           on_response:
@@ -325,20 +266,18 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_tuya_garden_on)     = (bool)root["on"];
+                      id(g_tuya_garden_on) = (bool)root["on"];
                       id(g_tuya_garden_online) = true;
                       return true;
                     });
-                  } else {
-                    id(g_tuya_garden_online) = false;
-                  }
-                  id(tuya_apply_ui).execute();
-
-  # ── Fetch Mukta Lock state ────────────────────────────────────────────────────
-  - id: tuya_poll_lock
-    mode: single
-    then:
+                  } else { id(g_tuya_garden_online) = false; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_tuya_garden_online) = false;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t"
           capture_response: true
           on_response:
@@ -350,16 +289,14 @@ script:
                       id(g_mukta_online) = true;
                       return true;
                     });
-                  } else {
-                    id(g_mukta_online) = false;
-                  }
-                  id(tuya_apply_ui).execute();
-
-  # ── Fetch Bedroom Knob state ──────────────────────────────────────────────────
-  - id: tuya_poll_bedroom
-    mode: single
-    then:
+                  } else { id(g_mukta_online) = false; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_mukta_online) = false;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh"
           capture_response: true
           on_response:
@@ -367,20 +304,18 @@ script:
               - lambda: |-
                   if (response->status_code == 200) {
                     json::parse_json(body, [](JsonObject root) -> bool {
-                      id(g_bedroom_on)     = (bool)root["on"];
+                      id(g_bedroom_on) = (bool)root["on"];
                       id(g_bedroom_online) = true;
                       return true;
                     });
-                  } else {
-                    id(g_bedroom_online) = false;
-                  }
-                  id(tuya_apply_ui).execute();
-
-  # ── Fetch Alarm + Safety Sensors ─────────────────────────────────────────────
-  - id: tuya_poll_sensors
-    mode: single
-    then:
+                  } else { id(g_bedroom_online) = false; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_bedroom_online) = false;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/alarm/bf504b80ba9e1483b07vzc"
           capture_response: true
           on_response:
@@ -391,11 +326,14 @@ script:
                       id(g_alarm_state) = root["alarm"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                  } else {
-                    id(g_alarm_state) = -1;
-                  }
-                  id(tuya_apply_ui).execute();
+                  } else { id(g_alarm_state) = -1; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_alarm_state) = -1;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/sensor/bfd389d3ddd79b5678utvs"
           capture_response: true
           on_response:
@@ -406,11 +344,14 @@ script:
                       id(g_smoke_state) = root["state"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                  } else {
-                    id(g_smoke_state) = -1;
-                  }
-                  id(tuya_apply_ui).execute();
+                  } else { id(g_smoke_state) = -1; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_smoke_state) = -1;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/sensor/bff359c0e1a9090ad4ehuk"
           capture_response: true
           on_response:
@@ -421,11 +362,14 @@ script:
                       id(g_co_state) = root["state"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                  } else {
-                    id(g_co_state) = -1;
-                  }
-                  id(tuya_apply_ui).execute();
+                  } else { id(g_co_state) = -1; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_co_state) = -1;
+      - delay: 150ms
       - http_request.get:
+
           url: "${tuya_bridge_url}/sensor/bf8c8b69c7a5212d95lgfa"
           capture_response: true
           on_response:
@@ -436,30 +380,805 @@ script:
                       id(g_water_state) = root["state"].as<bool>() ? 1 : 0;
                       return true;
                     });
-                  } else {
-                    id(g_water_state) = -1;
-                  }
-                  id(tuya_apply_ui).execute();
+                  } else { id(g_water_state) = -1; }
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_water_state) = -1;
+      - delay: 150ms
+      - script.execute: tuya_apply_ui
+      - lambda: 'id(g_tuya_busy) = false;'
 
-  # ── Poll all devices ──────────────────────────────────────────────────────────
-  - id: tuya_refresh_all
-    mode: single
-    then:
-      - script.execute: tuya_poll_strip
-      - script.execute: tuya_poll_switch
-      - script.execute: tuya_poll_plugs
-      - script.execute: tuya_poll_lock
-      - script.execute: tuya_poll_bedroom
-      - script.execute: tuya_poll_sensors
-
-interval:
-  - interval: 30s
+  - id: tuya_refresh_sensors
+    mode: restart
     then:
       - if:
           condition:
-            lambda: 'return id(g_tuya_page_active);'
+            lambda: 'return !id(g_tuya_busy);'
           then:
-            - script.execute: tuya_refresh_all
+            - lambda: 'id(g_tuya_busy) = true;'
+            - http_request.get:
+                url: "${tuya_bridge_url}/alarm/bf504b80ba9e1483b07vzc"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200) {
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                            id(g_alarm_state) = root["alarm"].as<bool>() ? 1 : 0;
+                            return true;
+                          });
+                        } else { id(g_alarm_state) = -1; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_alarm_state) = -1;'
+            - delay: 150ms
+            - http_request.get:
+                url: "${tuya_bridge_url}/sensor/bfd389d3ddd79b5678utvs"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200) {
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                            id(g_smoke_state) = root["state"].as<bool>() ? 1 : 0;
+                            return true;
+                          });
+                        } else { id(g_smoke_state) = -1; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_smoke_state) = -1;'
+            - delay: 150ms
+            - http_request.get:
+                url: "${tuya_bridge_url}/sensor/bff359c0e1a9090ad4ehuk"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200) {
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                            id(g_co_state) = root["state"].as<bool>() ? 1 : 0;
+                            return true;
+                          });
+                        } else { id(g_co_state) = -1; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_co_state) = -1;'
+            - delay: 150ms
+            - http_request.get:
+                url: "${tuya_bridge_url}/sensor/bf8c8b69c7a5212d95lgfa"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200) {
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                            id(g_water_state) = root["state"].as<bool>() ? 1 : 0;
+                            return true;
+                          });
+                        } else { id(g_water_state) = -1; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_water_state) = -1;'
+            - script.execute: tuya_apply_ui
+            - lambda: 'id(g_tuya_busy) = false;'
+
+  - id: tuya_poll_health
+    mode: single
+    then:
+      - http_request.get:
+
+          url: "${tuya_bridge_url}/health"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: 'id(g_tuya_bridge_ok) = (response->status_code == 200);'
+          on_error:
+            then:
+              - lambda: 'id(g_tuya_bridge_ok) = false;'
+
+  - id: tuya_toggle_g_strip_s1
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_strip_s1) = !id(g_strip_s1);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_strip_s1);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s1) = !id(g_strip_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s1) = !id(g_strip_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s1) = !id(g_strip_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s1) = !id(g_strip_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_strip_s2
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_strip_s2) = !id(g_strip_s2);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_strip_s2);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s2) = !id(g_strip_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s2) = !id(g_strip_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s2) = !id(g_strip_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s2) = !id(g_strip_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_strip_s3
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_strip_s3) = !id(g_strip_s3);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_strip_s3);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s3) = !id(g_strip_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s3) = !id(g_strip_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s3) = !id(g_strip_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s3) = !id(g_strip_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_strip_s4
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_strip_s4) = !id(g_strip_s4);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_strip_s4);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s4) = !id(g_strip_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s4) = !id(g_strip_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_s4) = !id(g_strip_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_s4) = !id(g_strip_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_strip_usb
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_strip_usb) = !id(g_strip_usb);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_strip_usb);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_usb) = !id(g_strip_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_usb) = !id(g_strip_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_strip_usb) = !id(g_strip_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_strip_usb) = !id(g_strip_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_switch_s1
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_switch_s1) = !id(g_switch_s1);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_switch_s1);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s1) = !id(g_switch_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s1) = !id(g_switch_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s1) = !id(g_switch_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s1) = !id(g_switch_s1);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_switch_s2
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_switch_s2) = !id(g_switch_s2);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_switch_s2);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s2) = !id(g_switch_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s2) = !id(g_switch_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s2) = !id(g_switch_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s2) = !id(g_switch_s2);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_switch_s3
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_switch_s3) = !id(g_switch_s3);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_switch_s3);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s3) = !id(g_switch_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s3) = !id(g_switch_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s3) = !id(g_switch_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s3) = !id(g_switch_s3);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_switch_s4
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_switch_s4) = !id(g_switch_s4);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_switch_s4);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s4) = !id(g_switch_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s4) = !id(g_switch_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_s4) = !id(g_switch_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_s4) = !id(g_switch_s4);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_toggle_g_switch_usb
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_switch_usb) = !id(g_switch_usb);
+            - script.execute: tuya_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_switch_usb);'
+                then:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_usb) = !id(g_switch_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_usb) = !id(g_switch_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                else:
+                  - http_request.post:
+
+                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_switch_usb) = !id(g_switch_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_switch_usb) = !id(g_switch_usb);
+                              id(g_tuya_busy) = false;
+                              id(tuya_apply_ui).execute();
+  - id: tuya_mukta_unlock
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_mukta_locked) = false; id(g_mukta_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/unlock"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_mukta_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_mukta_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_mukta_lock
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_mukta_locked) = true; id(g_mukta_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/lock"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_mukta_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_mukta_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_bedroom_unlock
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_bedroom_on) = true; id(g_bedroom_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/on"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_bedroom_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_bedroom_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_bedroom_lock
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_bedroom_on) = false; id(g_bedroom_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/off"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_bedroom_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_bedroom_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_dr_on
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_tuya_dr_on) = true; id(g_tuya_dr_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/on"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_tuya_dr_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_tuya_dr_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_dr_off
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_tuya_dr_on) = false; id(g_tuya_dr_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/off"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_tuya_dr_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_tuya_dr_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_garden_on
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_tuya_garden_on) = true; id(g_tuya_garden_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/simple/1571285350029127c9f3/on"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_tuya_garden_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_tuya_garden_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+  - id: tuya_garden_off
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_tuya_busy);'
+          then:
+            - lambda: |-
+                id(g_tuya_busy) = true;
+                id(g_tuya_garden_on) = false; id(g_tuya_garden_online) = true;
+            - script.execute: tuya_apply_ui
+            - http_request.post:
+
+                url: "${tuya_bridge_url}/simple/1571285350029127c9f3/off"
+                body: ""
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) { id(g_tuya_garden_online) = false; }
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_tuya_garden_online) = false;
+                        id(g_tuya_busy) = false;
+                        id(tuya_apply_ui).execute();
+
+
+interval:
+  - interval: 60s
+    then:
+      - script.execute: tuya_poll_health
 
 lvgl:
   pages:
@@ -468,11 +1187,15 @@ lvgl:
       on_load:
         - lambda: |-
             id(g_tuya_page_active) = true;
-        - delay: 500ms
-        - script.execute: tuya_refresh_all
+        # Keep page entry responsive. Full Tuya LAN polling can take tens of
+        # seconds when battery sensors or gateways are asleep/offline.
+        - script.execute: tuya_poll_health
+        - script.execute: tuya_apply_ui
       on_unload:
         - lambda: |-
             id(g_tuya_page_active) = false;
+            id(g_tuya_busy) = false;
+            lv_obj_add_flag(id(tuya_loading_overlay), LV_OBJ_FLAG_HIDDEN);
       on_swipe_right:
         - lvgl.page.show: camera_page
       on_swipe_left:
@@ -587,34 +1310,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_strip_s1) = !id(g_strip_s1);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s1);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) {
-                                        id(g_strip_s1) = !id(g_strip_s1);
-                                        id(tuya_apply_ui).execute();
-                                      }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) {
-                                        id(g_strip_s1) = !id(g_strip_s1);
-                                        id(tuya_apply_ui).execute();
-                                      }
+                    - script.execute: tuya_toggle_g_strip_s1
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label:
@@ -637,28 +1333,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_strip_s2) = !id(g_strip_s2);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s2);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_s2) = !id(g_strip_s2); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_s2) = !id(g_strip_s2); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_strip_s2
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: strip_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -675,28 +1350,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_strip_s3) = !id(g_strip_s3);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s3);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_s3) = !id(g_strip_s3); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_s3) = !id(g_strip_s3); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_strip_s3
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: strip_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -713,28 +1367,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_strip_s4) = !id(g_strip_s4);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_s4);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_s4) = !id(g_strip_s4); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_s4) = !id(g_strip_s4); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_strip_s4
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: strip_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -751,28 +1384,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x1A3A5E
                   on_click:
-                    - lambda: |-
-                        id(g_strip_usb) = !id(g_strip_usb);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_strip_usb);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_usb) = !id(g_strip_usb); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_strip_usb) = !id(g_strip_usb); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_strip_usb
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
                     - label: { id: strip_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -791,28 +1403,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_switch_s1) = !id(g_switch_s1);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_switch_s1);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s1) = !id(g_switch_s1); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s1) = !id(g_switch_s1); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_switch_s1
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: switch_s1_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -829,28 +1420,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_switch_s2) = !id(g_switch_s2);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_switch_s2);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s2) = !id(g_switch_s2); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s2) = !id(g_switch_s2); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_switch_s2
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: switch_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -867,28 +1437,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_switch_s3) = !id(g_switch_s3);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_switch_s3);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s3) = !id(g_switch_s3); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s3) = !id(g_switch_s3); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_switch_s3
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: switch_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -905,28 +1454,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x2E5A3E
                   on_click:
-                    - lambda: |-
-                        id(g_switch_s4) = !id(g_switch_s4);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_switch_s4);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s4) = !id(g_switch_s4); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_s4) = !id(g_switch_s4); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_switch_s4
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
                     - label: { id: switch_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -943,28 +1471,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x1A3A5E
                   on_click:
-                    - lambda: |-
-                        id(g_switch_usb) = !id(g_switch_usb);
-                        id(tuya_apply_ui).execute();
-                    - if:
-                        condition:
-                          lambda: 'return id(g_switch_usb);'
-                        then:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/on"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_usb) = !id(g_switch_usb); id(tuya_apply_ui).execute(); }
-                        else:
-                          - http_request.post:
-                              url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/off"
-                              body: ""
-                              on_response:
-                                then:
-                                  - lambda: |-
-                                      if (response->status_code != 200) { id(g_switch_usb) = !id(g_switch_usb); id(tuya_apply_ui).execute(); }
+                    - script.execute: tuya_toggle_g_switch_usb
                   widgets:
                     - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
                     - label: { id: switch_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x333333 }
@@ -1026,20 +1533,7 @@ lvgl:
                   text: "UNLOCK"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_mukta_locked) = false;
-                        id(g_mukta_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/unlock"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_mukta_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_mukta_unlock
               - button:
                   align: TOP_LEFT
                   x: 120
@@ -1051,20 +1545,7 @@ lvgl:
                   text: "LOCK"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_mukta_locked) = true;
-                        id(g_mukta_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/lock"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_mukta_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_mukta_lock
 
               # ─ Bedroom Knob (right half, x starts at 249) ───────────────────
               - label:
@@ -1100,20 +1581,7 @@ lvgl:
                   text: "UNLOCK"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_bedroom_on) = true;
-                        id(g_bedroom_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/on"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_bedroom_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_bedroom_unlock
               - button:
                   align: TOP_LEFT
                   x: 363
@@ -1125,20 +1593,7 @@ lvgl:
                   text: "LOCK"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_bedroom_on) = false;
-                        id(g_bedroom_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/off"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_bedroom_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_bedroom_lock
 
         # ══ Row 2 Right: WiFi Plugs ══════════════════════════════════════════════
         - obj:
@@ -1189,20 +1644,7 @@ lvgl:
                   text: "ON"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_tuya_dr_on) = true;
-                        id(g_tuya_dr_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/on"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_tuya_dr_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_dr_on
               - button:
                   align: TOP_LEFT
                   x: 416
@@ -1214,20 +1656,7 @@ lvgl:
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_tuya_dr_on) = false;
-                        id(g_tuya_dr_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/off"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_tuya_dr_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_dr_off
 
               # Separator
               - obj:
@@ -1268,20 +1697,7 @@ lvgl:
                   text: "ON"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_tuya_garden_on) = true;
-                        id(g_tuya_garden_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/simple/1571285350029127c9f3/on"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_tuya_garden_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_garden_on
               - button:
                   align: TOP_LEFT
                   x: 416
@@ -1293,20 +1709,7 @@ lvgl:
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
-                    - lambda: |-
-                        id(g_tuya_garden_on) = false;
-                        id(g_tuya_garden_online) = true;
-                        id(tuya_apply_ui).execute();
-                    - http_request.post:
-                        url: "${tuya_bridge_url}/simple/1571285350029127c9f3/off"
-                        body: ""
-                        on_response:
-                          then:
-                            - lambda: |-
-                                if (response->status_code != 200) {
-                                  id(g_tuya_garden_online) = false;
-                                  id(tuya_apply_ui).execute();
-                                }
+                    - script.execute: tuya_garden_off
 
         # ══ Row 3 Left: Safety Sensors ═══════════════════════════════════════════
         - obj:
@@ -1340,7 +1743,7 @@ lvgl:
                   text: "REFRESH"
                   text_font: montserrat_12
                   on_click:
-                    - script.execute: tuya_poll_sensors
+                    - script.execute: tuya_refresh_sensors
 
               # Smoke
               - label:
@@ -1438,4 +1841,51 @@ lvgl:
                   text: "REFRESH"
                   text_font: montserrat_14
                   on_click:
-                    - script.execute: tuya_poll_sensors
+                    - script.execute: tuya_refresh_sensors
+
+        # Full-page readiness overlay. It sits last so it is drawn above all
+        # controls and intercepts touches while Tuya work is in-flight.
+        - obj:
+            id: tuya_loading_overlay
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x000000
+            bg_opa: 72%
+            border_width: 0
+            pad_all: 0
+            hidden: true
+            widgets:
+              - obj:
+                  align: CENTER
+                  width: 520
+                  height: 190
+                  bg_color: 0x0A1A14
+                  bg_opa: 96%
+                  border_color: 0x1E5A3E
+                  border_width: 2
+                  radius: 18
+                  pad_all: 0
+                  widgets:
+                    - label:
+                        align: TOP_MID
+                        y: 26
+                        text: "Tuya Local"
+                        text_font: montserrat_20
+                        text_color: 0x69F0AE
+                    - label:
+                        id: tuya_loading_title
+                        align: CENTER
+                        y: -8
+                        text: "Controls are not ready"
+                        text_font: montserrat_24
+                        text_color: 0xFFFFFF
+                    - label:
+                        id: tuya_loading_hint
+                        align: CENTER
+                        y: 38
+                        width: 460
+                        text: "Waiting for Tuya request to finish..."
+                        text_font: montserrat_16
+                        text_color: 0xAAAAAA
+                        long_mode: WRAP
