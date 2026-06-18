@@ -90,16 +90,19 @@ substitutions:
   weather_entity: weather.forecast_home_2
   weather_location: "Home"
 
-  # Energy page — Home Assistant energy/power entities. Replace these with
-  # your real HA energy dashboard helpers if the defaults do not exist.
-  energy_grid_power: sensor.grid_power
-  energy_solar_power: sensor.solar_power
-  energy_home_power: sensor.home_power
-  energy_battery_power: sensor.battery_power
-  energy_battery_soc: sensor.battery_state_of_charge
-  energy_today_import: sensor.energy_import_today
-  energy_today_export: sensor.energy_export_today
-  energy_power_unit: "W"
+  # Energy page — mirrors Home Assistant's Energy dashboard sources.
+  # Grid import comes from Octopus; solar production and live load come from
+  # the Zigbee bi-directional smart meter.
+  energy_grid_power: sensor.zigbee_bi_smart_meter_phase_a_power
+  energy_grid_power_unit: "W"
+  energy_solar_energy: sensor.zigbee_bi_smart_meter_total_energy_2
+  energy_solar_energy_unit: "kWh"
+  energy_home_power: sensor.zigbee_bi_smart_meter_phase_a_power
+  energy_home_power_unit: "W"
+  energy_export_energy: sensor.octopus_energy_electricity_24l3459421_2000060811420_export_previous_accumulative_consumption
+  energy_export_energy_unit: "kWh"
+  energy_today_import: sensor.octopus_energy_electricity_24l3459421_2000011520182_current_accumulative_consumption
+  energy_today_export: sensor.octopus_energy_electricity_24l3459421_2000060811420_export_previous_accumulative_consumption
   energy_energy_unit: "kWh"
 
   # Camera page — four Eufy cameras. Thumbnails refresh every 60s on the

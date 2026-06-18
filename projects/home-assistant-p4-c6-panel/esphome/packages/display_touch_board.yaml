@@ -2925,7 +2925,7 @@ lvgl:
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 5 — ENERGY FLOW (swipe left from Presence)
-    # Live HA energy/power values arranged as a simple source -> home diagram.
+    # Live HA Energy dashboard values arranged as grid/solar/export cards.
     # ═══════════════════════════════════════════════════════════
     - id: energy_page
       bg_color: 0x050C10
@@ -2987,7 +2987,7 @@ lvgl:
                     - label: { align: TOP_MID, y: 12, text: "GRID", text_font: montserrat_18, text_color: 0x44AAFF }
                     - label: { id: energy_grid_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
-              # Solar source
+              # Solar production total
               - obj:
                   x: 28
                   y: 236
@@ -3000,7 +3000,7 @@ lvgl:
                   radius: 14
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "SOLAR", text_font: montserrat_18, text_color: 0xFFD54F }
+                    - label: { align: TOP_MID, y: 12, text: "SOLAR TOTAL", text_font: montserrat_18, text_color: 0xFFD54F }
                     - label: { id: energy_solar_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
               # Home load
@@ -3019,7 +3019,7 @@ lvgl:
                     - label: { align: TOP_MID, y: 18, text: "HOME", text_font: montserrat_20, text_color: 0x69F0AE }
                     - label: { id: energy_home_val, align: CENTER, y: 22, text: "--", text_font: montserrat_30, text_color: 0xFFFFFF }
 
-              # Battery
+              # Export meter
               - obj:
                   x: 754
                   y: 130
@@ -3032,9 +3032,9 @@ lvgl:
                   radius: 14
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "BATTERY", text_font: montserrat_18, text_color: 0xFFB74D }
-                    - label: { id: energy_battery_val, align: CENTER, y: 4, text: "--", text_font: montserrat_24, text_color: 0xFFFFFF }
-                    - label: { id: energy_battery_soc_val, align: BOTTOM_MID, y: -12, text: "--", text_font: montserrat_18, text_color: 0xCCCCCC }
+                    - label: { align: TOP_MID, y: 12, text: "EXPORT", text_font: montserrat_18, text_color: 0xFFB74D }
+                    - label: { id: energy_export_flow_val, align: CENTER, y: 4, text: "--", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: BOTTOM_MID, y: -12, text: "meter reading", text_font: montserrat_18, text_color: 0xCCCCCC }
 
         # Daily summary cards
         - obj:
@@ -3049,7 +3049,7 @@ lvgl:
             radius: 16
             pad_all: 0
             widgets:
-              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Imported today", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Imported current period", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { id: energy_import_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
         - obj:
             x: 530
@@ -3063,7 +3063,7 @@ lvgl:
             radius: 16
             pad_all: 0
             widgets:
-              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Exported today", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Export previous period", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { id: energy_export_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
     # ═══════════════════════════════════════════════════════════

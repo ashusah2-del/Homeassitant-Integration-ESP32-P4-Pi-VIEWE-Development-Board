@@ -20,8 +20,8 @@ UI driven directly by HA's native API.
   readout, ⊖/⊕ target buttons, and OFF/AUTO/HEAT mode buttons
 - **Presence** — 12 motion/occupancy sensors (indoor + outdoor) with
   recoloured `mdi:home` indicators
-- **Energy** — Home Assistant energy flow diagram for grid, solar,
-  home load, battery, and daily import/export
+- **Energy** — Home Assistant energy flow diagram for grid import,
+  solar production, live load, and export readings
 - **Cameras** — 2×2 grid of Eufy thumbnails, tap any to open the
   larger live view (manual Refresh button, no auto-polling)
 - **Tuya local** — direct LAN control of strips, locks, plugs, and

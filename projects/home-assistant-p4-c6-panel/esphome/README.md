@@ -98,15 +98,14 @@ grey = CLEAR) and an ACTIVE/CLEAR label.
 ### 5. Energy (`energy_page`)
 
 A Home Assistant-driven energy diagram between Presence and Cameras.
-It shows grid, solar, home load, battery power/state of charge, and
-today's import/export totals. The HA entities are configured via
+It shows grid import, solar production, live load, and export
+readings. The HA entities are configured via
 substitutions in `mangalam-panel.yaml`:
 
 - `energy_grid_power`
-- `energy_solar_power`
+- `energy_solar_energy`
 - `energy_home_power`
-- `energy_battery_power`
-- `energy_battery_soc`
+- `energy_export_energy`
 - `energy_today_import`
 - `energy_today_export`
 

@@ -987,17 +987,17 @@ text_sensor:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_grid_power_unit}";
             lv_label_set_text(id(energy_grid_val), v.c_str());
   - platform: homeassistant
-    id: energy_solar_power_s
-    entity_id: "${energy_solar_power}"
+    id: energy_solar_energy_s
+    entity_id: "${energy_solar_energy}"
     internal: true
     on_value:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_solar_energy_unit}";
             lv_label_set_text(id(energy_solar_val), v.c_str());
   - platform: homeassistant
     id: energy_home_power_s
@@ -1007,28 +1007,18 @@ text_sensor:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_home_power_unit}";
             lv_label_set_text(id(energy_home_val), v.c_str());
   - platform: homeassistant
-    id: energy_battery_power_s
-    entity_id: "${energy_battery_power}"
+    id: energy_export_energy_s
+    entity_id: "${energy_export_energy}"
     internal: true
     on_value:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_power_unit}";
-            lv_label_set_text(id(energy_battery_val), v.c_str());
-  - platform: homeassistant
-    id: energy_battery_soc_s
-    entity_id: "${energy_battery_soc}"
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " %";
-            lv_label_set_text(id(energy_battery_soc_val), v.c_str());
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_export_energy_unit}";
+            lv_label_set_text(id(energy_export_flow_val), v.c_str());
   - platform: homeassistant
     id: energy_today_import_s
     entity_id: "${energy_today_import}"
