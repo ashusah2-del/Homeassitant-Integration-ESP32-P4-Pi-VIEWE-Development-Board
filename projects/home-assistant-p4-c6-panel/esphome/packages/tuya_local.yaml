@@ -133,51 +133,59 @@ script:
           } else {
             lv_obj_add_flag(id(tuya_loading_overlay), LV_OBJ_FLAG_HIDDEN);
           }
-          // Bedroom power strip
-          lv_obj_set_style_bg_color(id(strip_s1_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s1) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(strip_s1_lbl), id(g_strip_online) ? (id(g_strip_s1) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(strip_s1_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s1) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(strip_s2_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s2) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(strip_s2_lbl), id(g_strip_online) ? (id(g_strip_s2) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(strip_s2_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s2) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(strip_s3_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s3) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(strip_s3_lbl), id(g_strip_online) ? (id(g_strip_s3) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(strip_s3_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s3) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(strip_s4_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_s4) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(strip_s4_lbl), id(g_strip_online) ? (id(g_strip_s4) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(strip_s4_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_s4) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(strip_usb_btn), lv_color_hex(!id(g_strip_online) ? 0x181818U : (id(g_strip_usb) ? 0x1A3A7EU : 0x212121U)), 0);
-          lv_label_set_text(id(strip_usb_lbl), id(g_strip_online) ? (id(g_strip_usb) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(strip_usb_lbl), lv_color_hex(!id(g_strip_online) ? 0x333333U : (id(g_strip_usb) ? 0xAABBFFU : 0x666666U)), 0);
-          lv_label_set_text(id(strip_status_lbl), id(g_strip_online) ? "ONLINE" : "OFFLINE");
-          lv_obj_set_style_text_color(id(strip_status_lbl), lv_color_hex(id(g_strip_online) ? 0x69F0AEU : 0xFF8F00U), 0);
+          bool bridge_ready = id(g_tuya_bridge_ok);
+          auto strip_state = [](bool known, bool on) -> const char* { return known ? (on ? "ON" : "OFF") : "?"; };
+          auto strip_color = [](bool known, bool on) -> uint32_t { return known ? (on ? 0x69F0AEU : 0x666666U) : 0xAACCFFU; };
+
+          // Bedroom power strip: bridge readiness controls whether buttons look usable;
+          // per-device online only means we have a fresh state value.
+          lv_obj_set_style_bg_color(id(strip_s1_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_strip_s1) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s1_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s1)) : "--");
+          lv_obj_set_style_text_color(id(strip_s1_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_strip_online), id(g_strip_s1))), 0);
+          lv_obj_set_style_bg_color(id(strip_s2_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_strip_s2) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s2_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s2)) : "--");
+          lv_obj_set_style_text_color(id(strip_s2_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_strip_online), id(g_strip_s2))), 0);
+          lv_obj_set_style_bg_color(id(strip_s3_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_strip_s3) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s3_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s3)) : "--");
+          lv_obj_set_style_text_color(id(strip_s3_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_strip_online), id(g_strip_s3))), 0);
+          lv_obj_set_style_bg_color(id(strip_s4_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_strip_s4) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(strip_s4_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s4)) : "--");
+          lv_obj_set_style_text_color(id(strip_s4_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_strip_online), id(g_strip_s4))), 0);
+          lv_obj_set_style_bg_color(id(strip_usb_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_strip_usb) ? 0x1A3A7EU : 0x212121U)), 0);
+          lv_label_set_text(id(strip_usb_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_usb)) : "--");
+          lv_obj_set_style_text_color(id(strip_usb_lbl), lv_color_hex(!bridge_ready ? 0x333333U : (id(g_strip_online) ? (id(g_strip_usb) ? 0xAABBFFU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_label_set_text(id(strip_status_lbl), !bridge_ready ? "BRIDGE OFF" : (id(g_strip_online) ? "ONLINE" : "READY"));
+          lv_obj_set_style_text_color(id(strip_status_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_strip_online) ? 0x69F0AEU : 0xAACCFFU)), 0);
+
           // Power switch strip
-          lv_obj_set_style_bg_color(id(switch_s1_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s1) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(switch_s1_lbl), id(g_switch_online) ? (id(g_switch_s1) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(switch_s1_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s1) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(switch_s2_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s2) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(switch_s2_lbl), id(g_switch_online) ? (id(g_switch_s2) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(switch_s2_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s2) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(switch_s3_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s3) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(switch_s3_lbl), id(g_switch_online) ? (id(g_switch_s3) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(switch_s3_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s3) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(switch_s4_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_s4) ? 0x1B5E20U : 0x212121U)), 0);
-          lv_label_set_text(id(switch_s4_lbl), id(g_switch_online) ? (id(g_switch_s4) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(switch_s4_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_s4) ? 0x69F0AEU : 0x666666U)), 0);
-          lv_obj_set_style_bg_color(id(switch_usb_btn), lv_color_hex(!id(g_switch_online) ? 0x181818U : (id(g_switch_usb) ? 0x1A3A7EU : 0x212121U)), 0);
-          lv_label_set_text(id(switch_usb_lbl), id(g_switch_online) ? (id(g_switch_usb) ? "ON" : "OFF") : "--");
-          lv_obj_set_style_text_color(id(switch_usb_lbl), lv_color_hex(!id(g_switch_online) ? 0x333333U : (id(g_switch_usb) ? 0xAABBFFU : 0x666666U)), 0);
-          lv_label_set_text(id(switch_status_lbl), id(g_switch_online) ? "ONLINE" : "OFFLINE");
-          lv_obj_set_style_text_color(id(switch_status_lbl), lv_color_hex(id(g_switch_online) ? 0x69F0AEU : 0xFF8F00U), 0);
+          lv_obj_set_style_bg_color(id(switch_s1_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_switch_s1) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s1_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s1)) : "--");
+          lv_obj_set_style_text_color(id(switch_s1_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_switch_online), id(g_switch_s1))), 0);
+          lv_obj_set_style_bg_color(id(switch_s2_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_switch_s2) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s2_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s2)) : "--");
+          lv_obj_set_style_text_color(id(switch_s2_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_switch_online), id(g_switch_s2))), 0);
+          lv_obj_set_style_bg_color(id(switch_s3_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_switch_s3) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s3_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s3)) : "--");
+          lv_obj_set_style_text_color(id(switch_s3_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_switch_online), id(g_switch_s3))), 0);
+          lv_obj_set_style_bg_color(id(switch_s4_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_switch_s4) ? 0x1B5E20U : 0x212121U)), 0);
+          lv_label_set_text(id(switch_s4_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s4)) : "--");
+          lv_obj_set_style_text_color(id(switch_s4_lbl), lv_color_hex(!bridge_ready ? 0x333333U : strip_color(id(g_switch_online), id(g_switch_s4))), 0);
+          lv_obj_set_style_bg_color(id(switch_usb_btn), lv_color_hex(!bridge_ready ? 0x181818U : (id(g_switch_usb) ? 0x1A3A7EU : 0x212121U)), 0);
+          lv_label_set_text(id(switch_usb_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_usb)) : "--");
+          lv_obj_set_style_text_color(id(switch_usb_lbl), lv_color_hex(!bridge_ready ? 0x333333U : (id(g_switch_online) ? (id(g_switch_usb) ? 0xAABBFFU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_label_set_text(id(switch_status_lbl), !bridge_ready ? "BRIDGE OFF" : (id(g_switch_online) ? "ONLINE" : "READY"));
+          lv_obj_set_style_text_color(id(switch_status_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_switch_online) ? 0x69F0AEU : 0xAACCFFU)), 0);
+
           // Locks + plugs
-          lv_label_set_text(id(mukta_lock_lbl), id(g_mukta_online) ? (id(g_mukta_locked) ? "LOCKED" : "UNLOCKED") : "---");
-          lv_obj_set_style_text_color(id(mukta_lock_lbl), lv_color_hex(id(g_mukta_online) ? (id(g_mukta_locked) ? 0xFF5252U : 0x69F0AEU) : 0xFF8F00U), 0);
-          lv_label_set_text(id(bedroom_lbl), id(g_bedroom_online) ? (id(g_bedroom_on) ? "UNLOCKED" : "LOCKED") : "---");
-          lv_obj_set_style_text_color(id(bedroom_lbl), lv_color_hex(id(g_bedroom_online) ? (id(g_bedroom_on) ? 0x69F0AEU : 0xFF5252U) : 0xFF8F00U), 0);
-          lv_label_set_text(id(tuya_dr_lbl), id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? "ON" : "OFF") : "---");
-          lv_obj_set_style_text_color(id(tuya_dr_lbl), lv_color_hex(id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U), 0);
-          lv_label_set_text(id(tuya_garden_lbl), id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? "ON" : "OFF") : "---");
-          lv_obj_set_style_text_color(id(tuya_garden_lbl), lv_color_hex(id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? 0x69F0AEU : 0x666666U) : 0xFF8F00U), 0);
+          lv_label_set_text(id(mukta_lock_lbl), !bridge_ready ? "---" : (id(g_mukta_online) ? (id(g_mukta_locked) ? "LOCKED" : "UNLOCKED") : "READY"));
+          lv_obj_set_style_text_color(id(mukta_lock_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_mukta_online) ? (id(g_mukta_locked) ? 0xFF5252U : 0x69F0AEU) : 0xAACCFFU)), 0);
+          lv_label_set_text(id(bedroom_lbl), !bridge_ready ? "---" : (id(g_bedroom_online) ? (id(g_bedroom_on) ? "UNLOCKED" : "LOCKED") : "READY"));
+          lv_obj_set_style_text_color(id(bedroom_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_bedroom_online) ? (id(g_bedroom_on) ? 0x69F0AEU : 0xFF5252U) : 0xAACCFFU)), 0);
+          lv_label_set_text(id(tuya_dr_lbl), !bridge_ready ? "---" : (id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? "ON" : "OFF") : "READY"));
+          lv_obj_set_style_text_color(id(tuya_dr_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? 0x69F0AEU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_label_set_text(id(tuya_garden_lbl), !bridge_ready ? "---" : (id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? "ON" : "OFF") : "READY"));
+          lv_obj_set_style_text_color(id(tuya_garden_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? 0x69F0AEU : 0x666666U) : 0xAACCFFU)), 0);
+
           // Safety sensors
           lv_label_set_text(id(smoke_state_lbl), id(g_smoke_state) < 0 ? "?" : (id(g_smoke_state) ? "! SMOKE !" : "CLEAR"));
           lv_obj_set_style_text_color(id(smoke_state_lbl), lv_color_hex(id(g_smoke_state) < 0 ? 0xFF8F00U : (id(g_smoke_state) ? 0xFF5252U : 0x69F0AEU)), 0);
