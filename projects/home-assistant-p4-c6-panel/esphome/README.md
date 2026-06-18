@@ -157,7 +157,9 @@ A small `BaseHTTPRequestHandler` Python service running as a systemd
 (`<docker-host-ip>:8765`). It exposes two endpoints used by the panel:
 
 - `GET /random-photo` — fetches a random IMAGE asset from Immich's full
-  library by default (`FAVORITES_ONLY=true` restricts it to favourites),
+  library by default (`FAVORITES_ONLY=true` restricts it to favourites).
+  If `IMMICH_PERSON_NAMES` is set, each request picks a random configured
+  person and only returns photos containing at least that person. It then
   follows the `?size=preview` thumbnail link, then **always**
   re-encodes via Pillow as SOF0 baseline JPEG resized to
   ≤ `MAX_W × MAX_H` (default 512 × 400). Removes both the SOF1
@@ -169,7 +171,7 @@ A small `BaseHTTPRequestHandler` Python service running as a systemd
 
 Config lives in `proxy.env` (gitignored): Immich URL + API key, HA URL
 + long-lived token, JPEG quality, retry count, and optional
-`FAVORITES_ONLY`.
+`FAVORITES_ONLY` / `IMMICH_PERSON_NAMES`.
 
 ### Home-Assistant integration
 

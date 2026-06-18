@@ -14,6 +14,7 @@ import io
 import json
 import logging
 import os
+import random
 import struct
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -30,6 +31,7 @@ PROXY_PORT   = int(os.environ.get("PROXY_PORT", "8765"))
 JPEG_QUALITY = int(os.environ.get("JPEG_QUALITY", "85"))
 RETRIES      = int(os.environ.get("RETRIES", "8"))
 FAVORITES_ONLY = os.environ.get("FAVORITES_ONLY", "false").lower() in ("1", "true", "yes", "on")
+PERSON_NAMES = [p.strip() for p in os.environ.get("IMMICH_PERSON_NAMES", "").split(",") if p.strip()]
 # Home Assistant — only needed for the /camera/<name> endpoint.
 HA_URL       = os.environ.get("HA_URL", "").rstrip("/")
 HA_TOKEN     = os.environ.get("HA_TOKEN", "")
@@ -38,12 +40,68 @@ HA_TOKEN     = os.environ.get("HA_TOKEN", "")
 # 800x600 is plenty for the 684x600 display area and decodes in ~960KB.
 MAX_W        = int(os.environ.get("MAX_W", "800"))
 MAX_H        = int(os.environ.get("MAX_H", "600"))
+_PERSON_IDS: list[tuple[str, str]] | None = None
 
 
 def _get(url: str, headers: dict, timeout: int = 30) -> bytes:
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+
+def _get_json(url: str, headers: dict, timeout: int = 30):
+    return json.loads(_get(url, headers, timeout).decode("utf-8"))
+
+
+def _resolve_person_ids() -> list[tuple[str, str]]:
+    """Resolve configured Immich people names to IDs.
+
+    Returns (display_name, id) pairs. Each slideshow request picks one pair,
+    which gives OR semantics across configured people names.
+    """
+    global _PERSON_IDS
+    if _PERSON_IDS is not None:
+        return _PERSON_IDS
+    if not PERSON_NAMES:
+        _PERSON_IDS = []
+        return _PERSON_IDS
+
+    try:
+        data = _get_json(f"{IMMICH_URL}/api/people", {"x-api-key": IMMICH_KEY, "Accept": "application/json"})
+        people = data.get("people", data) if isinstance(data, dict) else data
+        if not isinstance(people, list):
+            raise RuntimeError("unexpected people response")
+
+        resolved: list[tuple[str, str]] = []
+        for wanted in PERSON_NAMES:
+            wanted_l = wanted.lower()
+            exact = [
+                p for p in people
+                if str(p.get("name", "")).strip().lower() == wanted_l and p.get("id")
+            ]
+            partial = [
+                p for p in people
+                if wanted_l in str(p.get("name", "")).strip().lower() and p.get("id")
+            ]
+            match = (exact or partial or [None])[0]
+            if match:
+                resolved.append((match.get("name") or wanted, match["id"]))
+            else:
+                log.warning("Immich person name %r was not found", wanted)
+
+        _PERSON_IDS = resolved
+        if _PERSON_IDS:
+            log.info(
+                "Immich people filter active: %s",
+                ", ".join(f"{name}={person_id}" for name, person_id in _PERSON_IDS),
+            )
+        else:
+            log.error("IMMICH_PERSON_NAMES is set but no matching Immich people were found")
+        return _PERSON_IDS
+    except Exception as exc:
+        log.warning("failed to resolve Immich people %s: %s", PERSON_NAMES, exc)
+        _PERSON_IDS = []
+        return _PERSON_IDS
 
 
 def _sof_type(data: bytes) -> int | None:
@@ -83,6 +141,14 @@ def fetch_safe_jpeg() -> bytes | None:
             # Pull from the whole image library by default. Set
             # FAVORITES_ONLY=true in proxy.env to restore the old curated mode.
             search = {"size": 1, "type": "IMAGE"}
+            person_filter = _resolve_person_ids()
+            person_name = None
+            if PERSON_NAMES:
+                if not person_filter:
+                    log.error("people filter configured but no people resolved")
+                    return None
+                person_name, person_id = random.choice(person_filter)
+                search["personIds"] = [person_id]
             if FAVORITES_ONLY:
                 search["isFavorite"] = True
             req_body = json.dumps(search).encode("utf-8")
@@ -122,9 +188,10 @@ def fetch_safe_jpeg() -> bytes | None:
             # ALWAYS resize+re-encode. Full-size JPEGs (1440x1920 ≈ 5.5MB RGB565)
             # exhaust ESP32 PSRAM during decode and crash the device.
             result = _to_baseline_jpeg(jpeg_raw)
+            scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
             log.info(
                 "asset %s (%s) SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
-                asset_id, "favorites" if FAVORITES_ONLY else "all", sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
+                asset_id, scope, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
             )
             return result
 

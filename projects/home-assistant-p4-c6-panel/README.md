@@ -56,7 +56,8 @@ endpoints used by the panel:
 - `GET /random-photo` — re-encodes a random Immich image as a
   guaranteed SOF0 baseline JPEG resized for the panel. It uses the full
   image library by default; set `FAVORITES_ONLY=true` in `proxy.env` to
-  restrict the slideshow to favourites.
+  restrict the slideshow to favourites, or set `IMMICH_PERSON_NAMES`
+  to only show photos containing at least one configured person.
 - `GET /camera/<entity>?size=thumb|full` — re-encodes a Eufy camera
   snapshot at a panel-friendly size
 
