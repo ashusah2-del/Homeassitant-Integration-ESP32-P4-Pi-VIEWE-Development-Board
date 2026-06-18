@@ -57,6 +57,11 @@ endpoints used by the panel:
 - `GET /camera/<entity>?size=thumb|full` — re-encodes a Eufy camera
   snapshot at a panel-friendly size
 
+The Tuya LAN bridge runs separately on port `8766`. Open
+`http://<docker-host-ip>:8766/` for a local dashboard that lists
+configured Tuya devices, refreshes their state, and sends the same
+control requests used by the ESP32-P4 panel.
+
 ## Hardware
 
 - Board: VIEWE / Guition 7-inch ESP32-P4 development board

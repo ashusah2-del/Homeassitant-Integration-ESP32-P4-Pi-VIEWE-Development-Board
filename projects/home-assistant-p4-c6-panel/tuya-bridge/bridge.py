@@ -82,7 +82,7 @@ def _make_wifi_device(dev_cfg):
         local_key=dev_cfg["local_key"],
         version=float(dev_cfg.get("version", "3.3")),
     )
-    d.set_socketTimeout(6)
+    d.set_socketTimeout(3)
     d.set_sendWait(0.5)
     return d
 
@@ -93,7 +93,7 @@ def _make_gateway(gw_cfg):
         local_key=gw_cfg["local_key"],
         version=float(gw_cfg.get("version", "3.4")),
     )
-    d.set_socketTimeout(6)
+    d.set_socketTimeout(3)
     d.set_sendWait(0.5)
     return d
 
@@ -106,7 +106,7 @@ def _make_sub_device(sub_cfg, gw_cfg):
         version=float(gw_cfg.get("version", "3.4")),
         parent=gw,
     )
-    d.set_socketTimeout(6)
+    d.set_socketTimeout(3)
     d.set_sendWait(0.5)
     return d
 
@@ -134,6 +134,8 @@ def _get_status(device_id):
             raise RuntimeError("Gateway local key not configured")
         d = _make_sub_device(dev_cfg, gw_cfg)
     result = d.status()
+    if result is None:
+        raise RuntimeError("No response from device (offline or unreachable)")
     if "Error" in result:
         raise RuntimeError(result["Error"])
     return result.get("dps", {})
@@ -340,6 +342,243 @@ def handle_update_keys(body):
             json.dump(CONFIG, f, indent=2)
     return 200, {"ok": True, "updated": updated}
 
+
+HOME_PAGE = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tuya Local Bridge</title>
+  <style>
+    :root { color-scheme: dark; --bg:#071008; --card:#102016; --line:#27543a; --ok:#69f0ae; --warn:#ffb74d; --bad:#ff5252; --muted:#9fb0a6; --text:#f4fff8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: radial-gradient(circle at top, #12301f, var(--bg)); color: var(--text); }
+    header { position: sticky; top:0; z-index:2; background: rgba(7,16,8,.92); border-bottom:1px solid var(--line); padding:16px 20px; backdrop-filter: blur(8px); }
+    h1 { margin:0; font-size: clamp(24px, 4vw, 36px); color: var(--ok); }
+    header p { margin:6px 0 0; color: var(--muted); }
+    main { max-width: 1180px; margin: 0 auto; padding: 18px; }
+    .toolbar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+    button { border:0; border-radius:10px; padding:10px 14px; background:#1b5e20; color:white; font-weight:700; cursor:pointer; }
+    button.secondary { background:#1e3a5f; }
+    button.danger { background:#6a1b1a; }
+    button:disabled { cursor:not-allowed; opacity:.45; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 11px; border-radius:999px; border:1px solid var(--line); color:var(--muted); background:rgba(16,32,22,.75); }
+    .dot { width:10px; height:10px; border-radius:50%; background:var(--warn); }
+    .dot.ok { background:var(--ok); }
+    .dot.bad { background:var(--bad); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:16px; }
+    .card { background:rgba(16,32,22,.93); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:0 8px 22px rgba(0,0,0,.22); }
+    .top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    h2 { margin:0; font-size:20px; }
+    .meta { margin-top:4px; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+    .status { margin:14px 0; min-height:24px; font-size:16px; }
+    .status.ok { color:var(--ok); }
+    .status.warn { color:var(--warn); }
+    .status.bad { color:var(--bad); }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; }
+    .strip-row { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
+    .strip-row button { padding:10px 4px; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#061008; border:1px solid #1d3b2b; padding:10px; border-radius:10px; color:#d9ffe8; max-height:180px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Tuya Local Bridge</h1>
+    <p>Local LAN dashboard for ESP32-P4 panel devices. No Tuya cloud calls are made here.</p>
+  </header>
+  <main>
+    <div class="toolbar">
+      <button onclick="loadDevices()">Refresh devices</button>
+      <button class="secondary" onclick="refreshAll()">Refresh status</button>
+      <span class="pill"><span id="health-dot" class="dot"></span><span id="health">Checking bridge...</span></span>
+    </div>
+    <section id="devices" class="grid"></section>
+  </main>
+  <script>
+    const state = { devices: [] };
+
+    function el(tag, attrs = {}, children = []) {
+      const node = document.createElement(tag);
+      for (const [key, value] of Object.entries(attrs)) {
+        if (key === "class") node.className = value;
+        else if (key === "text") node.textContent = value;
+        else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+        else node.setAttribute(key, value);
+      }
+      for (const child of children) node.append(child);
+      return node;
+    }
+
+    async function api(path, options = {}, timeoutMs = 6500) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(path, { ...options, signal: ctrl.signal });
+        const data = await res.json().catch(() => ({}));
+        return { httpOk: res.ok, status: res.status, data };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function setHealth(ok, text) {
+      document.getElementById("health-dot").className = `dot ${ok ? "ok" : "bad"}`;
+      document.getElementById("health").textContent = text;
+    }
+
+    async function checkHealth() {
+      try {
+        const result = await api("/health", {}, 2500);
+        setHealth(result.httpOk && result.data.ok, result.httpOk ? `Bridge online (${result.data.version || "unknown"})` : "Bridge error");
+      } catch (err) {
+        setHealth(false, "Bridge offline");
+      }
+    }
+
+    async function loadDevices() {
+      await checkHealth();
+      const root = document.getElementById("devices");
+      root.textContent = "Loading devices...";
+      try {
+        const result = await api("/devices", {}, 4000);
+        if (!result.httpOk) throw new Error(result.data.error || `HTTP ${result.status}`);
+        state.devices = result.data;
+        root.textContent = "";
+        for (const device of state.devices) root.append(renderDevice(device));
+        refreshAll();
+      } catch (err) {
+        root.textContent = `Could not load devices: ${err.message}`;
+      }
+    }
+
+    function renderDevice(device) {
+      const card = el("article", { class: "card", id: `dev-${device.id}` });
+      const title = el("div", { class: "top" }, [
+        el("div", {}, [
+          el("h2", { text: device.name || device.id }),
+          el("div", { class: "meta", text: `${device.type || "device"} | ${device.ip ? `IP ${device.ip}` : `gateway ${device.gateway || "-"}`} | ${device.id}` }),
+        ]),
+        el("span", { class: "pill", text: device.configured ? "configured" : "missing key" }),
+      ]);
+      card.append(title, el("div", { class: "status warn", id: `status-${device.id}`, text: "Not refreshed yet" }));
+      const controls = el("div", { class: device.type === "strip" ? "strip-row" : "controls", id: `controls-${device.id}` });
+      card.append(controls);
+      fillControls(device, controls);
+      return card;
+    }
+
+    function fillControls(device, controls) {
+      controls.textContent = "";
+      if (!device.configured) {
+        controls.append(el("span", { class: "status bad", text: "Local key not configured" }));
+        return;
+      }
+      if (device.type === "gateway") {
+        controls.append(el("button", { class: "secondary", text: "Refresh", onclick: () => refreshDevice(device) }));
+      } else if (device.type === "strip") {
+        for (const key of ["s1", "s2", "s3", "s4", "usb"]) {
+          controls.append(el("button", { text: key.toUpperCase(), onclick: () => toggleStrip(device, key) }));
+        }
+      } else if (device.type === "lock") {
+        controls.append(
+          el("button", { text: "Lock", onclick: () => postAndRefresh(`/lock/${device.id}/lock`, device) }),
+          el("button", { class: "danger", text: "Unlock", onclick: () => postAndRefresh(`/lock/${device.id}/unlock`, device) }),
+        );
+      } else if (device.type === "simple") {
+        controls.append(
+          el("button", { text: "On / Unlock", onclick: () => postAndRefresh(`/simple/${device.id}/on`, device) }),
+          el("button", { class: "danger", text: "Off / Lock", onclick: () => postAndRefresh(`/simple/${device.id}/off`, device) }),
+        );
+      } else {
+        controls.append(el("button", { class: "secondary", text: "Refresh", onclick: () => refreshDevice(device) }));
+      }
+    }
+
+    function endpointFor(device) {
+      if (device.type === "strip") return `/strip/${device.id}`;
+      if (device.type === "lock") return `/lock/${device.id}`;
+      if (device.type === "alarm") return `/alarm/${device.id}`;
+      if (device.type === "sensor") return `/sensor/${device.id}`;
+      if (device.type === "simple") return `/simple/${device.id}`;
+      return null;
+    }
+
+    function setStatus(device, cssClass, text, data) {
+      const node = document.getElementById(`status-${device.id}`);
+      if (!node) return;
+      node.className = `status ${cssClass}`;
+      node.textContent = text;
+      if (data && !data.ok && data.error) {
+        const details = el("pre", { text: data.error });
+        node.append(details);
+      }
+    }
+
+    async function refreshDevice(device) {
+      const endpoint = endpointFor(device);
+      if (!endpoint) {
+        setStatus(device, "warn", "Gateway entry - no direct state endpoint");
+        return;
+      }
+      setStatus(device, "warn", "Refreshing...");
+      try {
+        const result = await api(endpoint);
+        const data = result.data || {};
+        if (!result.httpOk || !data.ok) {
+          setStatus(device, "bad", "Offline / no response", data);
+          return;
+        }
+        if (device.type === "strip") {
+          setStatus(device, "ok", `S1 ${onOff(data.s1)} | S2 ${onOff(data.s2)} | S3 ${onOff(data.s3)} | S4 ${onOff(data.s4)} | USB ${onOff(data.usb)}`);
+        } else if (device.type === "lock") {
+          setStatus(device, data.locked ? "bad" : "ok", data.locked ? "Locked" : "Unlocked");
+        } else if (device.type === "alarm") {
+          setStatus(device, data.alarm ? "bad" : "ok", data.alarm ? "Alarm active" : "Clear");
+        } else if (device.type === "sensor") {
+          setStatus(device, data.state ? "bad" : "ok", data.state ? "Active" : "Clear");
+        } else {
+          setStatus(device, data.on ? "ok" : "warn", data.on ? "On / Unlocked" : "Off / Locked");
+        }
+      } catch (err) {
+        setStatus(device, "bad", `Request failed: ${err.name === "AbortError" ? "timed out" : err.message}`);
+      }
+    }
+
+    async function postAndRefresh(path, device) {
+      setStatus(device, "warn", "Sending command...");
+      try {
+        const result = await api(path, { method: "POST" });
+        if (!result.httpOk || !result.data.ok) {
+          setStatus(device, "bad", result.data.message || result.data.error || `HTTP ${result.status}`, result.data);
+          return;
+        }
+        await refreshDevice(device);
+      } catch (err) {
+        setStatus(device, "bad", `Command failed: ${err.name === "AbortError" ? "timed out" : err.message}`);
+      }
+    }
+
+    async function toggleStrip(device, key) {
+      const status = document.getElementById(`status-${device.id}`)?.textContent || "";
+      const currentlyOn = new RegExp(`${key.toUpperCase()} ON`).test(status);
+      await postAndRefresh(`/strip/${device.id}/${key}/${currentlyOn ? "off" : "on"}`, device);
+    }
+
+    async function refreshAll() {
+      await checkHealth();
+      for (const device of state.devices) refreshDevice(device);
+    }
+
+    function onOff(value) {
+      return value ? "ON" : "OFF";
+    }
+
+    loadDevices();
+  </script>
+</body>
+</html>
+"""
+
 # ── HTTP handler ──────────────────────────────────────────────────────────────
 
 class BridgeHandler(BaseHTTPRequestHandler):
@@ -357,6 +596,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             log.warning("client disconnected before response was sent")
 
+    def _send_html(self, code, html):
+        body = html.encode()
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", len(body))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            log.warning("client disconnected before HTML response was sent")
+
     def _read_body(self):
         length = int(self.headers.get("Content-Length", 0))
         return self.rfile.read(length).decode() if length else ""
@@ -364,13 +615,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parts = urlparse(self.path).path.strip("/").split("/")
         if not parts or parts == [""]:
-            self._send(200, {"ok": True, "service": "tuya-bridge"})
+            self._send_html(200, HOME_PAGE)
             return
 
         kind = parts[0]
 
         if kind == "health":
-            self._send(200, {"ok": True, "version": "1.2"})
+            self._send(200, {"ok": True, "version": "1.3"})
 
         elif kind == "devices":
             code, data = handle_list_devices()
