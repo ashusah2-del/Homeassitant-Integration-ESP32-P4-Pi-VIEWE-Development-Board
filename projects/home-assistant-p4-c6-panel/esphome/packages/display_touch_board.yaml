@@ -81,6 +81,11 @@ image:
     type: grayscale
     resize: 24x24
     transparency: alpha_channel
+  - file: mdi:home
+    id: img_home
+    type: grayscale
+    resize: 24x24
+    transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
   # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
@@ -1595,39 +1600,56 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 96%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label:
-                  id: dash_clock
+              - button:
                   align: LEFT_MID
-                  x: 20
-                  text: "--:--"
-                  text_font: montserrat_32
-                  text_color: 0xFFFFFF
+                  x: 14
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
               - label:
-                  id: dash_date
                   align: CENTER
-                  text: "---"
-                  text_font: montserrat_18
-                  text_color: 0xAAAAAA
-              - label:
-                  id: dash_rssi
+                  text: "Dashboard"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
                   align: RIGHT_MID
-                  x: -20
-                  text: "---"
-                  text_font: montserrat_16
-                  text_color: 0x69F0AE
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: tado_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
-        # ── Room cards (5 rooms + 1 info slot, 3x2 grid) ───────────
-        # Each 320x228 card: light bulb icon (recoloured by state),
-        # room name, ON/OFF label, brightness slider, temp/humidity.
-        # Tap the card body to toggle; drag the slider for brightness.
-
-        # Card 1 — Drawing Room (switch, no dimming)
         - obj:
             id: room1_card
             x: 20
@@ -2084,52 +2106,22 @@ lvgl:
         # ── Bottom bar ─────────────────────────────────────────
         - obj:
             width: 1024
-            height: 50
+            height: 44
             align: BOTTOM_LEFT
-            bg_color: 0x0B1624
-            bg_opa: 92%
+            bg_color: 0x08111D
+            bg_opa: 96%
             border_width: 0
             border_side: TOP
             border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
-                  id: dash_error_lbl
+                  id: dash_clock
                   align: LEFT_MID
-                  x: 16
-                  text: ""
-                  text_font: montserrat_16
-                  text_color: 0xFF5252
-              - button:
-                  align: RIGHT_MID
-                  x: -16
-                  width: 110
-                  height: 34
-                  bg_color: 0x1A3552
-                  radius: 8
-                  border_width: 0
-                  on_click:
-                    - lvgl.page.show: slideshow_page
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "< Back"
-                        text_font: montserrat_16
-                        text_color: 0xFFFFFF
-              - button:
-                  align: RIGHT_MID
-                  x: -138
-                  width: 44
-                  height: 34
-                  bg_color: 0x1A3552
-                  radius: 8
-                  border_width: 0
-                  on_click:
-                    - lvgl.page.show: settings_page
-                  widgets:
-                    - image:
-                        align: CENTER
-                        src: img_settings
+                  x: 20
+                  text: "--:--"
+                  text_font: montserrat_22
+                  text_color: 0xFFFFFF
               # All-lights master toggle — single button at the leftmost
               # position. Label and color flip based on g_lights_on_mask
               # (updated by each roomN_state lambda). If any light is on,
@@ -2194,11 +2186,41 @@ lvgl:
                         text_font: montserrat_16
                         text_color: 0xF6C453
 
-    # ═══════════════════════════════════════════════════════════
-    # PAGE 3 — TADO climate (swipe left from dashboard)
-    # 6 climate zones in a 3×2 grid. Each card shows current temp +
-    # humidity, target temp with +/− adjusters, and OFF/AUTO/HEAT mode.
-    # ═══════════════════════════════════════════════════════════
+
+              - label:
+                  id: dash_error_lbl
+                  align: LEFT_MID
+                  x: 350
+                  text: ""
+                  text_font: montserrat_16
+                  text_color: 0xFF5252
+              - label:
+                  id: dash_date
+                  align: CENTER
+                  text: "---"
+                  text_font: montserrat_16
+                  text_color: 0xAAAAAA
+              - label:
+                  id: dash_rssi
+                  align: RIGHT_MID
+                  x: -78
+                  text: "---"
+                  text_font: montserrat_16
+                  text_color: 0x69F0AE
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
     - id: tado_page
       bg_color: 0x071019
       on_swipe_right:
@@ -2212,45 +2234,56 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 96%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label:
-                  align: LEFT_MID
-                  x: 20
-                  text: "Climate"
-                  text_font: montserrat_24
-                  text_color: 0xFFFFFF
-              - label:
-                  align: CENTER
-                  text: "Tado temperature zones"
-                  text_font: montserrat_18
-                  text_color: 0xAAAAAA
-              - label:
-                  align: RIGHT_MID
-                  x: -20
-                  text: "< Dashboard"
-                  text_font: montserrat_16
-                  text_color: 0x69F0AE
               - button:
-                  align: RIGHT_MID
-                  x: -150
-                  width: 44
-                  height: 34
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: settings_page
+                    - lvgl.page.show: dashboard_page
                   widgets:
                     - image:
                         align: CENTER
-                        src: img_settings
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Climate"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: presence_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
-        # ── Card 1 — Drawing Room ──────────────────────────────
         - obj:
             id: tado1_card
             x: 20
@@ -2783,6 +2816,39 @@ lvgl:
                   on_click:
                     - homeassistant.service: { service: climate.set_hvac_mode, data: { entity_id: "${tado6_entity}", hvac_mode: "heat" } }
 
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Use arrows or swipe to move between pages."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+
     # ═══════════════════════════════════════════════════════════
     # PAGE 4 — PRESENCE (swipe left from Tado)
     # 12 motion/occupancy binary sensors across the whole house +
@@ -2801,43 +2867,55 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 96%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label:
-                  align: LEFT_MID
-                  x: 20
-                  text: "Presence"
-                  text_font: montserrat_24
-                  text_color: 0xFFFFFF
-              - label:
-                  align: CENTER
-                  text: "Live occupancy and motion"
-                  text_font: montserrat_18
-                  text_color: 0xAAAAAA
-              - label:
-                  align: RIGHT_MID
-                  x: -20
-                  text: "< Tado    Energy >"
-                  text_font: montserrat_16
-                  text_color: 0x69F0AE
               - button:
-                  align: RIGHT_MID
-                  x: -200
-                  width: 44
-                  height: 34
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: settings_page
+                    - lvgl.page.show: dashboard_page
                   widgets:
                     - image:
                         align: CENTER
-                        src: img_settings
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Presence"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: tado_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: energy_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
         - obj:
             x: 6
@@ -3115,6 +3193,39 @@ lvgl:
                   height: 80
               - label: { id: pres12_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Use arrows or swipe to move between pages."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+
     # ═══════════════════════════════════════════════════════════
     # PAGE 5 — ENERGY FLOW (swipe left from Presence)
     # Live HA Energy dashboard values arranged as grid/solar/export cards.
@@ -3130,32 +3241,57 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x0B1C24
-            bg_opa: 96%
+            bg_color: 0x0B1624
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x245A68
+            border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label: { align: LEFT_MID, x: 20, text: "Energy", text_font: montserrat_24, text_color: 0xFFFFFF }
-              - label: { align: CENTER, text: "Grid, solar and export overview", text_font: montserrat_18, text_color: 0xAAAAAA }
-              - label: { align: RIGHT_MID, x: -20, text: "< Presence    Cameras >", text_font: montserrat_16, text_color: 0x69F0AE }
               - button:
-                  align: RIGHT_MID
-                  x: -250
-                  width: 44
-                  height: 34
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: settings_page
+                    - lvgl.page.show: dashboard_page
                   widgets:
                     - image:
                         align: CENTER
-                        src: img_settings
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Energy"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: presence_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: camera_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
-        # Main diagram canvas
         - obj:
             x: 30
             y: 78
@@ -3272,6 +3408,39 @@ lvgl:
               - label: { align: TOP_LEFT, x: 18, y: 16, text: "Export meter total", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { id: energy_export_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Use arrows or swipe to move between pages."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+
     # ═══════════════════════════════════════════════════════════
     # PAGE 6 — CAMERA GRID (swipe left from Energy)
     # Four Eufy cameras as thumbnails. Tap a thumbnail to open
@@ -3289,31 +3458,56 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 96%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label: { align: LEFT_MID, x: 20, text: "Cameras", text_font: montserrat_24, text_color: 0xFFFFFF }
-              - label: { align: CENTER, text: "Live camera overview", text_font: montserrat_18, text_color: 0xAAAAAA }
-              - label: { align: RIGHT_MID, x: -20, text: "< Energy    Tuya >", text_font: montserrat_16, text_color: 0x69F0AE }
               - button:
-                  align: RIGHT_MID
-                  x: -185
-                  width: 44
-                  height: 34
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: settings_page
+                    - lvgl.page.show: dashboard_page
                   widgets:
                     - image:
                         align: CENTER
-                        src: img_settings
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Cameras"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: energy_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: tuya_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
-        # Camera tiles — 2x2 grid, each 480×255
         - obj:
             x: 20
             y: 70
@@ -3438,6 +3632,39 @@ lvgl:
               - image: { id: cam4_widget, src: cam4_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam4_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x02060A, bg_opa: 72% }
 
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Use arrows or swipe to move between pages."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+
     # ═══════════════════════════════════════════════════════════
     # PAGE 6 — CAMERA LIVE VIEW (opened by tapping a camera tile)
     # Shows the selected camera at up to 600x340. Refreshes on open and
@@ -3455,35 +3682,100 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 96%
+            bg_opa: 98%
             border_width: 0
+            border_side: BOTTOM
+            border_color: 0x263B55
             pad_all: 0
             widgets:
+              - button:
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
               - label:
                   id: camera_view_title
                   align: CENTER
                   text: "Camera"
-                  text_font: montserrat_24
+                  text_font: montserrat_28
                   text_color: 0xFFFFFF
               - button:
                   align: RIGHT_MID
-                  x: -140
-                  width: 120
+                  x: -78
+                  width: 52
                   height: 38
-                  radius: 8
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: camera_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: camera_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+
+        - image:
+            id: camera_live_widget
+            src: camera_live_img
+            align: CENTER
+            y: 28
+
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - button:
+                  align: LEFT_MID
+                  x: 16
+                  width: 126
+                  height: 34
                   bg_color: 0x15563B
+                  radius: 9
+                  border_width: 0
                   text: "Refresh"
                   text_font: montserrat_16
                   text_color: 0xFFFFFF
                   on_click:
                     - script.execute: refresh_camera_live
+              - label:
+                  align: CENTER
+                  text: "Live camera view"
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
               - button:
                   align: RIGHT_MID
-                  x: -274
+                  x: -16
                   width: 44
-                  height: 38
-                  radius: 8
+                  height: 34
                   bg_color: 0x1A3552
+                  radius: 9
                   border_width: 0
                   on_click:
                     - lvgl.page.show: settings_page
@@ -3491,23 +3783,6 @@ lvgl:
                     - image:
                         align: CENTER
                         src: img_settings
-              - button:
-                  align: LEFT_MID
-                  x: 14
-                  width: 120
-                  height: 38
-                  radius: 8
-                  bg_color: 0x1A3552
-                  text: "Back"
-                  text_font: montserrat_16
-                  on_click:
-                    - globals.set: { id: g_on_camera_view, value: 'false' }
-                    - lvgl.page.show: camera_page
-        - image:
-            id: camera_live_widget
-            src: camera_live_img
-            align: CENTER
-            y: 28
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 7 — SETTINGS / ADMIN
@@ -3523,36 +3798,56 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 100%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label:
-                  align: LEFT_MID
-                  x: 20
-                  text: "Panel Settings"
-                  text_font: montserrat_28
-                  text_color: 0x69F0AE
               - button:
-                  align: RIGHT_MID
-                  x: -16
-                  width: 110
-                  height: 34
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
                     - lvgl.page.show: dashboard_page
                   widgets:
-                    - label:
+                    - image:
                         align: CENTER
-                        text: "Back"
-                        text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Settings"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: layout_settings_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
-        # ── Status column (left half) ───────────────────────────
         - obj:
             x: 0
             y: 60
@@ -4139,6 +4434,39 @@ lvgl:
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
 
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Panel settings and device status."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+
     # ═══════════════════════════════════════════════════════════
     # PAGE 8 — LAYOUT SETTINGS
     # Visibility and placement controls for slideshow overlays.
@@ -4151,34 +4479,55 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 100%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
             border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label:
+              - button:
                   align: LEFT_MID
-                  x: 20
+                  x: 14
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
+              - label:
+                  align: CENTER
                   text: "Layout Settings"
                   text_font: montserrat_28
-                  text_color: 0x69F0AE
+                  text_color: 0xFFFFFF
               - button:
                   align: RIGHT_MID
-                  x: -16
-                  width: 130
-                  height: 34
+                  x: -78
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
                     - lvgl.page.show: settings_page
                   widgets:
-                    - label:
-                        align: CENTER
-                        text: "Settings"
-                        text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
         - label:
             x: 32
@@ -4400,3 +4749,36 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
                   long_mode: WRAP
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Edit slideshow overlay visibility and placement."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+

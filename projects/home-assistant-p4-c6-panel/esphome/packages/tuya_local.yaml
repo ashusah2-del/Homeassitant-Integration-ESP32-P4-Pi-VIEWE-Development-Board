@@ -1216,48 +1216,56 @@ lvgl:
             height: 58
             align: TOP_LEFT
             bg_color: 0x0B1624
-            bg_opa: 96%
+            bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x245A40
+            border_color: 0x263B55
             pad_all: 0
             widgets:
-              - label:
-                  align: LEFT_MID
-                  x: 20
-                  text: "Tuya Local"
-                  text_font: montserrat_24
-                  text_color: 0xFFFFFF
-              - label:
-                  align: CENTER
-                  text: "Local LAN device control"
-                  text_font: montserrat_18
-                  text_color: 0xAAAAAA
-              - label:
-                  align: RIGHT_MID
-                  x: -20
-                  text: "< Cameras    Slideshow >"
-                  text_font: montserrat_16
-                  text_color: 0x69F0AE
               - button:
-                  align: RIGHT_MID
-                  x: -265
-                  width: 44
-                  height: 34
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
                   bg_color: 0x1A3552
-                  radius: 8
+                  radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: settings_page
+                    - lvgl.page.show: dashboard_page
                   widgets:
                     - image:
                         align: CENTER
-                        src: img_settings
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Tuya Local"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: camera_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
-        # ══ Row 1: Both Power Strips (full width) ════════════════════════════════
-        # Card: x=20, y=70, w=984, h=162
-        # Left half (x 0–482): Bedroom Power Strip
-        # Right half (x 502–984): Power Switch
         - obj:
             x: 20
             y: 70
@@ -1864,6 +1872,39 @@ lvgl:
                   text_font: montserrat_14
                   on_click:
                     - script.execute: tuya_refresh_sensors
+
+
+        - obj:
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Local LAN device control."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
 
         # Full-page readiness overlay. It sits last so it is drawn above all
         # controls and intercepts touches while Tuya work is in-flight.
