@@ -39,6 +39,9 @@ The default idle screen, modelled on a digital photo frame.
 - **Wake-word status pill** shows `Wake: Ready` with a pulsing green dot
   while local "Okay Nabu" detection is armed, then changes through
   Listening / Thinking / Speaking / Error states during Assist.
+- **Layout edit mode** is launched from Settings. It lets the calendar,
+  weather widget, clock/date, and wake-word pill be dragged around the
+  slideshow; positions are saved on the panel and restored after reboot.
 - Tap anywhere to advance to the dashboard.
 
 ### 2. Room dashboard (`dashboard_page`)

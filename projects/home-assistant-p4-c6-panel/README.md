@@ -26,7 +26,8 @@ UI driven directly by HA's native API.
   larger live view (manual Refresh button, no auto-polling)
 - **Tuya local** — direct LAN control of strips, locks, plugs, and
   safety sensors via the tuya-bridge service
-- **Settings** — live status, backlight, slideshow/opacity/transition tunables
+- **Settings** — live status, backlight, slideshow/opacity/transition tunables,
+  plus slideshow layout edit mode for calendar, weather, time, and wake status
 
 Navigation between pages is a left/right swipe gesture; the slideshow
 re-engages after 30 seconds of inactivity:

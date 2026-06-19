@@ -200,6 +200,74 @@ esphome:
             snprintf(bb, sizeof(bb), "%d%%", pct);
             lv_label_set_text(id(settings_backlight_val), bb);
           }
+          // Restore and enable draggable slideshow overlay placement. Dragging
+          // is only active while Settings > Edit Layout has enabled edit mode.
+          lv_obj_set_pos(id(calendar_panel), id(g_layout_calendar_x), id(g_layout_calendar_y));
+          lv_obj_set_pos(id(weather_widget), id(g_layout_weather_x), id(g_layout_weather_y));
+          lv_obj_set_pos(id(clock_pill_obj), id(g_layout_clock_x), id(g_layout_clock_y));
+          lv_obj_set_pos(id(slideshow_clock), id(g_layout_clock_x) - 14, id(g_layout_clock_y) + 8);
+          lv_obj_set_pos(id(slideshow_date_lbl), id(g_layout_clock_x) - 14, id(g_layout_clock_y) + 72);
+          lv_obj_set_pos(id(va_state_pill), id(g_layout_wake_x), id(g_layout_wake_y));
+
+          struct LayoutDragCtx {
+            bool *edit;
+            int *saved_x;
+            int *saved_y;
+            lv_obj_t *objs[3];
+            uint8_t obj_count;
+            int min_x;
+            int max_x;
+            int min_y;
+            int max_y;
+          };
+          auto layout_drag_cb = [](lv_event_t *e) {
+            auto *ctx = static_cast<LayoutDragCtx *>(lv_event_get_user_data(e));
+            if (ctx == nullptr || ctx->edit == nullptr || !*ctx->edit) return;
+            lv_indev_t *indev = lv_indev_get_act();
+            if (indev == nullptr) return;
+            lv_point_t vect;
+            lv_indev_get_vect(indev, &vect);
+            if (vect.x == 0 && vect.y == 0) return;
+
+            int nx = *ctx->saved_x + vect.x;
+            int ny = *ctx->saved_y + vect.y;
+            if (nx < ctx->min_x) nx = ctx->min_x;
+            if (nx > ctx->max_x) nx = ctx->max_x;
+            if (ny < ctx->min_y) ny = ctx->min_y;
+            if (ny > ctx->max_y) ny = ctx->max_y;
+            int dx = nx - *ctx->saved_x;
+            int dy = ny - *ctx->saved_y;
+            if (dx == 0 && dy == 0) return;
+
+            *ctx->saved_x = nx;
+            *ctx->saved_y = ny;
+            for (uint8_t i = 0; i < ctx->obj_count; i++) {
+              if (ctx->objs[i] != nullptr) {
+                lv_obj_set_pos(ctx->objs[i], lv_obj_get_x(ctx->objs[i]) + dx, lv_obj_get_y(ctx->objs[i]) + dy);
+              }
+            }
+          };
+          static LayoutDragCtx calendar_drag;
+          static LayoutDragCtx weather_drag;
+          static LayoutDragCtx clock_drag;
+          static LayoutDragCtx wake_drag;
+          calendar_drag = { &id(g_layout_edit_mode), &id(g_layout_calendar_x), &id(g_layout_calendar_y), { id(calendar_panel), nullptr, nullptr }, 1, -300, 984, -560, 560 };
+          weather_drag = { &id(g_layout_edit_mode), &id(g_layout_weather_x), &id(g_layout_weather_y), { id(weather_widget), nullptr, nullptr }, 1, -1000, 120, -560, 560 };
+          clock_drag = { &id(g_layout_edit_mode), &id(g_layout_clock_x), &id(g_layout_clock_y), { id(clock_pill_obj), id(slideshow_clock), id(slideshow_date_lbl) }, 3, -1000, 120, -560, 560 };
+          wake_drag = { &id(g_layout_edit_mode), &id(g_layout_wake_x), &id(g_layout_wake_y), { id(va_state_pill), nullptr, nullptr }, 1, -1000, 120, -560, 560 };
+
+          lv_obj_add_flag(id(calendar_panel), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(weather_widget), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(clock_pill_obj), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(slideshow_clock), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(slideshow_date_lbl), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(va_state_pill), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_event_cb(id(calendar_panel), layout_drag_cb, LV_EVENT_PRESSING, &calendar_drag);
+          lv_obj_add_event_cb(id(weather_widget), layout_drag_cb, LV_EVENT_PRESSING, &weather_drag);
+          lv_obj_add_event_cb(id(clock_pill_obj), layout_drag_cb, LV_EVENT_PRESSING, &clock_drag);
+          lv_obj_add_event_cb(id(slideshow_clock), layout_drag_cb, LV_EVENT_PRESSING, &clock_drag);
+          lv_obj_add_event_cb(id(slideshow_date_lbl), layout_drag_cb, LV_EVENT_PRESSING, &clock_drag);
+          lv_obj_add_event_cb(id(va_state_pill), layout_drag_cb, LV_EVENT_PRESSING, &wake_drag);
       # Auto-dismiss the crash banner after 20 s so the panel doesn't
       # stay stuck behind it if nobody is around to tap.
       - delay: 20s

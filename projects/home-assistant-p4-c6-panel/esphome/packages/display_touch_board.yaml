@@ -187,6 +187,17 @@ globals:
   # is armed even before a wake word is detected.
   - { id: g_va_indicator_pulse, type: bool, restore_value: no, initial_value: 'false' }
   - { id: g_va_indicator_phase, type: bool, restore_value: no, initial_value: 'false' }
+  # Slideshow layout edit mode. The position globals are LVGL x/y offsets for
+  # the draggable overlays and are restored on boot so custom placement sticks.
+  - { id: g_layout_edit_mode, type: bool, restore_value: no, initial_value: 'false' }
+  - { id: g_layout_calendar_x, type: int, restore_value: yes, initial_value: '0' }
+  - { id: g_layout_calendar_y, type: int, restore_value: yes, initial_value: '0' }
+  - { id: g_layout_weather_x, type: int, restore_value: yes, initial_value: '-14' }
+  - { id: g_layout_weather_y, type: int, restore_value: yes, initial_value: '-14' }
+  - { id: g_layout_clock_x, type: int, restore_value: yes, initial_value: '-10' }
+  - { id: g_layout_clock_y, type: int, restore_value: yes, initial_value: '8' }
+  - { id: g_layout_wake_x, type: int, restore_value: yes, initial_value: '-18' }
+  - { id: g_layout_wake_y, type: int, restore_value: yes, initial_value: '126' }
   # If the previous boot was a real fault, on_boot writes the human-
   # readable reason here. on_client_connected fires a persistent
   # notification into HA the first time HA reconnects and clears the
@@ -1444,6 +1455,80 @@ lvgl:
                   text: "Listening..."
                   text_font: montserrat_18
                   text_color: 0x00EE00
+
+        # ── Layout edit controls — shown from Settings > Edit Layout ──
+        - obj:
+            id: layout_edit_bar
+            align: BOTTOM_MID
+            y: -18
+            width: 620
+            height: 58
+            bg_color: 0x071118
+            bg_opa: 92%
+            radius: 18
+            border_width: 2
+            border_color: 0x69F0AE
+            pad_all: 0
+            hidden: true
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 18
+                  width: 300
+                  text: "Drag overlays, then tap Done"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -150
+                  width: 118
+                  height: 38
+                  radius: 10
+                  bg_color: 0x1A3050
+                  border_width: 1
+                  border_color: 0x66CCFF
+                  on_click:
+                    - lambda: |-
+                        id(g_layout_calendar_x) = 0;
+                        id(g_layout_calendar_y) = 0;
+                        id(g_layout_weather_x) = -14;
+                        id(g_layout_weather_y) = -14;
+                        id(g_layout_clock_x) = -10;
+                        id(g_layout_clock_y) = 8;
+                        id(g_layout_wake_x) = -18;
+                        id(g_layout_wake_y) = 126;
+                        lv_obj_set_pos(id(calendar_panel), 0, 0);
+                        lv_obj_set_pos(id(weather_widget), -14, -14);
+                        lv_obj_set_pos(id(clock_pill_obj), -10, 8);
+                        lv_obj_set_pos(id(slideshow_clock), -24, 16);
+                        lv_obj_set_pos(id(slideshow_date_lbl), -24, 80);
+                        lv_obj_set_pos(id(va_state_pill), -18, 126);
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Reset"
+                        text_font: montserrat_16
+                        text_color: 0xAACCFF
+              - button:
+                  align: RIGHT_MID
+                  x: -18
+                  width: 118
+                  height: 38
+                  radius: 10
+                  bg_color: 0x1B5E20
+                  border_width: 1
+                  border_color: 0x69F0AE
+                  on_click:
+                    - lambda: |-
+                        id(g_layout_edit_mode) = false;
+                        lv_obj_add_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Done"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 2 — DASHBOARD
@@ -3822,6 +3907,34 @@ lvgl:
                     - light.turn_on:
                         id: panel_backlight
                         brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
+              - button:
+                  x: 290
+                  y: 66
+                  width: 170
+                  height: 44
+                  radius: 10
+                  bg_color: 0x0F3D2E
+                  border_width: 1
+                  border_color: 0x69F0AE
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                    - lambda: |-
+                        id(g_layout_edit_mode) = true;
+                        lv_obj_add_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_move_foreground(id(calendar_panel));
+                        lv_obj_move_foreground(id(weather_widget));
+                        lv_obj_move_foreground(id(clock_pill_obj));
+                        lv_obj_move_foreground(id(slideshow_clock));
+                        lv_obj_move_foreground(id(slideshow_date_lbl));
+                        lv_obj_move_foreground(id(va_state_pill));
+                        lv_obj_move_foreground(id(layout_edit_bar));
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Edit Layout"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
               - obj:
                   x: 0
                   y: 124
