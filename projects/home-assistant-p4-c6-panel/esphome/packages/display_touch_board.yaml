@@ -4243,15 +4243,63 @@ lvgl:
             pad_top: 20
             pad_right: 12
             widgets:
-              - label:
+              - obj:
                   x: 0
                   y: 0
+                  width: 476
+                  height: 104
+                  bg_color: 0x113225
+                  bg_opa: 100%
+                  border_width: 2
+                  border_color: 0x69F0AE
+                  radius: 16
+                  pad_all: 0
+                  on_click:
+                    - script.execute: apply_slideshow_layout_visibility
+                    - lvgl.page.show: layout_settings_page
+                  widgets:
+                    - label:
+                        x: 18
+                        y: 14
+                        text: "SLIDESHOW LAYOUT"
+                        text_font: montserrat_18
+                        text_color: 0x69F0AE
+                    - label:
+                        x: 18
+                        y: 42
+                        width: 330
+                        text: "Show/hide and drag Calendar, Weather, Time, and Wake controls."
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+                        long_mode: WRAP
+                    - button:
+                        align: RIGHT_MID
+                        x: -16
+                        width: 112
+                        height: 40
+                        radius: 10
+                        bg_color: 0x1A3552
+                        border_width: 0
+                        on_click:
+                          - script.execute: apply_slideshow_layout_visibility
+                          - lvgl.page.show: layout_settings_page
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "Open"
+                              text_font: montserrat_16
+                              text_color: 0xFFFFFF
+              - label:
+                  x: 0
+                  y: 122
+
                   text: "BACKLIGHT"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 34
+                  y: 156
+
                   width: 476
                   text: "Adjust panel brightness (10-100%):"
                   text_font: montserrat_16
@@ -4259,7 +4307,8 @@ lvgl:
                   long_mode: WRAP
               - button:
                   x: 0
-                  y: 66
+                  y: 188
+
                   width: 56
                   height: 44
                   radius: 22
@@ -4282,14 +4331,16 @@ lvgl:
               - label:
                   id: settings_backlight_val
                   x: 70
-                  y: 74
+                  y: 196
+
                   width: 120
                   text: "80%"
                   text_font: montserrat_24
                   text_color: 0xFFFFFF
               - button:
                   x: 200
-                  y: 66
+                  y: 188
+
                   width: 56
                   height: 44
                   radius: 22
@@ -4311,7 +4362,8 @@ lvgl:
                         brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
               - button:
                   x: 290
-                  y: 66
+                  y: 188
+
                   width: 170
                   height: 44
                   radius: 10
@@ -4329,20 +4381,23 @@ lvgl:
                         text_color: 0xFFFFFF
               - obj:
                   x: 0
-                  y: 124
+                  y: 246
+
                   width: 476
                   height: 2
                   bg_color: 0x1A3552
                   border_width: 0
               - label:
                   x: 0
-                  y: 136
+                  y: 258
+
                   text: "HA HELPERS"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 170
+                  y: 292
+
                   width: 476
                   text: "Slideshow, opacity and transition settings\nsync to HA helpers automatically."
                   text_font: montserrat_16
@@ -4350,7 +4405,8 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 216
+                  y: 338
+
                   width: 476
                   text: "Immich URL and calendar events can still\nbe edited in HA: Settings > Helpers"
                   text_font: montserrat_16
@@ -4358,20 +4414,23 @@ lvgl:
                   long_mode: WRAP
               - obj:
                   x: 0
-                  y: 270
+                  y: 392
+
                   width: 476
                   height: 2
                   bg_color: 0x1A3552
                   border_width: 0
               - label:
                   x: 0
-                  y: 282
+                  y: 404
+
                   text: "WIFI SETUP"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 316
+                  y: 438
+
                   width: 476
                   text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
                   text_font: montserrat_16
@@ -4379,7 +4438,8 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 374
+                  y: 496
+
                   width: 476
                   text: "SSID: ${fallback_ap_ssid}"
                   text_font: montserrat_16
@@ -4387,7 +4447,8 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 402
+                  y: 524
+
                   width: 476
                   text: "Connect and open any webpage\nto configure WiFi."
                   text_font: montserrat_16
@@ -4395,21 +4456,24 @@ lvgl:
                   long_mode: WRAP
               - obj:
                   x: 0
-                  y: 460
+                  y: 582
+
                   width: 476
                   height: 2
                   bg_color: 0x401010
                   border_width: 0
               - label:
                   x: 0
-                  y: 472
+                  y: 594
+
                   text: "DIAGNOSTICS"
                   text_font: montserrat_18
                   text_color: 0xFF6666
               - button:
                   id: test_crash_btn
                   x: 0
-                  y: 502
+                  y: 624
+
                   width: 280
                   height: 44
                   radius: 8
