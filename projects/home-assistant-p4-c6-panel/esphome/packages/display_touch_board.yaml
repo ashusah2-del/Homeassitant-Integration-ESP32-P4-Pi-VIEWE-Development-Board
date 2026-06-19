@@ -76,6 +76,11 @@ image:
     type: grayscale
     resize: 32x32
     transparency: alpha_channel
+  - file: mdi:cog
+    id: img_settings
+    type: grayscale
+    resize: 24x24
+    transparency: alpha_channel
   # Stock fallback images — downloaded once at build time, stored in flash.
   # Shown when Immich is unavailable; cycles on each slideshow tick.
   # 1024x600 = full screen (overlaps calendar; calendar panel has bg_opa: 70%
@@ -2114,19 +2119,17 @@ lvgl:
               - button:
                   align: RIGHT_MID
                   x: -138
-                  width: 110
+                  width: 44
                   height: 34
-                  bg_color: 0x113225
+                  bg_color: 0x1A3552
                   radius: 8
                   border_width: 0
                   on_click:
                     - lvgl.page.show: settings_page
                   widgets:
-                    - label:
+                    - image:
                         align: CENTER
-                        text: "Settings"
-                        text_font: montserrat_16
-                        text_color: 0x69F0AE
+                        src: img_settings
               # All-lights master toggle — single button at the leftmost
               # position. Label and color flip based on g_lights_on_mask
               # (updated by each roomN_state lambda). If any light is on,
@@ -2232,6 +2235,20 @@ lvgl:
                   text: "< Dashboard"
                   text_font: montserrat_16
                   text_color: 0x69F0AE
+              - button:
+                  align: RIGHT_MID
+                  x: -150
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
 
         # ── Card 1 — Drawing Room ──────────────────────────────
         - obj:
@@ -2807,6 +2824,20 @@ lvgl:
                   text: "< Tado    Energy >"
                   text_font: montserrat_16
                   text_color: 0x69F0AE
+              - button:
+                  align: RIGHT_MID
+                  x: -200
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
 
         - obj:
             x: 6
@@ -3109,6 +3140,20 @@ lvgl:
               - label: { align: LEFT_MID, x: 20, text: "Energy", text_font: montserrat_24, text_color: 0xFFFFFF }
               - label: { align: CENTER, text: "Grid, solar and export overview", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { align: RIGHT_MID, x: -20, text: "< Presence    Cameras >", text_font: montserrat_16, text_color: 0x69F0AE }
+              - button:
+                  align: RIGHT_MID
+                  x: -250
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
 
         # Main diagram canvas
         - obj:
@@ -3253,6 +3298,20 @@ lvgl:
               - label: { align: LEFT_MID, x: 20, text: "Cameras", text_font: montserrat_24, text_color: 0xFFFFFF }
               - label: { align: CENTER, text: "Live camera overview", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { align: RIGHT_MID, x: -20, text: "< Energy    Tuya >", text_font: montserrat_16, text_color: 0x69F0AE }
+              - button:
+                  align: RIGHT_MID
+                  x: -185
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
 
         # Camera tiles — 2x2 grid, each 480×255
         - obj:
@@ -3418,6 +3477,20 @@ lvgl:
                   text_color: 0xFFFFFF
                   on_click:
                     - script.execute: refresh_camera_live
+              - button:
+                  align: RIGHT_MID
+                  x: -274
+                  width: 44
+                  height: 38
+                  radius: 8
+                  bg_color: 0x1A3552
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
               - button:
                   align: LEFT_MID
                   x: 14
