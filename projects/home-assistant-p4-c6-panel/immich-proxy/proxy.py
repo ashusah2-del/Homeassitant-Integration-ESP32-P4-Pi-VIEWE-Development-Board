@@ -99,9 +99,10 @@ def _resolve_person_ids() -> list[tuple[str, str]]:
             log.error("IMMICH_PERSON_NAMES is set but no matching Immich people were found")
         return _PERSON_IDS
     except Exception as exc:
+        # Do not cache failures — Immich may still be starting when the
+        # proxy service comes up; retry on the next /random-photo request.
         log.warning("failed to resolve Immich people %s: %s", PERSON_NAMES, exc)
-        _PERSON_IDS = []
-        return _PERSON_IDS
+        return []
 
 
 def _sof_type(data: bytes) -> int | None:
