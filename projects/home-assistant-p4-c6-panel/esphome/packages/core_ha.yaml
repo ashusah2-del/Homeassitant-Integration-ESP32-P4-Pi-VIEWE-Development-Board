@@ -27,9 +27,8 @@ api:
   # simultaneous debug sessions; restart esphome container to clear zombies.
   max_connections: 6
   # Only run setup/teardown on first-connect / last-disconnect.
-  # Multiple clients connect (HA, log streams, etc.) — running refresh and
-  # voice_assistant.start_continuous on every connect blocked the API loop
-  # and cascaded into socket exhaustion.
+  # Multiple clients connect (HA, log streams, etc.) — only run setup on the
+  # first active client so debug log sessions do not restart voice handling.
   on_client_connected:
     - globals.set:
         id: g_ha_client_count
@@ -47,7 +46,8 @@ api:
               id: dash_error_lbl
               text: ""
           - script.execute: refresh_immich_slideshow
-          - voice_assistant.start_continuous:
+          - micro_wake_word.start:
+              id: panel_mww
           # If on_boot stashed a crash reason, push it to HA as a
           # persistent notification so the user can review it the next
           # time they look at HA. Cleared after sending so each crash
