@@ -3442,18 +3442,18 @@ lvgl:
     # transition, backlight). Values sync to HA helpers where configured.
     # ═══════════════════════════════════════════════════════════
     - id: settings_page
-      bg_color: 0x060610
+      bg_color: 0x071019
       widgets:
         # ── Header bar ─────────────────────────────────────────
         - obj:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x0A1225
+            bg_color: 0x0B1624
             bg_opa: 100%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
@@ -3467,7 +3467,7 @@ lvgl:
                   x: -16
                   width: 110
                   height: 34
-                  bg_color: 0x1E3A6E
+                  bg_color: 0x1A3552
                   radius: 8
                   border_width: 0
                   on_click:
@@ -3475,7 +3475,7 @@ lvgl:
                   widgets:
                     - label:
                         align: CENTER
-                        text: "< Back"
+                        text: "Back"
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
 
@@ -3485,8 +3485,11 @@ lvgl:
             y: 60
             width: 500
             height: 640
-            bg_opa: TRANSP
-            border_width: 0
+            bg_color: 0x0D1624
+            bg_opa: 96%
+            border_color: 0x243B55
+            border_width: 1
+            radius: 18
             pad_left: 24
             pad_top: 20
             widgets:
@@ -3565,7 +3568,7 @@ lvgl:
                   y: 266
                   width: 460
                   height: 2
-                  bg_color: 0x1E3A6E
+                  bg_color: 0x1A3552
                   border_width: 0
               - label:
                   x: 0
@@ -3605,7 +3608,7 @@ lvgl:
                   width: 56
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "-"
                   text_font: montserrat_24
@@ -3638,7 +3641,7 @@ lvgl:
                   width: 56
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "+"
                   text_font: montserrat_24
@@ -3664,7 +3667,7 @@ lvgl:
                   width: 64
                   height: 44
                   radius: 8
-                  bg_color: 0x1A3050
+                  bg_color: 0x142840
                   border_width: 0
                   text: "-10"
                   text_font: montserrat_18
@@ -3689,7 +3692,7 @@ lvgl:
                   width: 64
                   height: 44
                   radius: 8
-                  bg_color: 0x1A3050
+                  bg_color: 0x142840
                   border_width: 0
                   text: "+10"
                   text_font: montserrat_18
@@ -3722,7 +3725,7 @@ lvgl:
                   width: 56
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "-"
                   text_font: montserrat_24
@@ -3762,7 +3765,7 @@ lvgl:
                   width: 56
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "+"
                   text_font: montserrat_24
@@ -3802,7 +3805,7 @@ lvgl:
                   width: 56
                   height: 40
                   radius: 20
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "<"
                   text_font: montserrat_18
@@ -3836,7 +3839,7 @@ lvgl:
                   width: 56
                   height: 40
                   radius: 20
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: ">"
                   text_font: montserrat_18
@@ -3863,8 +3866,11 @@ lvgl:
             y: 60
             width: 500
             height: 640
-            bg_opa: TRANSP
-            border_width: 0
+            bg_color: 0x0D1624
+            bg_opa: 96%
+            border_color: 0x243B55
+            border_width: 1
+            radius: 18
             pad_left: 12
             pad_top: 20
             pad_right: 12
@@ -3889,7 +3895,7 @@ lvgl:
                   width: 56
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "-"
                   text_font: montserrat_24
@@ -3919,7 +3925,7 @@ lvgl:
                   width: 56
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   border_width: 0
                   text: "+"
                   text_font: montserrat_24
@@ -3941,7 +3947,7 @@ lvgl:
                   width: 170
                   height: 44
                   radius: 10
-                  bg_color: 0x0F3D2E
+                  bg_color: 0x113225
                   border_width: 1
                   border_color: 0x69F0AE
                   on_click:
@@ -3958,7 +3964,7 @@ lvgl:
                   y: 124
                   width: 476
                   height: 2
-                  bg_color: 0x1E3A6E
+                  bg_color: 0x1A3552
                   border_width: 0
               - label:
                   x: 0
@@ -3987,7 +3993,7 @@ lvgl:
                   y: 270
                   width: 476
                   height: 2
-                  bg_color: 0x1E3A6E
+                  bg_color: 0x1A3552
                   border_width: 0
               - label:
                   x: 0
@@ -4056,7 +4062,7 @@ lvgl:
                     - label:
                         id: test_crash_btn_lbl
                         align: CENTER
-                        text: "Test crash banner"
+                        text: "Crash banner test"
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
 
@@ -4065,17 +4071,17 @@ lvgl:
     # Visibility and placement controls for slideshow overlays.
     # ═══════════════════════════════════════════════════════════
     - id: layout_settings_page
-      bg_color: 0x060610
+      bg_color: 0x071019
       widgets:
         - obj:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x0A1225
+            bg_color: 0x0B1624
             bg_opa: 100%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
@@ -4089,7 +4095,7 @@ lvgl:
                   x: -16
                   width: 130
                   height: 34
-                  bg_color: 0x1E3A6E
+                  bg_color: 0x1A3552
                   radius: 8
                   border_width: 0
                   on_click:
@@ -4097,7 +4103,7 @@ lvgl:
                   widgets:
                     - label:
                         align: CENTER
-                        text: "< Settings"
+                        text: "Settings"
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
 
@@ -4115,9 +4121,9 @@ lvgl:
             y: 138
             width: 960
             height: 274
-            bg_color: 0x0B1424
+            bg_color: 0x0D1624
             bg_opa: 96%
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             border_width: 2
             radius: 18
             pad_all: 0
@@ -4125,7 +4131,7 @@ lvgl:
               - label:
                   x: 22
                   y: 18
-                  text: "OVERLAY VISIBILITY"
+                  text: "VISIBILITY"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - obj:
@@ -4133,7 +4139,7 @@ lvgl:
                   y: 58
                   width: 916
                   height: 46
-                  bg_color: 0x101D2E
+                  bg_color: 0x111D2B
                   bg_opa: 100%
                   border_width: 0
                   radius: 10
@@ -4146,7 +4152,7 @@ lvgl:
                         width: 100
                         height: 32
                         radius: 8
-                        bg_color: 0x1E3A6E
+                        bg_color: 0x1A3552
                         on_click:
                           - lambda: 'id(g_layout_calendar_visible) = !id(g_layout_calendar_visible);'
                           - script.execute: apply_slideshow_layout_visibility
@@ -4157,7 +4163,7 @@ lvgl:
                   y: 110
                   width: 916
                   height: 46
-                  bg_color: 0x101D2E
+                  bg_color: 0x111D2B
                   bg_opa: 100%
                   border_width: 0
                   radius: 10
@@ -4170,7 +4176,7 @@ lvgl:
                         width: 100
                         height: 32
                         radius: 8
-                        bg_color: 0x1E3A6E
+                        bg_color: 0x1A3552
                         on_click:
                           - lambda: 'id(g_layout_weather_visible) = !id(g_layout_weather_visible);'
                           - script.execute: apply_slideshow_layout_visibility
@@ -4181,7 +4187,7 @@ lvgl:
                   y: 162
                   width: 916
                   height: 46
-                  bg_color: 0x101D2E
+                  bg_color: 0x111D2B
                   bg_opa: 100%
                   border_width: 0
                   radius: 10
@@ -4194,7 +4200,7 @@ lvgl:
                         width: 100
                         height: 32
                         radius: 8
-                        bg_color: 0x1E3A6E
+                        bg_color: 0x1A3552
                         on_click:
                           - lambda: 'id(g_layout_clock_visible) = !id(g_layout_clock_visible);'
                           - script.execute: apply_slideshow_layout_visibility
@@ -4205,7 +4211,7 @@ lvgl:
                   y: 214
                   width: 916
                   height: 46
-                  bg_color: 0x101D2E
+                  bg_color: 0x111D2B
                   bg_opa: 100%
                   border_width: 0
                   radius: 10
@@ -4218,7 +4224,7 @@ lvgl:
                         width: 100
                         height: 32
                         radius: 8
-                        bg_color: 0x1E3A6E
+                        bg_color: 0x1A3552
                         on_click:
                           - lambda: 'id(g_layout_wake_visible) = !id(g_layout_wake_visible);'
                           - script.execute: apply_slideshow_layout_visibility
@@ -4230,9 +4236,9 @@ lvgl:
             y: 434
             width: 960
             height: 126
-            bg_color: 0x0B1424
+            bg_color: 0x0D1624
             bg_opa: 96%
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             border_width: 2
             radius: 18
             pad_all: 0
@@ -4240,7 +4246,7 @@ lvgl:
               - label:
                   x: 22
                   y: 18
-                  text: "PLACEMENT"
+                  text: "POSITIONING"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - button:
@@ -4249,7 +4255,7 @@ lvgl:
                   width: 230
                   height: 44
                   radius: 10
-                  bg_color: 0x0F3D2E
+                  bg_color: 0x113225
                   border_width: 1
                   border_color: 0x69F0AE
                   on_click:
@@ -4283,9 +4289,9 @@ lvgl:
                   width: 190
                   height: 44
                   radius: 10
-                  bg_color: 0x1A3050
+                  bg_color: 0x142840
                   border_width: 1
-                  border_color: 0x66CCFF
+                  border_color: 0x4BA3D8
                   on_click:
                     - lambda: |-
                         id(g_layout_calendar_visible) = true;
