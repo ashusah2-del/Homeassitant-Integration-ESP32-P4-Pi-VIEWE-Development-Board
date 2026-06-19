@@ -2773,7 +2773,7 @@ lvgl:
     # dot + "ACTIVE"; idle = grey dot + "CLEAR".
     # ═══════════════════════════════════════════════════════════
     - id: presence_page
-      bg_color: 0x0A0816
+      bg_color: 0x071019
       on_swipe_right:
         - lvgl.page.show: tado_page
       on_swipe_left:
@@ -2783,11 +2783,11 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x12192E
+            bg_color: 0x0B1624
             bg_opa: 96%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
@@ -2798,7 +2798,7 @@ lvgl:
                   text_color: 0xFFFFFF
               - label:
                   align: CENTER
-                  text: "Motion sensors across the house"
+                  text: "Live occupancy and motion"
                   text_font: montserrat_18
                   text_color: 0xAAAAAA
               - label:
@@ -2814,11 +2814,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres1_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2829,7 +2829,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres1_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres1_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 258
@@ -2837,11 +2837,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres2_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2852,7 +2852,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres2_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres2_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 510
@@ -2860,11 +2860,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres3_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2875,7 +2875,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres3_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres3_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 762
@@ -2883,11 +2883,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres4_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2898,7 +2898,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres4_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres4_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 6
@@ -2906,11 +2906,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres5_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2921,7 +2921,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres5_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres5_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 258
@@ -2929,11 +2929,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres6_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2944,7 +2944,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres6_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres6_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 510
@@ -2952,11 +2952,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres7_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2967,7 +2967,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres7_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres7_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 762
@@ -2975,11 +2975,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres8_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -2990,7 +2990,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres8_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres8_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 6
@@ -2998,11 +2998,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres9_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -3013,7 +3013,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres9_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres9_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 258
@@ -3021,11 +3021,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres10_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -3036,7 +3036,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres10_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres10_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 510
@@ -3044,11 +3044,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres11_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -3059,7 +3059,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres11_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres11_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
             x: 762
@@ -3067,11 +3067,11 @@ lvgl:
             width: 246
             height: 168
             align: TOP_LEFT
-            bg_color: 0x162038
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 16
             pad_all: 0
             widgets:
               - label: { align: TOP_MID, y: 8, text: "${pres12_label}", text_font: montserrat_18, text_color: 0xFFFFFF }
@@ -3082,7 +3082,7 @@ lvgl:
                   y: -4
                   width: 80
                   height: 80
-              - label: { id: pres12_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x666666 }
+              - label: { id: pres12_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 5 — ENERGY FLOW (swipe left from Presence)
