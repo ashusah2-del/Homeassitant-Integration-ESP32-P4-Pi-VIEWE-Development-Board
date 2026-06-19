@@ -3233,7 +3233,7 @@ lvgl:
     # camera_view_page with the larger live feed.
     # ═══════════════════════════════════════════════════════════
     - id: camera_page
-      bg_color: 0x050510
+      bg_color: 0x071019
       on_swipe_right:
         - lvgl.page.show: energy_page
       on_swipe_left:
@@ -3243,15 +3243,15 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x12192E
+            bg_color: 0x0B1624
             bg_opa: 96%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label: { align: LEFT_MID, x: 20, text: "Cameras", text_font: montserrat_24, text_color: 0xFFFFFF }
-              - label: { align: CENTER, text: "Tap a tile to view", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: CENTER, text: "Live camera overview", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { align: RIGHT_MID, x: -20, text: "< Energy    Tuya >", text_font: montserrat_16, text_color: 0x69F0AE }
 
         # Camera tiles — 2x2 grid, each 480×255
@@ -3261,11 +3261,11 @@ lvgl:
             width: 480
             height: 250
             align: TOP_LEFT
-            bg_color: 0x0F1828
+            bg_color: 0x0D1624
             bg_opa: 100%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 18
             pad_all: 6
             on_click:
               - lambda: 'id(g_camera_live_entity) = "${cam1_entity}";'
@@ -3292,19 +3292,19 @@ lvgl:
                   text: "${cam1_name}"
                   text_font: montserrat_20
                   text_color: 0xFFFFFF
-                  bg_color: 0x000000
-                  bg_opa: 60%
+                  bg_color: 0x02060A
+                  bg_opa: 72%
         - obj:
             x: 524
             y: 70
             width: 480
             height: 250
             align: TOP_LEFT
-            bg_color: 0x0F1828
+            bg_color: 0x0D1624
             bg_opa: 100%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 18
             pad_all: 6
             on_click:
               - lambda: 'id(g_camera_live_entity) = "${cam2_entity}";'
@@ -3321,18 +3321,18 @@ lvgl:
               - lvgl.page.show: camera_view_page
             widgets:
               - image: { id: cam2_widget, src: cam2_thumb, align: CENTER }
-              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam2_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
+              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam2_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x02060A, bg_opa: 72% }
         - obj:
             x: 20
             y: 332
             width: 480
             height: 250
             align: TOP_LEFT
-            bg_color: 0x0F1828
+            bg_color: 0x0D1624
             bg_opa: 100%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 18
             pad_all: 6
             on_click:
               - lambda: 'id(g_camera_live_entity) = "${cam3_entity}";'
@@ -3349,18 +3349,18 @@ lvgl:
               - lvgl.page.show: camera_view_page
             widgets:
               - image: { id: cam3_widget, src: cam3_thumb, align: CENTER }
-              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam3_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
+              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam3_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x02060A, bg_opa: 72% }
         - obj:
             x: 524
             y: 332
             width: 480
             height: 250
             align: TOP_LEFT
-            bg_color: 0x0F1828
+            bg_color: 0x0D1624
             bg_opa: 100%
-            border_color: 0x2E4A8E
+            border_color: 0x243B55
             border_width: 2
-            radius: 12
+            radius: 18
             pad_all: 6
             on_click:
               - lambda: 'id(g_camera_live_entity) = "${cam4_entity}";'
@@ -3377,7 +3377,7 @@ lvgl:
               - lvgl.page.show: camera_view_page
             widgets:
               - image: { id: cam4_widget, src: cam4_thumb, align: CENTER }
-              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam4_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x000000, bg_opa: 60% }
+              - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam4_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x02060A, bg_opa: 72% }
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 6 — CAMERA LIVE VIEW (opened by tapping a camera tile)
@@ -3386,7 +3386,7 @@ lvgl:
     # Tap "Back" or swipe right to return to the camera grid.
     # ═══════════════════════════════════════════════════════════
     - id: camera_view_page
-      bg_color: 0x000000
+      bg_color: 0x02060A
       on_swipe_right:
         - globals.set: { id: g_on_camera_view, value: 'false' }
         - lvgl.page.show: camera_page
@@ -3395,7 +3395,7 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x12192E
+            bg_color: 0x0B1624
             bg_opa: 96%
             border_width: 0
             pad_all: 0
@@ -3412,7 +3412,7 @@ lvgl:
                   width: 120
                   height: 38
                   radius: 8
-                  bg_color: 0x1E5A3E
+                  bg_color: 0x15563B
                   text: "Refresh"
                   text_font: montserrat_16
                   text_color: 0xFFFFFF
@@ -3424,8 +3424,8 @@ lvgl:
                   width: 120
                   height: 38
                   radius: 8
-                  bg_color: 0x2E4A8E
-                  text: "< Back"
+                  bg_color: 0x1A3552
+                  text: "Back"
                   text_font: montserrat_16
                   on_click:
                     - globals.set: { id: g_on_camera_view, value: 'false' }
