@@ -1568,6 +1568,28 @@ lvgl:
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
 
+        # Quick access to slideshow overlay show/hide and drag placement.
+        - button:
+            id: slideshow_layout_btn
+            align: BOTTOM_LEFT
+            x: 16
+            y: -56
+            width: 156
+            height: 42
+            radius: 12
+            bg_color: 0x113225
+            border_width: 2
+            border_color: 0x69F0AE
+            on_click:
+              - script.execute: apply_slideshow_layout_visibility
+              - lvgl.page.show: layout_settings_page
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Layout v${firmware_version}"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+
     # ═══════════════════════════════════════════════════════════
     # PAGE 2 — DASHBOARD
     # Layout: top bar 58px | tiles 3x2 | bottom bar 50px
@@ -3838,21 +3860,70 @@ lvgl:
               - button:
                   align: RIGHT_MID
                   x: -16
-                  width: 52
+                  width: 118
                   height: 38
-                  bg_color: 0x1A3552
+                  bg_color: 0x113225
                   radius: 9
-                  border_width: 0
+                  border_width: 1
+                  border_color: 0x69F0AE
                   on_click:
+                    - script.execute: apply_slideshow_layout_visibility
                     - lvgl.page.show: layout_settings_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "Layout", text_font: montserrat_16, text_color: 0xFFFFFF }
+
+        - obj:
+            x: 32
+            y: 68
+            width: 960
+            height: 92
+            bg_color: 0x113225
+            bg_opa: 100%
+            border_width: 2
+            border_color: 0x69F0AE
+            radius: 16
+            pad_all: 0
+            on_click:
+              - script.execute: apply_slideshow_layout_visibility
+              - lvgl.page.show: layout_settings_page
+            widgets:
+              - label:
+                  x: 22
+                  y: 12
+                  text: "SLIDESHOW LAYOUT"
+                  text_font: montserrat_20
+                  text_color: 0x69F0AE
+              - label:
+                  x: 22
+                  y: 40
+                  width: 720
+                  text: "Show/hide and drag Calendar, Weather, Time, and Wake controls."
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 112
+                  height: 40
+                  radius: 10
+                  bg_color: 0x1A3552
+                  border_width: 0
+                  on_click:
+                    - script.execute: apply_slideshow_layout_visibility
+                    - lvgl.page.show: layout_settings_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Open"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
 
         - obj:
             x: 0
-            y: 60
+            y: 172
             width: 500
-            height: 640
+            height: 528
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x243B55
@@ -4231,9 +4302,9 @@ lvgl:
         # ── Backlight + setup guide (right half) ─────────────────
         - obj:
             x: 512
-            y: 60
+            y: 172
             width: 500
-            height: 640
+            height: 528
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x243B55
@@ -4537,6 +4608,8 @@ lvgl:
     # ═══════════════════════════════════════════════════════════
     - id: layout_settings_page
       bg_color: 0x071019
+      on_load:
+        - script.execute: apply_slideshow_layout_visibility
       widgets:
         - obj:
             width: 1024
