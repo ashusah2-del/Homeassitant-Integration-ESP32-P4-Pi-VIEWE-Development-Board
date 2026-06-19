@@ -2197,7 +2197,7 @@ lvgl:
     # humidity, target temp with +/− adjusters, and OFF/AUTO/HEAT mode.
     # ═══════════════════════════════════════════════════════════
     - id: tado_page
-      bg_color: 0x080814
+      bg_color: 0x071019
       on_swipe_right:
         - lvgl.page.show: dashboard_page
       on_swipe_left:
@@ -2208,22 +2208,22 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x12192E
+            bg_color: 0x0B1624
             bg_opa: 96%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
                   align: LEFT_MID
                   x: 20
-                  text: "Heating"
+                  text: "Climate"
                   text_font: montserrat_24
                   text_color: 0xFFFFFF
               - label:
                   align: CENTER
-                  text: "Tado Zones"
+                  text: "Tado temperature zones"
                   text_font: montserrat_18
                   text_color: 0xAAAAAA
               - label:
@@ -2241,11 +2241,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             widgets:
               - label:
@@ -2270,7 +2270,7 @@ lvgl:
                   y: 46
                   text: "--°"
                   text_font: montserrat_24
-                  text_color: 0xFFCC66
+                  text_color: 0xF6C453
               - label:
                   id: tado1_ch_lbl
                   align: TOP_LEFT
@@ -2278,7 +2278,7 @@ lvgl:
                   y: 50
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x66CCFF
+                  text_color: 0x7DD3FC
               - label:
                   id: tado1_tgt_lbl
                   align: CENTER
@@ -2293,7 +2293,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "-"
                   text_font: montserrat_24
                   on_click:
@@ -2309,7 +2309,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "+"
                   text_font: montserrat_24
                   on_click:
@@ -2325,7 +2325,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2A1822
+                  bg_color: 0x2B1720
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -2340,7 +2340,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x1A2840
+                  bg_color: 0x172B45
                   text: "AUTO"
                   text_font: montserrat_14
                   on_click:
@@ -2356,7 +2356,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2E1A14
+                  bg_color: 0x3A2116
                   text: "HEAT"
                   text_font: montserrat_14
                   on_click:
@@ -2374,17 +2374,17 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             widgets:
               - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado2_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
               - label: { id: tado2_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
-              - label: { id: tado2_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
-              - label: { id: tado2_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado2_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xF6C453 }
+              - label: { id: tado2_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x7DD3FC }
               - label: { id: tado2_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
               - button:
                   align: CENTER
@@ -2393,7 +2393,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "-"
                   text_font: montserrat_24
                   on_click:
@@ -2405,7 +2405,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "+"
                   text_font: montserrat_24
                   on_click:
@@ -2417,7 +2417,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2A1822
+                  bg_color: 0x2B1720
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -2428,7 +2428,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x1A2840
+                  bg_color: 0x172B45
                   text: "AUTO"
                   text_font: montserrat_14
                   on_click:
@@ -2440,7 +2440,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2E1A14
+                  bg_color: 0x3A2116
                   text: "HEAT"
                   text_font: montserrat_14
                   on_click:
@@ -2454,17 +2454,17 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             widgets:
               - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado3_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
               - label: { id: tado3_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
-              - label: { id: tado3_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
-              - label: { id: tado3_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado3_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xF6C453 }
+              - label: { id: tado3_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x7DD3FC }
               - label: { id: tado3_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
               - button:
                   align: CENTER
@@ -2473,7 +2473,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "-"
                   text_font: montserrat_24
                   on_click:
@@ -2485,7 +2485,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "+"
                   text_font: montserrat_24
                   on_click:
@@ -2497,7 +2497,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2A1822
+                  bg_color: 0x2B1720
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -2508,7 +2508,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x1A2840
+                  bg_color: 0x172B45
                   text: "AUTO"
                   text_font: montserrat_14
                   on_click:
@@ -2520,7 +2520,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2E1A14
+                  bg_color: 0x3A2116
                   text: "HEAT"
                   text_font: montserrat_14
                   on_click:
@@ -2534,17 +2534,17 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             widgets:
               - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado4_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
               - label: { id: tado4_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
-              - label: { id: tado4_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
-              - label: { id: tado4_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado4_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xF6C453 }
+              - label: { id: tado4_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x7DD3FC }
               - label: { id: tado4_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
               - button:
                   align: CENTER
@@ -2553,7 +2553,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "-"
                   text_font: montserrat_24
                   on_click:
@@ -2565,7 +2565,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "+"
                   text_font: montserrat_24
                   on_click:
@@ -2577,7 +2577,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2A1822
+                  bg_color: 0x2B1720
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -2588,7 +2588,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x1A2840
+                  bg_color: 0x172B45
                   text: "AUTO"
                   text_font: montserrat_14
                   on_click:
@@ -2600,7 +2600,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2E1A14
+                  bg_color: 0x3A2116
                   text: "HEAT"
                   text_font: montserrat_14
                   on_click:
@@ -2614,17 +2614,17 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             widgets:
               - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado5_label}", text_font: montserrat_20, text_color: 0xFFFFFF }
               - label: { id: tado5_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
-              - label: { id: tado5_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
-              - label: { id: tado5_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado5_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xF6C453 }
+              - label: { id: tado5_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x7DD3FC }
               - label: { id: tado5_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
               - button:
                   align: CENTER
@@ -2633,7 +2633,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "-"
                   text_font: montserrat_24
                   on_click:
@@ -2645,7 +2645,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x2E4A8E
+                  bg_color: 0x1A3552
                   text: "+"
                   text_font: montserrat_24
                   on_click:
@@ -2657,7 +2657,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2A1822
+                  bg_color: 0x2B1720
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -2668,7 +2668,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x1A2840
+                  bg_color: 0x172B45
                   text: "AUTO"
                   text_font: montserrat_14
                   on_click:
@@ -2680,7 +2680,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2E1A14
+                  bg_color: 0x3A2116
                   text: "HEAT"
                   text_font: montserrat_14
                   on_click:
@@ -2694,17 +2694,17 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x1A1E28
+            bg_color: 0x171B24
             bg_opa: 95%
-            border_color: 0x4E2E2E
+            border_color: 0x6B3E2E
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             widgets:
-              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado6_label}", text_font: montserrat_20, text_color: 0xFFAA77 }
+              - label: { align: TOP_LEFT, x: 16, y: 12, text: "${tado6_label}", text_font: montserrat_20, text_color: 0xF4A261 }
               - label: { id: tado6_mode_lbl, align: TOP_RIGHT, x: -16, y: 16, text: "--", text_font: montserrat_16, text_color: 0x666666 }
-              - label: { id: tado6_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xFFCC66 }
-              - label: { id: tado6_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x66CCFF }
+              - label: { id: tado6_ct_lbl, align: TOP_LEFT, x: 16, y: 46, text: "--°", text_font: montserrat_24, text_color: 0xF6C453 }
+              - label: { id: tado6_ch_lbl, align: TOP_LEFT, x: 130, y: 50, text: "--%", text_font: montserrat_18, text_color: 0x7DD3FC }
               - label: { id: tado6_tgt_lbl, align: CENTER, y: 14, text: "--°", text_font: montserrat_28, text_color: 0xFFFFFF }
               - button:
                   align: CENTER
@@ -2713,7 +2713,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x4E2E2E
+                  bg_color: 0x5B3326
                   text: "-"
                   text_font: montserrat_24
                   on_click:
@@ -2725,7 +2725,7 @@ lvgl:
                   width: 44
                   height: 44
                   radius: 22
-                  bg_color: 0x4E2E2E
+                  bg_color: 0x5B3326
                   text: "+"
                   text_font: montserrat_24
                   on_click:
@@ -2737,7 +2737,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2A1822
+                  bg_color: 0x2B1720
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -2748,7 +2748,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x1A2840
+                  bg_color: 0x172B45
                   text: "AUTO"
                   text_font: montserrat_14
                   on_click:
@@ -2760,7 +2760,7 @@ lvgl:
                   width: 88
                   height: 34
                   radius: 8
-                  bg_color: 0x2E1A14
+                  bg_color: 0x3A2116
                   text: "HEAT"
                   text_font: montserrat_14
                   on_click:
