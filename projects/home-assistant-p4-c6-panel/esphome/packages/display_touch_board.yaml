@@ -3089,7 +3089,7 @@ lvgl:
     # Live HA Energy dashboard values arranged as grid/solar/export cards.
     # ═══════════════════════════════════════════════════════════
     - id: energy_page
-      bg_color: 0x050C10
+      bg_color: 0x061113
       on_swipe_right:
         - lvgl.page.show: presence_page
       on_swipe_left:
@@ -3099,15 +3099,15 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x0D1A22
+            bg_color: 0x0B1C24
             bg_opa: 96%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E5A6E
+            border_color: 0x245A68
             pad_all: 0
             widgets:
               - label: { align: LEFT_MID, x: 20, text: "Energy", text_font: montserrat_24, text_color: 0xFFFFFF }
-              - label: { align: CENTER, text: "Home Assistant power flow", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: CENTER, text: "Grid, solar and export overview", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { align: RIGHT_MID, x: -20, text: "< Presence    Cameras >", text_font: montserrat_16, text_color: 0x69F0AE }
 
         # Main diagram canvas
@@ -3116,9 +3116,9 @@ lvgl:
             y: 78
             width: 964
             height: 372
-            bg_color: 0x071118
+            bg_color: 0x08161B
             bg_opa: 94%
-            border_color: 0x1E5A6E
+            border_color: 0x245A68
             border_width: 2
             radius: 18
             pad_all: 0
@@ -3127,10 +3127,10 @@ lvgl:
               - obj: { x: 236, y: 82, width: 250, height: 6, bg_color: 0x44AAFF, border_width: 0, radius: 3 }
               - obj: { x: 236, y: 276, width: 250, height: 6, bg_color: 0xFFD54F, border_width: 0, radius: 3 }
               - obj: { x: 636, y: 184, width: 210, height: 6, bg_color: 0xFFB74D, border_width: 0, radius: 3 }
-              - obj: { x: 484, y: 86, width: 6, height: 194, bg_color: 0x2E6F80, border_width: 0, radius: 3 }
+              - obj: { x: 484, y: 86, width: 6, height: 194, bg_color: 0x2D6F7B, border_width: 0, radius: 3 }
               - label: { x: 360, y: 56, text: ">", text_font: montserrat_24, text_color: 0x44AAFF }
               - label: { x: 360, y: 250, text: ">", text_font: montserrat_24, text_color: 0xFFD54F }
-              - label: { x: 742, y: 158, text: "<>", text_font: montserrat_20, text_color: 0xFFB74D }
+              - label: { x: 742, y: 158, text: ">", text_font: montserrat_20, text_color: 0xFFB74D }
 
               # Grid source
               - obj:
@@ -3138,14 +3138,14 @@ lvgl:
                   y: 40
                   width: 210
                   height: 98
-                  bg_color: 0x102033
+                  bg_color: 0x0D2133
                   bg_opa: 96%
                   border_color: 0x44AAFF
                   border_width: 2
-                  radius: 14
+                  radius: 18
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "GRID", text_font: montserrat_18, text_color: 0x44AAFF }
+                    - label: { align: TOP_MID, y: 12, text: "GRID IMPORT", text_font: montserrat_18, text_color: 0x44AAFF }
                     - label: { id: energy_grid_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
               # Solar production total
@@ -3154,14 +3154,14 @@ lvgl:
                   y: 236
                   width: 210
                   height: 98
-                  bg_color: 0x302A08
+                  bg_color: 0x2A250A
                   bg_opa: 96%
                   border_color: 0xFFD54F
                   border_width: 2
-                  radius: 14
+                  radius: 18
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "SOLAR TOTAL", text_font: montserrat_18, text_color: 0xFFD54F }
+                    - label: { align: TOP_MID, y: 12, text: "SOLAR", text_font: montserrat_18, text_color: 0xFFD54F }
                     - label: { id: energy_solar_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
               # Home load
@@ -3170,14 +3170,14 @@ lvgl:
                   y: 126
                   width: 170
                   height: 130
-                  bg_color: 0x14202E
+                  bg_color: 0x102333
                   bg_opa: 100%
                   border_color: 0x69F0AE
                   border_width: 3
                   radius: 22
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 18, text: "HOME", text_font: montserrat_20, text_color: 0x69F0AE }
+                    - label: { align: TOP_MID, y: 18, text: "HOME LOAD", text_font: montserrat_20, text_color: 0x69F0AE }
                     - label: { id: energy_home_val, align: CENTER, y: 22, text: "--", text_font: montserrat_30, text_color: 0xFFFFFF }
 
               # Export meter
@@ -3186,16 +3186,16 @@ lvgl:
                   y: 130
                   width: 180
                   height: 122
-                  bg_color: 0x2A1B08
+                  bg_color: 0x2A1C0A
                   bg_opa: 96%
                   border_color: 0xFFB74D
                   border_width: 2
-                  radius: 14
+                  radius: 18
                   pad_all: 0
                   widgets:
                     - label: { align: TOP_MID, y: 12, text: "EXPORT", text_font: montserrat_18, text_color: 0xFFB74D }
                     - label: { id: energy_export_flow_val, align: CENTER, y: 4, text: "--", text_font: montserrat_24, text_color: 0xFFFFFF }
-                    - label: { align: BOTTOM_MID, y: -12, text: "meter reading", text_font: montserrat_18, text_color: 0xCCCCCC }
+                    - label: { align: BOTTOM_MID, y: -12, text: "export meter", text_font: montserrat_18, text_color: 0xCCCCCC }
 
         # Daily summary cards
         - obj:
@@ -3203,28 +3203,28 @@ lvgl:
             y: 466
             width: 464
             height: 104
-            bg_color: 0x101722
+            bg_color: 0x0F1A27
             bg_opa: 96%
             border_color: 0x44AAFF
             border_width: 2
-            radius: 16
+            radius: 18
             pad_all: 0
             widgets:
-              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Imported current period", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Import this period", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { id: energy_import_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
         - obj:
             x: 530
             y: 466
             width: 464
             height: 104
-            bg_color: 0x101D12
+            bg_color: 0x0F1D16
             bg_opa: 96%
             border_color: 0xFFD54F
             border_width: 2
-            radius: 16
+            radius: 18
             pad_all: 0
             widgets:
-              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Export previous period", text_font: montserrat_18, text_color: 0xAAAAAA }
+              - label: { align: TOP_LEFT, x: 18, y: 16, text: "Export meter total", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { id: energy_export_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
     # ═══════════════════════════════════════════════════════════
