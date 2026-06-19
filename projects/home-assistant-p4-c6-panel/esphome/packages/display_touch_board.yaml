@@ -1565,7 +1565,7 @@ lvgl:
     #   row1 y=70  row2 y=308               (height=228 each)
     # ═══════════════════════════════════════════════════════════
     - id: dashboard_page
-      bg_color: 0x090916
+      bg_color: 0x071019
       on_swipe_left:
         - lvgl.page.show: tado_page
       widgets:
@@ -1579,8 +1579,8 @@ lvgl:
             width: 1024
             height: 600
             align: TOP_LEFT
-            bg_color: 0x05050F
-            bg_opa: 59%
+            bg_color: 0x050A12
+            bg_opa: 68%
             border_width: 0
             pad_all: 0
 
@@ -1589,11 +1589,11 @@ lvgl:
             width: 1024
             height: 58
             align: TOP_LEFT
-            bg_color: 0x12192E
+            bg_color: 0x0B1624
             bg_opa: 96%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
@@ -1630,11 +1630,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             on_click:
               - homeassistant.service:
@@ -1674,9 +1674,9 @@ lvgl:
               - label:
                   align: CENTER
                   y: 14
-                  text: "Tap to toggle"
+                  text: "Tap to switch"
                   text_font: montserrat_16
-                  text_color: 0x6688AA
+                  text_color: 0x8AA4C2
               - label:
                   id: room1_temp_lbl
                   align: BOTTOM_LEFT
@@ -1702,11 +1702,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             on_click:
               - homeassistant.service:
@@ -1753,9 +1753,9 @@ lvgl:
                   max_value: 100
                   value: 0
                   indicator:
-                    bg_color: 0xFFD700
+                    bg_color: 0xF6C453
                   knob:
-                    bg_color: 0xFFFFFF
+                    bg_color: 0xEEF4FF
                   on_release:
                     - homeassistant.service:
                         service: light.turn_on
@@ -1787,11 +1787,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             on_click:
               - homeassistant.service:
@@ -1838,9 +1838,9 @@ lvgl:
                   max_value: 100
                   value: 0
                   indicator:
-                    bg_color: 0xFFD700
+                    bg_color: 0xF6C453
                   knob:
-                    bg_color: 0xFFFFFF
+                    bg_color: 0xEEF4FF
                   on_release:
                     - homeassistant.service:
                         service: light.turn_on
@@ -1856,11 +1856,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             on_click:
               - homeassistant.service:
@@ -1907,9 +1907,9 @@ lvgl:
                   max_value: 100
                   value: 0
                   indicator:
-                    bg_color: 0xFFD700
+                    bg_color: 0xF6C453
                   knob:
-                    bg_color: 0xFFFFFF
+                    bg_color: 0xEEF4FF
                   on_release:
                     - homeassistant.service:
                         service: light.turn_on
@@ -1941,11 +1941,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             on_click:
               - homeassistant.service:
@@ -1992,9 +1992,9 @@ lvgl:
                   max_value: 100
                   value: 0
                   indicator:
-                    bg_color: 0xFFD700
+                    bg_color: 0xF6C453
                   knob:
-                    bg_color: 0xFFFFFF
+                    bg_color: 0xEEF4FF
                   on_release:
                     - homeassistant.service:
                         service: light.turn_on
@@ -2026,11 +2026,11 @@ lvgl:
             width: 320
             height: 228
             align: TOP_LEFT
-            bg_color: 0x162044
+            bg_color: 0x101B2D
             bg_opa: 95%
-            border_color: 0x2E4A8E
+            border_color: 0x2A4568
             border_width: 2
-            radius: 14
+            radius: 18
             pad_all: 0
             on_click:
               - homeassistant.service:
@@ -2072,20 +2072,20 @@ lvgl:
               - label:
                   align: CENTER
                   y: 14
-                  text: "Tap to toggle"
+                  text: "Tap to switch"
                   text_font: montserrat_16
-                  text_color: 0x6688AA
+                  text_color: 0x8AA4C2
 
         # ── Bottom bar ─────────────────────────────────────────
         - obj:
             width: 1024
             height: 50
             align: BOTTOM_LEFT
-            bg_color: 0x12192E
+            bg_color: 0x0B1624
             bg_opa: 92%
             border_width: 0
             border_side: TOP
-            border_color: 0x1E3A6E
+            border_color: 0x263B55
             pad_all: 0
             widgets:
               - label:
@@ -2100,7 +2100,7 @@ lvgl:
                   x: -16
                   width: 110
                   height: 34
-                  bg_color: 0x1E3A6E
+                  bg_color: 0x1A3552
                   radius: 8
                   border_width: 0
                   on_click:
@@ -2116,7 +2116,7 @@ lvgl:
                   x: -138
                   width: 110
                   height: 34
-                  bg_color: 0x1A2A1A
+                  bg_color: 0x113225
                   radius: 8
                   border_width: 0
                   on_click:
@@ -2138,7 +2138,7 @@ lvgl:
                   x: 180
                   width: 150
                   height: 34
-                  bg_color: 0x2A2A14
+                  bg_color: 0x342B12
                   radius: 8
                   border_width: 0
                   on_click:
@@ -2189,7 +2189,7 @@ lvgl:
                         align: CENTER
                         text: "All Lights"
                         text_font: montserrat_16
-                        text_color: 0xFFD700
+                        text_color: 0xF6C453
 
     # ═══════════════════════════════════════════════════════════
     # PAGE 3 — TADO climate (swipe left from dashboard)
