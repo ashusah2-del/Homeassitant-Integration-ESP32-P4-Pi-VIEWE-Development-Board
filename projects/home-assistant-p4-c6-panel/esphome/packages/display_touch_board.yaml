@@ -1386,7 +1386,7 @@ lvgl:
             id: va_state_pill
             align: TOP_RIGHT
             x: -18
-            y: 18
+            y: 126
             width: 190
             height: 42
             bg_color: 0x071A10
