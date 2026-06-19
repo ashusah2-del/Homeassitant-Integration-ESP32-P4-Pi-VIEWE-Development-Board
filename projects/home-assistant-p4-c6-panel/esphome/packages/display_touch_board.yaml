@@ -198,6 +198,10 @@ globals:
   - { id: g_layout_clock_y, type: int, restore_value: yes, initial_value: '8' }
   - { id: g_layout_wake_x, type: int, restore_value: yes, initial_value: '-18' }
   - { id: g_layout_wake_y, type: int, restore_value: yes, initial_value: '126' }
+  - { id: g_layout_calendar_visible, type: bool, restore_value: yes, initial_value: 'true' }
+  - { id: g_layout_weather_visible, type: bool, restore_value: yes, initial_value: 'true' }
+  - { id: g_layout_clock_visible, type: bool, restore_value: yes, initial_value: 'true' }
+  - { id: g_layout_wake_visible, type: bool, restore_value: yes, initial_value: 'true' }
   # If the previous boot was a real fault, on_boot writes the human-
   # readable reason here. on_client_connected fires a persistent
   # notification into HA the first time HA reconnects and clears the
@@ -378,6 +382,29 @@ online_image:
             - script.execute: try_fallback_image
 
 script:
+  - id: apply_slideshow_layout_visibility
+    mode: restart
+    then:
+      - lambda: |-
+          auto set_hidden = [](lv_obj_t *obj, bool hidden) {
+            if (hidden) {
+              lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+            }
+          };
+          set_hidden(id(calendar_panel), !id(g_layout_calendar_visible));
+          set_hidden(id(weather_widget), !id(g_layout_weather_visible));
+          set_hidden(id(clock_pill_obj), !id(g_layout_clock_visible));
+          set_hidden(id(slideshow_clock), !id(g_layout_clock_visible));
+          set_hidden(id(slideshow_date_lbl), !id(g_layout_clock_visible));
+          set_hidden(id(va_state_pill), !id(g_layout_wake_visible));
+
+          lv_label_set_text(id(layout_calendar_toggle_lbl), id(g_layout_calendar_visible) ? "Hide" : "Show");
+          lv_label_set_text(id(layout_weather_toggle_lbl), id(g_layout_weather_visible) ? "Hide" : "Show");
+          lv_label_set_text(id(layout_clock_toggle_lbl), id(g_layout_clock_visible) ? "Hide" : "Show");
+          lv_label_set_text(id(layout_wake_toggle_lbl), id(g_layout_wake_visible) ? "Hide" : "Show");
+
   # Renders the current "page" of calendar events into the 8 cal_row_N
   # slots. The HA on_value handler caches the full string in
   # g_calendar_events_full and zeroes the page; the 30-second cycle
@@ -1523,6 +1550,7 @@ lvgl:
                         id(g_layout_edit_mode) = false;
                         lv_obj_add_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
                         lv_obj_clear_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
+                    - script.execute: apply_slideshow_layout_visibility
                   widgets:
                     - label:
                         align: CENTER
@@ -3917,22 +3945,12 @@ lvgl:
                   border_width: 1
                   border_color: 0x69F0AE
                   on_click:
-                    - lvgl.page.show: slideshow_page
-                    - lambda: |-
-                        id(g_layout_edit_mode) = true;
-                        lv_obj_add_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_move_foreground(id(calendar_panel));
-                        lv_obj_move_foreground(id(weather_widget));
-                        lv_obj_move_foreground(id(clock_pill_obj));
-                        lv_obj_move_foreground(id(slideshow_clock));
-                        lv_obj_move_foreground(id(slideshow_date_lbl));
-                        lv_obj_move_foreground(id(va_state_pill));
-                        lv_obj_move_foreground(id(layout_edit_bar));
+                    - script.execute: apply_slideshow_layout_visibility
+                    - lvgl.page.show: layout_settings_page
                   widgets:
                     - label:
                         align: CENTER
-                        text: "Edit Layout"
+                        text: "Layout Settings"
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
               - obj:
@@ -4041,3 +4059,265 @@ lvgl:
                         text: "Test crash banner"
                         text_font: montserrat_16
                         text_color: 0xFFFFFF
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 8 — LAYOUT SETTINGS
+    # Visibility and placement controls for slideshow overlays.
+    # ═══════════════════════════════════════════════════════════
+    - id: layout_settings_page
+      bg_color: 0x060610
+      widgets:
+        - obj:
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0A1225
+            bg_opa: 100%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x1E3A6E
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Layout Settings"
+                  text_font: montserrat_28
+                  text_color: 0x69F0AE
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 130
+                  height: 34
+                  bg_color: 0x1E3A6E
+                  radius: 8
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "< Settings"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+
+        - label:
+            x: 32
+            y: 82
+            width: 900
+            text: "Choose which slideshow overlays are visible. Use Edit Positions to place them anywhere, then tap Done."
+            text_font: montserrat_18
+            text_color: 0xCCCCCC
+            long_mode: WRAP
+
+        - obj:
+            x: 32
+            y: 138
+            width: 960
+            height: 274
+            bg_color: 0x0B1424
+            bg_opa: 96%
+            border_color: 0x1E3A6E
+            border_width: 2
+            radius: 18
+            pad_all: 0
+            widgets:
+              - label:
+                  x: 22
+                  y: 18
+                  text: "OVERLAY VISIBILITY"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - obj:
+                  x: 22
+                  y: 58
+                  width: 916
+                  height: 46
+                  bg_color: 0x101D2E
+                  bg_opa: 100%
+                  border_width: 0
+                  radius: 10
+                  widgets:
+                    - label: { align: LEFT_MID, x: 16, text: "Calendar", text_font: montserrat_18, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "Upcoming events panel", text_font: montserrat_16, text_color: 0xAAAAAA }
+                    - button:
+                        align: RIGHT_MID
+                        x: -14
+                        width: 100
+                        height: 32
+                        radius: 8
+                        bg_color: 0x1E3A6E
+                        on_click:
+                          - lambda: 'id(g_layout_calendar_visible) = !id(g_layout_calendar_visible);'
+                          - script.execute: apply_slideshow_layout_visibility
+                        widgets:
+                          - label: { id: layout_calendar_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
+              - obj:
+                  x: 22
+                  y: 110
+                  width: 916
+                  height: 46
+                  bg_color: 0x101D2E
+                  bg_opa: 100%
+                  border_width: 0
+                  radius: 10
+                  widgets:
+                    - label: { align: LEFT_MID, x: 16, text: "Weather", text_font: montserrat_18, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "Forecast icon, temperature, humidity", text_font: montserrat_16, text_color: 0xAAAAAA }
+                    - button:
+                        align: RIGHT_MID
+                        x: -14
+                        width: 100
+                        height: 32
+                        radius: 8
+                        bg_color: 0x1E3A6E
+                        on_click:
+                          - lambda: 'id(g_layout_weather_visible) = !id(g_layout_weather_visible);'
+                          - script.execute: apply_slideshow_layout_visibility
+                        widgets:
+                          - label: { id: layout_weather_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
+              - obj:
+                  x: 22
+                  y: 162
+                  width: 916
+                  height: 46
+                  bg_color: 0x101D2E
+                  bg_opa: 100%
+                  border_width: 0
+                  radius: 10
+                  widgets:
+                    - label: { align: LEFT_MID, x: 16, text: "Time", text_font: montserrat_18, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "Clock, date, and readability pill", text_font: montserrat_16, text_color: 0xAAAAAA }
+                    - button:
+                        align: RIGHT_MID
+                        x: -14
+                        width: 100
+                        height: 32
+                        radius: 8
+                        bg_color: 0x1E3A6E
+                        on_click:
+                          - lambda: 'id(g_layout_clock_visible) = !id(g_layout_clock_visible);'
+                          - script.execute: apply_slideshow_layout_visibility
+                        widgets:
+                          - label: { id: layout_clock_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
+              - obj:
+                  x: 22
+                  y: 214
+                  width: 916
+                  height: 46
+                  bg_color: 0x101D2E
+                  bg_opa: 100%
+                  border_width: 0
+                  radius: 10
+                  widgets:
+                    - label: { align: LEFT_MID, x: 16, text: "Wake Word", text_font: montserrat_18, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "Okay Nabu status pill", text_font: montserrat_16, text_color: 0xAAAAAA }
+                    - button:
+                        align: RIGHT_MID
+                        x: -14
+                        width: 100
+                        height: 32
+                        radius: 8
+                        bg_color: 0x1E3A6E
+                        on_click:
+                          - lambda: 'id(g_layout_wake_visible) = !id(g_layout_wake_visible);'
+                          - script.execute: apply_slideshow_layout_visibility
+                        widgets:
+                          - label: { id: layout_wake_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
+
+        - obj:
+            x: 32
+            y: 434
+            width: 960
+            height: 126
+            bg_color: 0x0B1424
+            bg_opa: 96%
+            border_color: 0x1E3A6E
+            border_width: 2
+            radius: 18
+            pad_all: 0
+            widgets:
+              - label:
+                  x: 22
+                  y: 18
+                  text: "PLACEMENT"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - button:
+                  x: 22
+                  y: 58
+                  width: 230
+                  height: 44
+                  radius: 10
+                  bg_color: 0x0F3D2E
+                  border_width: 1
+                  border_color: 0x69F0AE
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                    - lambda: |-
+                        id(g_layout_edit_mode) = true;
+                        lv_obj_add_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(calendar_panel), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(weather_widget), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(clock_pill_obj), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(slideshow_clock), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(slideshow_date_lbl), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(va_state_pill), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_clear_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_move_foreground(id(calendar_panel));
+                        lv_obj_move_foreground(id(weather_widget));
+                        lv_obj_move_foreground(id(clock_pill_obj));
+                        lv_obj_move_foreground(id(slideshow_clock));
+                        lv_obj_move_foreground(id(slideshow_date_lbl));
+                        lv_obj_move_foreground(id(va_state_pill));
+                        lv_obj_move_foreground(id(layout_edit_bar));
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Edit Positions"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  x: 276
+                  y: 58
+                  width: 190
+                  height: 44
+                  radius: 10
+                  bg_color: 0x1A3050
+                  border_width: 1
+                  border_color: 0x66CCFF
+                  on_click:
+                    - lambda: |-
+                        id(g_layout_calendar_visible) = true;
+                        id(g_layout_weather_visible) = true;
+                        id(g_layout_clock_visible) = true;
+                        id(g_layout_wake_visible) = true;
+                        id(g_layout_calendar_x) = 0;
+                        id(g_layout_calendar_y) = 0;
+                        id(g_layout_weather_x) = -14;
+                        id(g_layout_weather_y) = -14;
+                        id(g_layout_clock_x) = -10;
+                        id(g_layout_clock_y) = 8;
+                        id(g_layout_wake_x) = -18;
+                        id(g_layout_wake_y) = 126;
+                        lv_obj_set_pos(id(calendar_panel), 0, 0);
+                        lv_obj_set_pos(id(weather_widget), -14, -14);
+                        lv_obj_set_pos(id(clock_pill_obj), -10, 8);
+                        lv_obj_set_pos(id(slideshow_clock), -24, 16);
+                        lv_obj_set_pos(id(slideshow_date_lbl), -24, 80);
+                        lv_obj_set_pos(id(va_state_pill), -18, 126);
+                    - script.execute: apply_slideshow_layout_visibility
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Reset Defaults"
+                        text_font: montserrat_16
+                        text_color: 0xAACCFF
+              - label:
+                  x: 500
+                  y: 60
+                  width: 420
+                  text: "Hidden controls are still shown while editing positions so they can be moved before being hidden again."
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
+                  long_mode: WRAP

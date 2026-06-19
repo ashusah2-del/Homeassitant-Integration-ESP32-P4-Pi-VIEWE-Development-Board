@@ -39,9 +39,10 @@ The default idle screen, modelled on a digital photo frame.
 - **Wake-word status pill** shows `Wake: Ready` with a pulsing green dot
   while local "Okay Nabu" detection is armed, then changes through
   Listening / Thinking / Speaking / Error states during Assist.
-- **Layout edit mode** is launched from Settings. It lets the calendar,
-  weather widget, clock/date, and wake-word pill be dragged around the
-  slideshow; positions are saved on the panel and restored after reboot.
+- **Layout settings** are launched from Settings. They let the calendar,
+  weather widget, clock/date, and wake-word pill be shown or hidden, then
+  dragged around the slideshow; visibility and positions are saved on the
+  panel and restored after reboot.
 - Tap anywhere to advance to the dashboard.
 
 ### 2. Room dashboard (`dashboard_page`)
@@ -148,6 +149,8 @@ version, Tuya bridge) plus on-panel tunables:
 - Calendar overlay opacity (0–100 %, syncs to `input_number.panel_calendar_opacity`)
 - Slide transition effect (6 modes, syncs to `input_number.panel_transition_effect`)
 - Backlight brightness (10–100 %)
+- Layout Settings subpage for showing/hiding and positioning the
+  calendar, weather, time, and wake-word overlays
 
 Reached from the "Settings" link in the dashboard's bottom bar.
 Immich URL and calendar events can still be edited via HA helpers.
