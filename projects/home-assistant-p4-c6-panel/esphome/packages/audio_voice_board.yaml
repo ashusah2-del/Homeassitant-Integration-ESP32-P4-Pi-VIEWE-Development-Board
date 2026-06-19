@@ -43,6 +43,15 @@ micro_wake_word:
   models:
     - model: okay_nabu
   on_wake_word_detected:
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x003300), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x00EE00), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x00EE00), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Heard");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x00EE00), 0);
     - voice_assistant.start:
         id: panel_va
 
@@ -55,12 +64,38 @@ voice_assistant:
   on_client_connected:
     - micro_wake_word.start:
         id: panel_mww
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = true;
+        id(g_va_indicator_phase) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Ready");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
   on_client_disconnected:
     - micro_wake_word.stop:
         id: panel_mww
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x220808), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFF5252), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFF5252), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: HA Offline");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFCDD2), 0);
   on_wake_word_detected:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x003300), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x00EE00), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x00EE00), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Listening");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x00EE00), 0);
         lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x003300), 0);
         lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0x00EE00), 0);
         lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0x00EE00), 0);
@@ -72,6 +107,13 @@ voice_assistant:
   on_stt_end:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x332200), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Thinking");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFAA00), 0);
         lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x332200), 0);
         lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0xFFAA00), 0);
         lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0xFFAA00), 0);
@@ -81,6 +123,13 @@ voice_assistant:
   on_tts_start:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x000D33), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x4488FF), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x4488FF), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Speaking");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xAACCFF), 0);
         lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x000D33), 0);
         lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0x4488FF), 0);
         lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0x4488FF), 0);
@@ -97,14 +146,40 @@ voice_assistant:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
         lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+        id(g_va_indicator_pulse) = true;
+        id(g_va_indicator_phase) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Ready");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
     - micro_wake_word.start:
         id: panel_mww
   on_error:
     - lambda: |-
         if (!id(g_lvgl_ready)) return;
         lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+        id(g_va_indicator_pulse) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x220808), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFF5252), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFF5252), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Error");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFCDD2), 0);
+    - delay: 3s
     - micro_wake_word.start:
         id: panel_mww
+    - lambda: |-
+        if (!id(g_lvgl_ready)) return;
+        id(g_va_indicator_pulse) = true;
+        id(g_va_indicator_phase) = false;
+        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
+        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
+        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
+        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+        lv_label_set_text(id(va_state_label), "Wake: Ready");
+        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
 
 sensor:
   - platform: adc

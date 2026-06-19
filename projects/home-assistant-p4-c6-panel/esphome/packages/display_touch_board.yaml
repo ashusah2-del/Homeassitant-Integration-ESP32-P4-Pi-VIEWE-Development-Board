@@ -182,6 +182,11 @@ globals:
   # fully constructed can't trigger an Instruction-address-misaligned crash.
   # Flipped to true in the on_boot lambda after a 2-second delay.
   - { id: g_lvgl_ready, type: bool, restore_value: no, initial_value: 'false' }
+  # Small wake-word status pill on the slideshow page. The 1-second interval
+  # toggles the dot opacity while this is true, proving the local wake engine
+  # is armed even before a wake word is detected.
+  - { id: g_va_indicator_pulse, type: bool, restore_value: no, initial_value: 'false' }
+  - { id: g_va_indicator_phase, type: bool, restore_value: no, initial_value: 'false' }
   # If the previous boot was a real fault, on_boot writes the human-
   # readable reason here. on_client_connected fires a persistent
   # notification into HA the first time HA reconnects and clears the
@@ -665,6 +670,15 @@ interval:
 
   - interval: 1s
     then:
+      - lambda: |-
+          if (id(g_lvgl_ready) && id(g_va_indicator_pulse)) {
+            id(g_va_indicator_phase) = !id(g_va_indicator_phase);
+            lv_obj_set_style_bg_opa(
+              id(va_state_dot),
+              id(g_va_indicator_phase) ? LV_OPA_COVER : LV_OPA_40,
+              0
+            );
+          }
       - lvgl.label.update:
           id: slideshow_clock
           text: !lambda |-
@@ -1365,6 +1379,40 @@ lvgl:
             hidden: true
             on_click:
               - lvgl.page.show: dashboard_page
+
+        # ── Wake-word status pill — visible before the wake word fires ──
+        # Pulsing green dot means the local "Okay Nabu" engine is armed.
+        - obj:
+            id: va_state_pill
+            align: TOP_RIGHT
+            x: -18
+            y: 18
+            width: 190
+            height: 42
+            bg_color: 0x071A10
+            bg_opa: 86%
+            radius: 21
+            border_width: 1
+            border_color: 0x1B5E20
+            pad_all: 0
+            widgets:
+              - obj:
+                  id: va_state_dot
+                  align: LEFT_MID
+                  x: 14
+                  width: 14
+                  height: 14
+                  radius: 7
+                  bg_color: 0x69F0AE
+                  bg_opa: 100%
+                  border_width: 0
+              - label:
+                  id: va_state_label
+                  align: LEFT_MID
+                  x: 40
+                  text: "Wake: Booting"
+                  text_font: montserrat_16
+                  text_color: 0xCCCCCC
 
         # ── Voice assistant state pill — hidden until wake word fires ──
         # Floats over the photo area bottom-centre. Color shifts per state:

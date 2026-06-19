@@ -36,6 +36,9 @@ The default idle screen, modelled on a digital photo frame.
   rotated through if Immich is unreachable after three retries.
 - **HA-disconnected overlay** appears full-screen if no API client is
   connected, with a "reconnecting…" hint.
+- **Wake-word status pill** shows `Wake: Ready` with a pulsing green dot
+  while local "Okay Nabu" detection is armed, then changes through
+  Listening / Thinking / Speaking / Error states during Assist.
 - Tap anywhere to advance to the dashboard.
 
 ### 2. Room dashboard (`dashboard_page`)

@@ -12,8 +12,8 @@ UI driven directly by HA's native API.
 
 ## Feature pages
 
-- **Slideshow / lock screen** with random Immich photos + a left-side
-  calendar overlay
+- **Slideshow / lock screen** with random Immich photos, a left-side
+  calendar overlay, and a wake-word status pill
 - **Room dashboard** — 6 rooms with light bulb icons, on/off, brightness
   sliders, and per-room temperature + humidity
 - **Tado climate** — 6 thermostat zones with current-temperature

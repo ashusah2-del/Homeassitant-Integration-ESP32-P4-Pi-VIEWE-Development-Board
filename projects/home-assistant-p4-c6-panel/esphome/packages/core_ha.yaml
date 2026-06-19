@@ -48,6 +48,16 @@ api:
           - script.execute: refresh_immich_slideshow
           - micro_wake_word.start:
               id: panel_mww
+          - lambda: |-
+              if (!id(g_lvgl_ready)) return;
+              id(g_va_indicator_pulse) = true;
+              id(g_va_indicator_phase) = false;
+              lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
+              lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
+              lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
+              lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+              lv_label_set_text(id(va_state_label), "Wake: Ready");
+              lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
           # If on_boot stashed a crash reason, push it to HA as a
           # persistent notification so the user can review it the next
           # time they look at HA. Cleared after sending so each crash
@@ -90,6 +100,15 @@ api:
           - lvgl.label.update:
               id: dash_error_lbl
               text: "Home Assistant disconnected"
+          - lambda: |-
+              if (!id(g_lvgl_ready)) return;
+              id(g_va_indicator_pulse) = false;
+              lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x220808), 0);
+              lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFF5252), 0);
+              lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFF5252), 0);
+              lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+              lv_label_set_text(id(va_state_label), "Wake: HA Offline");
+              lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFCDD2), 0);
           - voice_assistant.stop:
 
 ota:
