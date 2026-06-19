@@ -918,7 +918,7 @@ lvgl:
         # No explicit width/height — the widget auto-sizes to the actual
         # decoded image buffer. With explicit dimensions LVGL reads with
         # the WIDGET's stride (684×2 bytes/row) instead of the BUFFER's
-        # (512×2 bytes/row), producing vertical-stripe corruption.
+        # stride, producing vertical-stripe corruption if they differ.
         # Position is updated to the slideshow area in the lambda below.
         - image:
             id: slideshow_img

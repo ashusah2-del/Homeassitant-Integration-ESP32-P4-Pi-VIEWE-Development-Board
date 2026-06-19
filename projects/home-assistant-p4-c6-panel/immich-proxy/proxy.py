@@ -37,9 +37,9 @@ HA_URL       = os.environ.get("HA_URL", "").rstrip("/")
 HA_TOKEN     = os.environ.get("HA_TOKEN", "")
 # Cap output dimensions — the ESP32-P4 panel decodes to RGB565 in PSRAM and
 # decoding a 1440x1920 JPEG needs ~5.5MB working memory which causes crashes.
-# 800x600 is plenty for the 684x600 display area and decodes in ~960KB.
+# 800x480 is a safe 16-pixel-aligned canvas for JPEGDEC on the ESP32 panel.
 MAX_W        = int(os.environ.get("MAX_W", "800"))
-MAX_H        = int(os.environ.get("MAX_H", "600"))
+MAX_H        = int(os.environ.get("MAX_H", "480"))
 _PERSON_IDS: list[tuple[str, str]] | None = None
 
 
@@ -114,23 +114,27 @@ def _sof_type(data: bytes) -> int | None:
 
 
 def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
-    """Re-encode via Pillow — always SOF0 baseline, resized to fit MAX_W x MAX_H.
+    """Return a fixed-size, baseline JPEG that is friendly to JPEGDEC.
 
-    Uses 4:4:4 (subsampling=0) to avoid MCU block misalignment corruption
-    on JPEGDEC — 4:2:0 requires dimensions to be exact multiples of 16
-    which photos essentially never satisfy, producing horizontal banding.
+    The panel decoder is most reliable with 4:2:0 JPEGs whose dimensions are
+    exact MCU multiples. Portrait/odd-sized Immich thumbnails are letterboxed
+    into a fixed canvas instead of being served at their natural dimensions.
     """
     img = Image.open(io.BytesIO(jpeg_raw))
     img = img.convert("RGB")
-    img.thumbnail((MAX_W, MAX_H), Image.Resampling.LANCZOS)
+    canvas_w = max(16, (MAX_W // 16) * 16)
+    canvas_h = max(16, (MAX_H // 16) * 16)
+    img.thumbnail((canvas_w, canvas_h), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
+    canvas.paste(img, ((canvas_w - img.width) // 2, (canvas_h - img.height) // 2))
     out = io.BytesIO()
-    img.save(
+    canvas.save(
         out,
         format="JPEG",
         quality=JPEG_QUALITY,
         optimize=False,
         progressive=False,
-        subsampling=0,  # 4:4:4 — avoids MCU misalignment corruption on non-16px-multiple dimensions
+        subsampling=2,  # 4:2:0 on a 16px-aligned canvas is the safest JPEGDEC path.
     )
     return out.getvalue()
 

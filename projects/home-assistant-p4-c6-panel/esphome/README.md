@@ -25,9 +25,9 @@ The default idle screen, modelled on a digital photo frame.
 
 - **Random Immich photos** every 10 minutes, fetched via a small Python
   proxy on the Docker host. The proxy re-encodes every preview as a
-  guaranteed SOF0 baseline JPEG resized to ≤ 512×400, which works
-  around the JPEGDEC 1.2.7 crash on SOF1 (extended-sequential)
-  thumbnails and on full-resolution previews under ESP32-P4 PSRAM XIP.
+  guaranteed SOF0 baseline JPEG on a fixed 800×480, 16-pixel-aligned
+  canvas, which works around JPEGDEC 1.2.7 crashes/corruption on SOF1
+  and odd-sized portrait thumbnails under ESP32-P4 PSRAM XIP.
 - **Calendar panel** (left 340 px) shows today's weekday/date plus up
   to eight upcoming events pushed from HA into
   `input_text.panel_calendar_events`. Row 0 falls back to
@@ -170,9 +170,10 @@ A small `BaseHTTPRequestHandler` Python service running as a systemd
   If `IMMICH_PERSON_NAMES` is set, each request picks a random configured
   person and only returns photos containing at least that person. It then
   follows the `?size=preview` thumbnail link, then **always**
-  re-encodes via Pillow as SOF0 baseline JPEG resized to
-  ≤ `MAX_W × MAX_H` (default 512 × 400). Removes both the SOF1
-  incompatibility and the full-size decode-memory pressure.
+  re-encodes via Pillow as SOF0 baseline JPEG letterboxed into a fixed
+  16-pixel-aligned `MAX_W × MAX_H` canvas (default 800 × 480). Removes
+  the SOF1 incompatibility, odd portrait dimensions, and full-size
+  decode-memory pressure.
 - `GET /camera/<entity>?size=thumb|full` — fetches an HA
   `/api/camera_proxy/camera.<entity>` snapshot using a long-lived
   HA token, then resizes (300×200 for thumbs, 800×500 for full) and
