@@ -38,8 +38,12 @@ HA_TOKEN     = os.environ.get("HA_TOKEN", "")
 # Cap output dimensions — the ESP32-P4 panel decodes to RGB565 in PSRAM and
 # decoding a 1440x1920 JPEG needs ~5.5MB working memory which causes crashes.
 # 800x480 is a safe 16-pixel-aligned canvas for JPEGDEC on the ESP32 panel.
-MAX_W        = int(os.environ.get("MAX_W", "800"))
-MAX_H        = int(os.environ.get("MAX_H", "480"))
+MAX_W           = int(os.environ.get("MAX_W", "800"))
+MAX_H           = int(os.environ.get("MAX_H", "480"))
+# Fetch N candidates per request and prefer portrait (height > width).
+# Falls back to any orientation when no portrait exists in the batch.
+PORTRAIT_PREFER = os.environ.get("PORTRAIT_PREFER", "true").lower() in ("1", "true", "yes", "on")
+PORTRAIT_BATCH  = int(os.environ.get("PORTRAIT_BATCH", "4"))
 _PERSON_IDS: list[tuple[str, str]] | None = None
 
 
@@ -140,12 +144,19 @@ def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
     return out.getvalue()
 
 
+def _pick_portrait_preferred(assets: list) -> dict:
+    """Return a portrait asset (height > width) if one exists, else first asset."""
+    if not PORTRAIT_PREFER:
+        return assets[0]
+    portrait = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)]
+    return (portrait or assets)[0]
+
+
 def fetch_safe_jpeg() -> bytes | None:
     for attempt in range(RETRIES):
         try:
-            # Pull from the whole image library by default. Set
-            # FAVORITES_ONLY=true in proxy.env to restore the old curated mode.
-            search = {"size": 1, "type": "IMAGE"}
+            batch = PORTRAIT_BATCH if PORTRAIT_PREFER else 1
+            search = {"size": batch, "type": "IMAGE"}
             person_filter = _resolve_person_ids()
             person_name = None
             if PERSON_NAMES:
@@ -173,13 +184,13 @@ def fetch_safe_jpeg() -> bytes | None:
             if not arr or not isinstance(arr, list):
                 log.warning("attempt %d: bad JSON from random endpoint", attempt)
                 continue
-            item = arr[0]
-            if item.get("type", "IMAGE") != "IMAGE":
-                log.warning("attempt %d: type=%s, retrying", attempt, item.get("type"))
+            images = [a for a in arr if a.get("type", "IMAGE") == "IMAGE" and a.get("id")]
+            if not images:
+                log.warning("attempt %d: no IMAGE assets in batch", attempt)
                 continue
-            asset_id = item.get("id")
-            if not asset_id:
-                continue
+            item = _pick_portrait_preferred(images)
+            is_portrait = (item.get("height") or 0) > (item.get("width") or 0)
+            asset_id = item["id"]
 
             jpeg_raw = _get(
                 f"{IMMICH_URL}/api/assets/{asset_id}/thumbnail?size=preview",
@@ -194,9 +205,10 @@ def fetch_safe_jpeg() -> bytes | None:
             # exhaust ESP32 PSRAM during decode and crash the device.
             result = _to_baseline_jpeg(jpeg_raw)
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
+            orient_tag = "portrait" if is_portrait else "landscape-fallback"
             log.info(
-                "asset %s (%s) SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
-                asset_id, scope, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
+                "asset %s (%s, %s) SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
+                asset_id, scope, orient_tag, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
             )
             return result
 
@@ -214,7 +226,7 @@ def fetch_camera_snapshot(entity_name: str, size_w: int, size_h: int) -> bytes |
         return None
     url = f"{HA_URL}/api/camera_proxy/camera.{entity_name}"
     try:
-        raw = _get(url, {"Authorization": f"Bearer {HA_TOKEN}"})
+        raw = _get(url, {"Authorization": f"Bearer {HA_TOKEN}"}, timeout=5)
         img = Image.open(io.BytesIO(raw))
         img = img.convert("RGB")
         img.thumbnail((size_w, size_h), Image.Resampling.LANCZOS)
@@ -241,8 +253,9 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        path = self.path.split("?", 1)[0]
         # Immich slideshow
-        if self.path == "/random-photo":
+        if path == "/random-photo":
             jpeg = fetch_safe_jpeg()
             if jpeg:
                 self.send_response(200)
@@ -259,7 +272,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # /camera/<name>?size=thumb|full
-        if self.path.startswith("/camera/"):
+        if path.startswith("/camera/"):
             tail = self.path[len("/camera/"):]
             if "?" in tail:
                 name, q = tail.split("?", 1)
