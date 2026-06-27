@@ -1,0 +1,797 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# PANEL THEME SYSTEM — end goal (keep this block updated as phases land)
+# ═══════════════════════════════════════════════════════════════════════════
+# GOAL: Five switchable palettes that unify the ENTIRE panel at runtime:
+#   Midnight | Graphite | Warm Home | Nord | High Contrast
+# Every surface pulls from semantic tokens (not scattered hex literals):
+#   page/header/footer/card/overlay/nav/text/accent/success/warning/error/voice
+# Switch from Settings or HA input_select.panel_theme (bidirectional sync).
+#
+# PHASES (status):
+#   [x] 1 — Theme engine + 2 palettes; headers + Settings chrome
+#   [x] 2 — All 5 palettes; slideshow overlays + dashboard/Tado cards + layout bar
+#   [x] 3 — Presence, Energy, Camera, Tuya pages; HA disconnect/crash overlays
+#   [x] 4 — Voice/wake pill + mic overlay state colours tied to theme
+#   [x] 5 — Replace remaining inline hex in lambdas; HA helper sync; README
+# ═══════════════════════════════════════════════════════════════════════════
+
+globals:
+  - id: g_panel_theme
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  # Cached token values for lambdas elsewhere (set on every apply_panel_theme).
+  - id: g_theme_accent
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_overlay_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_ready_border
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_accent_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_listen_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_listen_fg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_think_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_think_fg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_speak_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_speak_fg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_speak_text
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_offline_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_offline_fg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_va_offline_text
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # Voice UI state for theme re-apply: 0 ready 1 offline 2 listening 3 thinking
+  # 4 speaking 5 error 6 heard (pill flash before Assist starts)
+  - id: g_va_ui_state
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: g_theme_text_muted
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_text_secondary
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_card_bg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_error
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_success
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_warning
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_info
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_lamp_on
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_lamp_off
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_theme_push_to_ha
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+script:
+  - id: apply_panel_theme
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+
+          static const int PANEL_THEME_COUNT = 5;
+
+          struct PanelTheme {
+            const char *name;
+            uint32_t page_bg;
+            uint32_t page_scrim;
+            uint32_t header_bg;
+            uint32_t header_border;
+            uint32_t nav_btn_bg;
+            uint32_t text_primary;
+            uint32_t text_secondary;
+            uint32_t text_muted;
+            uint32_t accent;
+            uint32_t accent_bg;
+            uint32_t accent_border;
+            uint32_t card_bg;
+            uint32_t card_border;
+            uint32_t footer_bg;
+            uint32_t footer_border;
+            uint32_t footer_text;
+            uint32_t divider;
+            uint32_t overlay_bg;
+            uint32_t clock_pill_bg;
+            uint32_t layout_bar_bg;
+            uint32_t va_ready_border;
+            uint32_t crash_bg;
+            uint32_t crash_title;
+            uint32_t crash_body;
+            uint32_t crash_hint;
+            uint32_t disconnect_bg;
+            uint32_t disconnect_title;
+            uint32_t disconnect_accent;
+            uint32_t disconnect_muted;
+            uint32_t error_bar_bg;
+            uint32_t error_bar_text;
+            uint32_t va_listen_bg;
+            uint32_t va_listen_fg;
+            uint32_t va_think_bg;
+            uint32_t va_think_fg;
+            uint32_t va_speak_bg;
+            uint32_t va_speak_fg;
+            uint32_t va_speak_text;
+            uint32_t va_offline_bg;
+            uint32_t va_offline_fg;
+            uint32_t va_offline_text;
+            uint32_t success;
+            uint32_t warning;
+            uint32_t info;
+            uint32_t lamp_on;
+            uint32_t lamp_off;
+          };
+
+          static const PanelTheme THEMES[] = {
+            // 0 Midnight — current production look
+            {"Midnight", 0x071019, 0x050A12, 0x0B1624, 0x263B55, 0x1A3552,
+             0xFFFFFF, 0xEEEEEE, 0xAAAAAA, 0x69F0AE, 0x113225, 0x69F0AE,
+             0x0D1624, 0x243B55, 0x08111D, 0x263B55, 0x9FB3C8, 0x1A3552,
+             0x050510, 0x000000, 0x071118, 0x1B5E20,
+             0x300505, 0xFF8888, 0xDDDDDD, 0xFFAAAA,
+             0x0A0005, 0xFFFFFF, 0xFF5252, 0x777777,
+             0x7B0000, 0xFFCDD2,
+             0x003300, 0x00EE00,
+             0x332200, 0xFFAA00,
+             0x000D33, 0x4488FF, 0xAACCFF,
+             0x220808, 0xFF5252, 0xFFCDD2,
+             0x10D080, 0xFF8F00, 0xAACCFF, 0xFFD700, 0x666666},
+            // 1 Graphite — neutral Material dark
+            {"Graphite", 0x121212, 0x1A1A1A, 0x1E1E1E, 0x3A3A3A, 0x2A2A2A,
+             0xF5F5F5, 0xE0E0E0, 0xB0B0B0, 0x90CAF9, 0x1A2332, 0x90CAF9,
+             0x2A2A2A, 0x404040, 0x1E1E1E, 0x3A3A3A, 0xB0B0B0, 0x333333,
+             0x1A1A1A, 0x0D0D0D, 0x1E1E1E, 0x1565C0,
+             0x3A2020, 0xEF9A9A, 0xE0E0E0, 0xFFAB91,
+             0x121212, 0xF5F5F5, 0xEF5350, 0x9E9E9E,
+             0x5C1A1A, 0xFFCDD2,
+             0x1B3320, 0x66BB6A,
+             0x332A10, 0xFFCA28,
+             0x0D1A33, 0x90CAF9, 0xBBDEFB,
+             0x2A1515, 0xEF5350, 0xFFCDD2,
+             0x66BB6A, 0xFFCA28, 0x90CAF9, 0xFFD54F, 0x9E9E9E},
+            // 2 Warm Home — amber accent, cozy tones
+            {"Warm Home", 0x1A1410, 0x241C16, 0x2C2218, 0x5C4A3A, 0x3E2723,
+             0xFFF8E1, 0xD7CCC8, 0xA1887F, 0xFFB74D, 0x3E2723, 0xFFB74D,
+             0x3E2723, 0x6D4C41, 0x2C2218, 0x5C4A3A, 0xD7CCC8, 0x4E342E,
+             0x2C2218, 0x1A1410, 0x2C2218, 0xE65100,
+             0x3A1810, 0xFFAB91, 0xD7CCC8, 0xFFCC80,
+             0x1A1410, 0xFFF8E1, 0xFF7043, 0xA1887F,
+             0x4E1A10, 0xFFCCBC,
+             0x1B3A1A, 0x81C784,
+             0x3E2723, 0xFFB74D,
+             0x1A2332, 0x64B5F6, 0x90CAF9,
+             0x3A1810, 0xFF7043, 0xFFCCBC,
+             0x81C784, 0xFFB74D, 0x64B5F6, 0xFFB74D, 0xA1887F},
+            // 3 Nord — frost palette
+            {"Nord", 0x2E3440, 0x3B4252, 0x3B4252, 0x4C566A, 0x434C5E,
+             0xECEFF4, 0xD8DEE9, 0x81A1C1, 0x88C0D0, 0x2E4A52, 0x88C0D0,
+             0x3B4252, 0x4C566A, 0x3B4252, 0x4C566A, 0xD8DEE9, 0x434C5E,
+             0x3B4252, 0x2E3440, 0x3B4252, 0x5E81AC,
+             0x4C2F34, 0xBF616A, 0xD8DEE9, 0xEBCB8B,
+             0x2E3440, 0xECEFF4, 0xBF616A, 0x81A1C1,
+             0x5C2328, 0xECEFF4,
+             0x2E4A3E, 0xA3BE8C,
+             0x4C3A2E, 0xEBCB8B,
+             0x2E3A52, 0x81A1C1, 0xD8DEE9,
+             0x4C2F34, 0xBF616A, 0xECEFF4,
+             0xA3BE8C, 0xEBCB8B, 0x88C0D0, 0xEBCB8B, 0x81A1C1},
+            // 4 High Contrast — accessibility
+            {"High Contrast", 0x000000, 0x111111, 0x000000, 0xFFFFFF, 0x111111,
+             0xFFFFFF, 0xFFFFFF, 0xCCCCCC, 0xFFFF00, 0x111111, 0xFFFFFF,
+             0x111111, 0xFFFFFF, 0x000000, 0xFFFFFF, 0xFFFFFF, 0x333333,
+             0x111111, 0x000000, 0x111111, 0xFFFF00,
+             0x330000, 0xFFFF00, 0xFFFFFF, 0xFFFF00,
+             0x000000, 0xFFFFFF, 0xFFFF00, 0xCCCCCC,
+             0x660000, 0xFFFFFF,
+             0x003300, 0x00FF00,
+             0x333300, 0xFFFF00,
+             0x000033, 0x00FFFF, 0xFFFFFF,
+             0x330000, 0xFF0000, 0xFFFFFF,
+             0x00FF00, 0xFFFF00, 0x00FFFF, 0xFFFF00, 0xCCCCCC},
+          };
+
+          int ti = id(g_panel_theme);
+          if (ti < 0) ti = 0;
+          if (ti >= PANEL_THEME_COUNT) ti = 0;
+          id(g_panel_theme) = ti;
+          const PanelTheme &t = THEMES[ti];
+
+          id(g_theme_accent) = (int) t.accent;
+          id(g_theme_overlay_bg) = (int) t.overlay_bg;
+          id(g_theme_va_ready_border) = (int) t.va_ready_border;
+          id(g_theme_accent_bg) = (int) t.accent_bg;
+          id(g_theme_va_listen_bg) = (int) t.va_listen_bg;
+          id(g_theme_va_listen_fg) = (int) t.va_listen_fg;
+          id(g_theme_va_think_bg) = (int) t.va_think_bg;
+          id(g_theme_va_think_fg) = (int) t.va_think_fg;
+          id(g_theme_va_speak_bg) = (int) t.va_speak_bg;
+          id(g_theme_va_speak_fg) = (int) t.va_speak_fg;
+          id(g_theme_va_speak_text) = (int) t.va_speak_text;
+          id(g_theme_va_offline_bg) = (int) t.va_offline_bg;
+          id(g_theme_va_offline_fg) = (int) t.va_offline_fg;
+          id(g_theme_va_offline_text) = (int) t.va_offline_text;
+          id(g_theme_text_muted) = (int) t.text_muted;
+          id(g_theme_text_secondary) = (int) t.text_secondary;
+          id(g_theme_card_bg) = (int) t.card_bg;
+          id(g_theme_error) = (int) t.disconnect_accent;
+          id(g_theme_success) = (int) t.success;
+          id(g_theme_warning) = (int) t.warning;
+          id(g_theme_info) = (int) t.info;
+          id(g_theme_lamp_on) = (int) t.lamp_on;
+          id(g_theme_lamp_off) = (int) t.lamp_off;
+
+          auto style_header = [&](lv_obj_t *bar) {
+            if (bar == nullptr) return;
+            lv_obj_set_style_bg_color(bar, lv_color_hex(t.header_bg), 0);
+            lv_obj_set_style_border_color(bar, lv_color_hex(t.header_border), 0);
+            uint32_t n = lv_obj_get_child_cnt(bar);
+            for (uint32_t i = 0; i < n; i++) {
+              lv_obj_t *ch = lv_obj_get_child(bar, i);
+              if (lv_obj_check_type(ch, &lv_btn_class)) {
+                lv_obj_set_style_bg_color(ch, lv_color_hex(t.nav_btn_bg), 0);
+                uint32_t bn = lv_obj_get_child_cnt(ch);
+                for (uint32_t j = 0; j < bn; j++) {
+                  lv_obj_t *bch = lv_obj_get_child(ch, j);
+                  if (lv_obj_check_type(bch, &lv_label_class)) {
+                    lv_obj_set_style_text_color(bch, lv_color_hex(t.text_primary), 0);
+                  }
+                }
+              } else if (lv_obj_check_type(ch, &lv_label_class)) {
+                lv_obj_set_style_text_color(ch, lv_color_hex(t.text_primary), 0);
+              }
+            }
+          };
+
+          auto style_card = [&](lv_obj_t *card) {
+            if (card == nullptr) return;
+            lv_obj_set_style_bg_color(card, lv_color_hex(t.card_bg), 0);
+            lv_obj_set_style_border_color(card, lv_color_hex(t.card_border), 0);
+            uint32_t n = lv_obj_get_child_cnt(card);
+            for (uint32_t i = 0; i < n; i++) {
+              lv_obj_t *ch = lv_obj_get_child(card, i);
+              if (lv_obj_check_type(ch, &lv_btn_class)) {
+                lv_obj_set_style_bg_color(ch, lv_color_hex(t.nav_btn_bg), 0);
+                uint32_t bn = lv_obj_get_child_cnt(ch);
+                for (uint32_t j = 0; j < bn; j++) {
+                  lv_obj_t *bch = lv_obj_get_child(ch, j);
+                  if (lv_obj_check_type(bch, &lv_label_class)) {
+                    lv_obj_set_style_text_color(bch, lv_color_hex(t.text_primary), 0);
+                  }
+                }
+              } else if (lv_obj_check_type(ch, &lv_label_class)) {
+                lv_obj_set_style_text_color(ch, lv_color_hex(t.text_primary), 0);
+              } else if (lv_obj_check_type(ch, &lv_obj_class) && lv_obj_get_height(ch) <= 3) {
+                lv_obj_set_style_bg_color(ch, lv_color_hex(t.divider), 0);
+              }
+            }
+          };
+
+          auto style_page_footer = [&](lv_obj_t *footer) {
+            if (footer == nullptr) return;
+            lv_obj_set_style_bg_color(footer, lv_color_hex(t.footer_bg), 0);
+            lv_obj_set_style_border_color(footer, lv_color_hex(t.footer_border), 0);
+            uint32_t n = lv_obj_get_child_cnt(footer);
+            for (uint32_t i = 0; i < n; i++) {
+              lv_obj_t *ch = lv_obj_get_child(footer, i);
+              if (lv_obj_check_type(ch, &lv_label_class)) {
+                lv_obj_set_style_text_color(ch, lv_color_hex(t.footer_text), 0);
+              } else if (lv_obj_check_type(ch, &lv_btn_class)) {
+                lv_obj_set_style_bg_color(ch, lv_color_hex(t.nav_btn_bg), 0);
+              }
+            }
+          };
+
+          auto style_tuya_panel = [&](lv_obj_t *panel) {
+            style_card(panel);
+            if (panel == nullptr) return;
+            lv_obj_set_style_border_color(panel, lv_color_hex(t.accent_border), 0);
+          };
+
+          auto style_tuya_socket = [&](lv_obj_t *btn) {
+            if (btn == nullptr) return;
+            lv_obj_set_style_bg_color(btn, lv_color_hex(t.card_bg), 0);
+            lv_obj_set_style_border_color(btn, lv_color_hex(t.accent_border), 0);
+            uint32_t n = lv_obj_get_child_cnt(btn);
+            for (uint32_t i = 0; i < n; i++) {
+              lv_obj_t *ch = lv_obj_get_child(btn, i);
+              if (lv_obj_check_type(ch, &lv_label_class)) {
+                lv_obj_set_style_text_color(ch, lv_color_hex(t.text_secondary), 0);
+              }
+            }
+          };
+
+          // ── Phase 1: global chrome ───────────────────────────────────────
+          style_header(id(dash_header_bar));
+          style_header(id(tado_header_bar));
+          style_header(id(pres_header_bar));
+          style_header(id(energy_header_bar));
+          style_header(id(cam_header_bar));
+          style_header(id(cam_view_header_bar));
+          style_header(id(settings_header_bar));
+          style_header(id(layout_hdr_bar));
+          style_header(id(tuya_header_bar));
+          style_header(id(jf_header_bar));
+
+          lv_obj_set_style_bg_color(id(slideshow_page).obj, lv_color_hex(0x000000), 0);
+          lv_obj_set_style_bg_color(id(settings_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(dashboard_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(tado_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(presence_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(energy_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(camera_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(camera_view_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(layout_settings_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(tuya_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(jellyfin_page).obj, lv_color_hex(t.page_bg), 0);
+          style_card(id(jf_list_panel));
+          style_card(id(jf_detail_panel));
+          lv_obj_set_style_bg_color(id(jf_play_btn), lv_color_hex(t.success), 0);
+          lv_obj_set_style_bg_color(id(jf_cast_prev_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_bg_color(id(jf_cast_next_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_text_color(id(jf_cast_lbl), lv_color_hex(t.text_secondary), 0);
+          lv_obj_set_style_bg_color(id(jf_refresh_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_bg_color(id(jf_prev_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_bg_color(id(jf_next_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_text_color(id(jf_page_lbl), lv_color_hex(t.text_muted), 0);
+          lv_obj_set_style_text_color(id(jf_detail_title), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_bg_color(id(dash_page_scrim), lv_color_hex(t.page_scrim), 0);
+
+          style_card(id(settings_left_panel));
+          style_card(id(settings_right_panel));
+
+          lv_obj_set_style_bg_color(id(settings_footer), lv_color_hex(t.footer_bg), 0);
+          lv_obj_set_style_border_color(id(settings_footer), lv_color_hex(t.footer_border), 0);
+          uint32_t fn = lv_obj_get_child_cnt(id(settings_footer));
+          for (uint32_t i = 0; i < fn; i++) {
+            lv_obj_t *ch = lv_obj_get_child(id(settings_footer), i);
+            if (lv_obj_check_type(ch, &lv_label_class)) {
+              lv_obj_set_style_text_color(ch, lv_color_hex(t.footer_text), 0);
+            } else if (lv_obj_check_type(ch, &lv_btn_class)) {
+              lv_obj_set_style_bg_color(ch, lv_color_hex(t.nav_btn_bg), 0);
+            }
+          }
+
+          lv_obj_set_style_bg_color(id(settings_layout_banner), lv_color_hex(t.accent_bg), 0);
+          lv_obj_set_style_border_color(id(settings_layout_banner), lv_color_hex(t.accent_border), 0);
+          lv_obj_set_style_text_color(id(settings_layout_banner_title), lv_color_hex(t.accent), 0);
+
+          lv_obj_set_style_text_color(id(settings_sec_status_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(settings_sec_config_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(settings_sec_backlight_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(settings_sec_helpers_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(settings_sec_wifi_lbl), lv_color_hex(t.accent), 0);
+
+          // ── Phase 2: slideshow overlays ────────────────────────────────
+          lv_obj_set_style_bg_color(id(calendar_panel), lv_color_hex(t.overlay_bg), 0);
+          lv_obj_set_style_text_color(id(cal_title_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(cal_today_lbl), lv_color_hex(t.text_muted), 0);
+          lv_obj_set_style_text_color(id(cal_page_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_bg_color(id(cal_header_div), lv_color_hex(t.divider), 0);
+
+          lv_obj_t *cal_rows[] = {
+            id(cal_row_0), id(cal_row_1), id(cal_row_2), id(cal_row_3),
+            id(cal_row_4), id(cal_row_5), id(cal_row_6), id(cal_row_7),
+          };
+          lv_obj_t *cal_evts[] = {
+            id(cal_evt_0), id(cal_evt_1), id(cal_evt_2), id(cal_evt_3),
+            id(cal_evt_4), id(cal_evt_5), id(cal_evt_6), id(cal_evt_7),
+          };
+          for (int i = 0; i < 8; i++) {
+            if (i % 2 == 0) {
+              lv_obj_set_style_bg_color(cal_rows[i], lv_color_hex(t.card_bg), 0);
+              lv_obj_set_style_bg_opa(cal_rows[i], LV_OPA_50, 0);
+              lv_obj_set_style_text_color(cal_evts[i], lv_color_hex(t.text_primary), 0);
+            } else {
+              lv_obj_set_style_bg_opa(cal_rows[i], LV_OPA_TRANSP, 0);
+              lv_obj_set_style_text_color(cal_evts[i], lv_color_hex(t.text_secondary), 0);
+            }
+          }
+
+          lv_obj_set_style_bg_color(id(weather_widget), lv_color_hex(t.overlay_bg), 0);
+          lv_obj_set_style_text_color(id(wx_location_lbl), lv_color_hex(t.text_secondary), 0);
+          lv_obj_set_style_text_color(id(wx_cond_lbl), lv_color_hex(t.text_secondary), 0);
+          lv_obj_set_style_text_color(id(wx_temp_lbl), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(wx_humidity_lbl), lv_color_hex(t.text_muted), 0);
+
+          lv_obj_set_style_bg_color(id(clock_pill_obj), lv_color_hex(t.clock_pill_bg), 0);
+          lv_obj_set_style_text_color(id(slideshow_clock), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(slideshow_date_lbl), lv_color_hex(t.text_secondary), 0);
+
+          lv_obj_set_style_bg_color(id(layout_edit_bar), lv_color_hex(t.layout_bar_bg), 0);
+          lv_obj_set_style_border_color(id(layout_edit_bar), lv_color_hex(t.accent_border), 0);
+
+          // ── Phase 2: dashboard + Tado cards ──────────────────────────────
+          lv_obj_t *room_cards[] = {
+            id(room1_card), id(room2_card), id(room3_card),
+            id(room4_card), id(room5_card), id(room6_card),
+          };
+          for (auto *c : room_cards) style_card(c);
+
+          lv_obj_t *tado_cards[] = {
+            id(tado1_card), id(tado2_card), id(tado3_card),
+            id(tado4_card), id(tado5_card), id(tado6_card),
+          };
+          for (auto *c : tado_cards) style_card(c);
+
+          // ── Phase 3: presence, energy, camera, tuya, system overlays ───
+          lv_obj_t *pres_cards[] = {
+            id(pres1_card), id(pres2_card), id(pres3_card), id(pres4_card),
+            id(pres5_card), id(pres6_card), id(pres7_card), id(pres8_card),
+            id(pres9_card), id(pres10_card), id(pres11_card), id(pres12_card),
+          };
+          for (auto *c : pres_cards) style_card(c);
+          style_page_footer(id(pres_page_footer));
+          style_page_footer(id(energy_page_footer));
+          style_page_footer(id(cam_page_footer));
+          style_page_footer(id(tuya_page_footer));
+
+          style_card(id(energy_flow_panel));
+          style_card(id(energy_import_card));
+          style_card(id(energy_export_card));
+          lv_obj_set_style_bg_color(id(energy_home_card), lv_color_hex(t.accent_bg), 0);
+          lv_obj_set_style_border_color(id(energy_home_card), lv_color_hex(t.accent_border), 0);
+          lv_obj_set_style_text_color(id(energy_grid_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_solar_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_home_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_export_flow_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_import_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_export_val), lv_color_hex(t.text_primary), 0);
+
+          lv_obj_t *cam_tiles[] = {
+            id(cam1_tile), id(cam2_tile), id(cam3_tile), id(cam4_tile),
+          };
+          for (auto *tile : cam_tiles) style_card(tile);
+
+          style_tuya_panel(id(tuya_strip_panel));
+          style_tuya_panel(id(tuya_locks_panel));
+          style_tuya_panel(id(tuya_plugs_panel));
+          style_tuya_panel(id(tuya_sensors_panel));
+          style_tuya_panel(id(tuya_alarm_panel));
+          lv_obj_t *tuya_sockets[] = {
+            id(strip_s1_btn), id(strip_s2_btn), id(strip_s3_btn), id(strip_s4_btn), id(strip_usb_btn),
+            id(switch_s1_btn), id(switch_s2_btn), id(switch_s3_btn), id(switch_s4_btn), id(switch_usb_btn),
+          };
+          for (auto *b : tuya_sockets) style_tuya_socket(b);
+          lv_obj_set_style_bg_color(id(tuya_loading_overlay), lv_color_hex(t.overlay_bg), 0);
+          lv_obj_set_style_text_color(id(tuya_loading_title), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(tuya_loading_hint), lv_color_hex(t.text_muted), 0);
+
+          lv_obj_set_style_bg_color(id(crash_overlay), lv_color_hex(t.crash_bg), 0);
+          lv_obj_set_style_text_color(id(crash_title_lbl), lv_color_hex(t.crash_title), 0);
+          lv_obj_set_style_text_color(id(crash_reason_lbl), lv_color_hex(t.crash_body), 0);
+          lv_obj_set_style_text_color(id(crash_body_lbl), lv_color_hex(t.crash_body), 0);
+          lv_obj_set_style_text_color(id(crash_steps_lbl), lv_color_hex(t.text_secondary), 0);
+          lv_obj_set_style_text_color(id(crash_dismiss_lbl), lv_color_hex(t.crash_hint), 0);
+
+          lv_obj_set_style_bg_color(id(ha_disconnected_overlay), lv_color_hex(t.disconnect_bg), 0);
+          lv_obj_set_style_text_color(id(ha_disc_title_lbl), lv_color_hex(t.disconnect_title), 0);
+          lv_obj_set_style_text_color(id(ha_disc_status_lbl), lv_color_hex(t.disconnect_accent), 0);
+          lv_obj_set_style_text_color(id(ha_disc_hint_lbl), lv_color_hex(t.disconnect_muted), 0);
+
+          lv_obj_set_style_bg_color(id(error_bar), lv_color_hex(t.error_bar_bg), 0);
+          lv_obj_set_style_text_color(id(error_lbl), lv_color_hex(t.error_bar_text), 0);
+
+          lv_obj_set_style_text_color(id(layout_edit_lbl), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_bg_color(id(layout_reset_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_border_color(id(layout_reset_btn), lv_color_hex(t.info), 0);
+          lv_obj_set_style_bg_color(id(layout_done_btn), lv_color_hex(t.accent_bg), 0);
+          lv_obj_set_style_border_color(id(layout_done_btn), lv_color_hex(t.accent_border), 0);
+          lv_obj_set_style_bg_color(id(slideshow_layout_btn), lv_color_hex(t.accent_bg), 0);
+          lv_obj_set_style_border_color(id(slideshow_layout_btn), lv_color_hex(t.accent_border), 0);
+          uint32_t lbn = lv_obj_get_child_cnt(id(slideshow_layout_btn));
+          for (uint32_t i = 0; i < lbn; i++) {
+            lv_obj_t *ch = lv_obj_get_child(id(slideshow_layout_btn), i);
+            if (lv_obj_check_type(ch, &lv_label_class)) {
+              lv_obj_set_style_text_color(ch, lv_color_hex(t.text_primary), 0);
+            }
+          }
+          uint32_t rbn = lv_obj_get_child_cnt(id(layout_reset_btn));
+          for (uint32_t i = 0; i < rbn; i++) {
+            lv_obj_t *ch = lv_obj_get_child(id(layout_reset_btn), i);
+            if (lv_obj_check_type(ch, &lv_label_class)) {
+              lv_obj_set_style_text_color(ch, lv_color_hex(t.info), 0);
+            }
+          }
+          uint32_t dbn = lv_obj_get_child_cnt(id(layout_done_btn));
+          for (uint32_t i = 0; i < dbn; i++) {
+            lv_obj_t *ch = lv_obj_get_child(id(layout_done_btn), i);
+            if (lv_obj_check_type(ch, &lv_label_class)) {
+              lv_obj_set_style_text_color(ch, lv_color_hex(t.text_primary), 0);
+            }
+          }
+
+
+          lv_label_set_text(id(settings_theme_val), t.name);
+
+          // Re-apply layout-edit highlight borders (voice pill border after va_apply_current)
+          if (id(g_layout_edit_mode)) {
+            lv_obj_set_style_border_width(id(calendar_panel), 3, 0);
+            lv_obj_set_style_border_color(id(calendar_panel), lv_color_hex(t.accent), 0);
+            lv_obj_set_style_border_width(id(weather_widget), 2, 0);
+            lv_obj_set_style_border_color(id(weather_widget), lv_color_hex(t.accent), 0);
+            lv_obj_set_style_border_width(id(clock_pill_obj), 2, 0);
+            lv_obj_set_style_border_color(id(clock_pill_obj), lv_color_hex(t.accent), 0);
+          }
+
+          const lv_img_dsc_t *home_dsc = id(img_home).get_lv_img_dsc();
+          const lv_img_dsc_t *settings_dsc = id(img_settings).get_lv_img_dsc();
+          std::function<void(lv_obj_t*)> style_nav_icons;
+          style_nav_icons = [&](lv_obj_t *obj) {
+            if (obj == nullptr) return;
+            if (lv_obj_check_type(obj, &lv_img_class)) {
+              const void *src = lv_img_get_src(obj);
+              if (src == home_dsc || src == settings_dsc) {
+                lv_obj_set_style_img_recolor(obj, lv_color_hex(t.accent), 0);
+                lv_obj_set_style_img_recolor_opa(obj, LV_OPA_COVER, 0);
+              }
+            }
+            uint32_t cc = lv_obj_get_child_cnt(obj);
+            for (uint32_t i = 0; i < cc; i++) {
+              style_nav_icons(lv_obj_get_child(obj, i));
+            }
+          };
+          lv_obj_t *nav_pages[] = {
+            id(dashboard_page).obj, id(tado_page).obj, id(presence_page).obj,
+            id(energy_page).obj, id(camera_page).obj, id(camera_view_page).obj,
+            id(settings_page).obj, id(layout_settings_page).obj, id(tuya_page).obj
+          };
+          for (auto *pg : nav_pages) style_nav_icons(pg);
+
+      - script.execute: va_apply_current
+      - lambda: |-
+          if (!id(g_lvgl_ready) || !id(g_layout_edit_mode)) return;
+          lv_obj_set_style_border_width(id(va_state_pill), 2, 0);
+          lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex((uint32_t) id(g_theme_accent)), 0);
+
+  - id: va_apply_current
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+
+          uint32_t ready_bg = (uint32_t) id(g_theme_accent_bg);
+          uint32_t ready_border = (uint32_t) id(g_theme_va_ready_border);
+          uint32_t ready_fg = (uint32_t) id(g_theme_accent);
+          uint32_t listen_bg = (uint32_t) id(g_theme_va_listen_bg);
+          uint32_t listen_fg = (uint32_t) id(g_theme_va_listen_fg);
+          uint32_t think_bg = (uint32_t) id(g_theme_va_think_bg);
+          uint32_t think_fg = (uint32_t) id(g_theme_va_think_fg);
+          uint32_t speak_bg = (uint32_t) id(g_theme_va_speak_bg);
+          uint32_t speak_fg = (uint32_t) id(g_theme_va_speak_fg);
+          uint32_t speak_text = (uint32_t) id(g_theme_va_speak_text);
+          uint32_t offline_bg = (uint32_t) id(g_theme_va_offline_bg);
+          uint32_t offline_fg = (uint32_t) id(g_theme_va_offline_fg);
+          uint32_t offline_text = (uint32_t) id(g_theme_va_offline_text);
+
+          auto style_pill = [&](uint32_t bg, uint32_t border, uint32_t dot, uint32_t text, const char *label) {
+            lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(bg), 0);
+            lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(border), 0);
+            lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(dot), 0);
+            lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
+            lv_label_set_text(id(va_state_label), label);
+            lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(text), 0);
+          };
+
+          auto show_mic = [&](uint32_t bg, uint32_t fg, const char *label) {
+            lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(bg), 0);
+            lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(fg), 0);
+            lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(fg), 0);
+            lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
+            lv_label_set_text(id(va_mic_label), label);
+            lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(fg), 0);
+            lv_obj_clear_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(id(va_mic_overlay));
+          };
+
+          switch (id(g_va_ui_state)) {
+            default:
+            case 0:
+              style_pill(ready_bg, ready_border, ready_fg, ready_fg, "Wake: Ready");
+              lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+              break;
+            case 1:
+              style_pill(offline_bg, offline_fg, offline_fg, offline_text, "Wake: HA Offline");
+              lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+              break;
+            case 6:
+              style_pill(listen_bg, listen_fg, listen_fg, listen_fg, "Wake: Heard");
+              lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+              break;
+            case 2:
+              style_pill(listen_bg, listen_fg, listen_fg, listen_fg, "Wake: Listening");
+              show_mic(listen_bg, listen_fg, "Listening...");
+              break;
+            case 3:
+              style_pill(think_bg, think_fg, think_fg, think_fg, "Wake: Thinking");
+              show_mic(think_bg, think_fg, "Thinking...");
+              break;
+            case 4:
+              style_pill(speak_bg, speak_fg, speak_fg, speak_text, "Wake: Speaking");
+              show_mic(speak_bg, speak_fg, "Responding...");
+              break;
+            case 5:
+              style_pill(offline_bg, offline_fg, offline_fg, offline_text, "Wake: Error");
+              lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
+              break;
+          }
+
+          if (id(g_va_ui_state) == 0 && id(g_va_indicator_pulse)) {
+            lv_obj_set_style_bg_opa(
+              id(va_state_dot),
+              id(g_va_indicator_phase) ? LV_OPA_COVER : LV_OPA_40,
+              0
+            );
+          }
+
+  - id: va_ui_set_ready
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 0;
+          id(g_va_indicator_pulse) = true;
+          id(g_va_indicator_phase) = false;
+      - script.execute: va_apply_current
+
+  - id: va_ui_set_offline
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 1;
+          id(g_va_indicator_pulse) = false;
+      - script.execute: va_apply_current
+
+  - id: va_ui_set_heard
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 6;
+          id(g_va_indicator_pulse) = false;
+      - script.execute: va_apply_current
+
+  - id: va_ui_set_listening
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 2;
+          id(g_va_indicator_pulse) = false;
+      - script.execute: va_apply_current
+
+  - id: va_ui_set_thinking
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 3;
+          id(g_va_indicator_pulse) = false;
+      - script.execute: va_apply_current
+
+  - id: va_ui_set_speaking
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 4;
+          id(g_va_indicator_pulse) = false;
+      - script.execute: va_apply_current
+
+  - id: va_ui_set_error
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_va_ui_state) = 5;
+          id(g_va_indicator_pulse) = false;
+      - script.execute: va_apply_current
+
+
+  - id: sync_panel_theme_to_ha
+    mode: restart
+    then:
+      - lambda: 'id(g_theme_push_to_ha) = true;'
+      - homeassistant.service:
+          service: input_select.select_option
+          data:
+            entity_id: input_select.panel_theme
+            option: !lambda |-
+              static const char *names[] = {
+                "Midnight", "Graphite", "Warm Home", "Nord", "High Contrast"
+              };
+              int i = id(g_panel_theme);
+              if (i < 0) i = 0;
+              if (i > 4) i = 4;
+              return std::string(names[i]);
+      - lambda: 'id(g_theme_push_to_ha) = false;'
+
+  - id: panel_theme_from_ha
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(ha_panel_theme).has_state()) return;
+          std::string x = id(ha_panel_theme).get_state();
+          static const char *names[] = {
+            "Midnight", "Graphite", "Warm Home", "Nord", "High Contrast"
+          };
+          int idx = 0;
+          for (int i = 0; i < 5; i++) {
+            if (x == names[i]) { idx = i; break; }
+          }
+          id(g_panel_theme) = idx;
+      - script.execute: apply_panel_theme
+
+  - id: panel_theme_prev
+    mode: restart
+    then:
+      - lambda: |-
+          int v = id(g_panel_theme) - 1;
+          if (v < 0) v = 4;
+          id(g_panel_theme) = v;
+      - script.execute: apply_panel_theme
+      - script.execute: sync_panel_theme_to_ha
+
+  - id: panel_theme_next
+    mode: restart
+    then:
+      - lambda: |-
+          int v = id(g_panel_theme) + 1;
+          if (v > 4) v = 0;
+          id(g_panel_theme) = v;
+      - script.execute: apply_panel_theme
+      - script.execute: sync_panel_theme_to_ha

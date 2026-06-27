@@ -38,22 +38,31 @@ media_player:
       speaker: panel_spk
       format: FLAC
 
+# Start local Okay Nabu detection whenever HA API is up. Voice assistant
+# (use_wake_word: true) owns the wake→Assist handoff — do NOT call
+# voice_assistant.start from micro_wake_word.on_wake_word_detected.
+script:
+  - id: ensure_wake_word_running
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_ha_connected);'
+          then:
+            - micro_wake_word.enable_model: okay_nabu_model
+            - micro_wake_word.start:
+                id: panel_mww
+            - logger.log:
+                level: INFO
+                tag: wake_word
+                format: "Okay Nabu engine armed"
+
 micro_wake_word:
   id: panel_mww
+  microphone: panel_mic
   models:
-    - model: okay_nabu
-  on_wake_word_detected:
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x003300), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Heard");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x00EE00), 0);
-    - voice_assistant.start:
-        id: panel_va
+    - id: okay_nabu_model
+      model: okay_nabu
 
 voice_assistant:
   id: panel_va
@@ -62,80 +71,32 @@ voice_assistant:
   micro_wake_word: panel_mww
   use_wake_word: true
   on_client_connected:
-    - micro_wake_word.start:
-        id: panel_mww
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = true;
-        id(g_va_indicator_phase) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Ready");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
+    - script.execute: ensure_wake_word_running
+    - script.execute: va_ui_set_ready
   on_client_disconnected:
-    - micro_wake_word.stop:
-        id: panel_mww
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x220808), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFF5252), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFF5252), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: HA Offline");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFCDD2), 0);
+    # Assist pipeline can reconnect independently of the ESPHome API. Do not
+    # stop local wake-word detection while HA is still connected — that left
+    # the panel permanently deaf until a full reboot.
+    - if:
+        condition:
+          lambda: 'return id(g_ha_connected);'
+        then:
+          - script.execute: ensure_wake_word_running
+          - script.execute: va_ui_set_ready
+        else:
+          - micro_wake_word.stop:
+              id: panel_mww
+          - script.execute: va_ui_set_offline
   on_wake_word_detected:
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x003300), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Listening");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x003300), 0);
-        lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0x00EE00), 0);
-        lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_mic_label), "Listening...");
-        lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(0x00EE00), 0);
-        lv_obj_clear_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
-        lv_obj_move_foreground(id(va_mic_overlay));
+    - logger.log:
+        level: INFO
+        tag: wake_word
+        format: "Okay Nabu heard — Assist listening"
+    - script.execute: va_ui_set_listening
   on_stt_end:
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x332200), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Thinking");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x332200), 0);
-        lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_mic_label), "Thinking...");
-        lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(0xFFAA00), 0);
+    - script.execute: va_ui_set_thinking
   on_tts_start:
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x000D33), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x4488FF), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x4488FF), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Speaking");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xAACCFF), 0);
-        lv_obj_set_style_bg_color(id(va_mic_overlay), lv_color_hex(0x000D33), 0);
-        lv_obj_set_style_border_color(id(va_mic_overlay), lv_color_hex(0x4488FF), 0);
-        lv_obj_set_style_img_recolor(id(va_mic_icon), lv_color_hex(0x4488FF), 0);
-        lv_obj_set_style_img_recolor_opa(id(va_mic_icon), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_mic_label), "Responding...");
-        lv_obj_set_style_text_color(id(va_mic_label), lv_color_hex(0x4488FF), 0);
+    - script.execute: va_ui_set_speaking
     - homeassistant.service:
         service: "${announce_script}"
         variables:
@@ -143,43 +104,36 @@ voice_assistant:
         data_template:
           message: "{{ msg }}"
   on_end:
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
-        id(g_va_indicator_pulse) = true;
-        id(g_va_indicator_phase) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Ready");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
-    - micro_wake_word.start:
-        id: panel_mww
+    - script.execute: va_ui_set_ready
+    - script.execute: ensure_wake_word_running
   on_error:
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        lv_obj_add_flag(id(va_mic_overlay), LV_OBJ_FLAG_HIDDEN);
-        id(g_va_indicator_pulse) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x220808), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0xFF5252), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0xFF5252), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Error");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0xFFCDD2), 0);
+    - script.execute: va_ui_set_error
     - delay: 3s
-    - micro_wake_word.start:
-        id: panel_mww
-    - lambda: |-
-        if (!id(g_lvgl_ready)) return;
-        id(g_va_indicator_pulse) = true;
-        id(g_va_indicator_phase) = false;
-        lv_obj_set_style_bg_color(id(va_state_pill), lv_color_hex(0x071A10), 0);
-        lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(0x1B5E20), 0);
-        lv_obj_set_style_bg_color(id(va_state_dot), lv_color_hex(0x69F0AE), 0);
-        lv_obj_set_style_bg_opa(id(va_state_dot), LV_OPA_COVER, 0);
-        lv_label_set_text(id(va_state_label), "Wake: Ready");
-        lv_obj_set_style_text_color(id(va_state_label), lv_color_hex(0x69F0AE), 0);
+    - script.execute: ensure_wake_word_running
+    - script.execute: va_ui_set_ready
+
+# Safety net: if wake-word detection stops while HA is up and Assist is idle,
+# restart it (e.g. after a failed voice session or Assist pipeline reconnect).
+interval:
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: 'return id(g_ha_connected);'
+              - not:
+                  voice_assistant.is_running:
+                    id: panel_va
+              - not:
+                  micro_wake_word.is_running:
+                    id: panel_mww
+          then:
+            - logger.log:
+                level: WARN
+                tag: wake_word
+                format: "MWW idle while HA up — restarting"
+            - script.execute: ensure_wake_word_running
+            - script.execute: va_ui_set_ready
 
 sensor:
   - platform: adc

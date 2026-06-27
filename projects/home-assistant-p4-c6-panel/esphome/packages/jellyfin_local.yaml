@@ -1,0 +1,1039 @@
+# ─── Jellyfin browse page ─────────────────────────────────────────────────────
+# Movie list + posters: LAN jellyfin-proxy (:8767). Direct Jellyfin API calls from
+# the panel were unreliable (auth headers / concurrent http_request); the proxy
+# talks to Jellyfin on the server and returns panel-friendly JSON + JPEG posters.
+
+globals:
+  - id: g_jf_bridge_ok
+    type: bool
+    restore_value: false
+  - id: g_jf_busy
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: g_jf_page_active
+    type: bool
+    restore_value: false
+  - id: g_jf_start_index
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: g_jf_total
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: g_jf_selected_row
+    type: int
+    restore_value: false
+    initial_value: '-1'
+  - id: g_jf_movies_json
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_jf_selected_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_jf_selected_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_jf_selected_year
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: g_jf_user_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_jf_cast_idx
+    type: int
+    restore_value: true
+    initial_value: '0'
+
+online_image:
+  - id: jf_poster
+    url: "${jellyfin_proxy_url}/poster/none"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 280x400
+    buffer_size: 65536
+    update_interval: never
+    request_headers:
+      Accept: image/jpeg
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active) && id(g_lvgl_ready)) {
+            lv_img_set_src(id(jf_poster_widget), id(jf_poster).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_poster_widget));
+          }
+  - id: jf_row_img_0
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_0), id(jf_row_img_0).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_0));
+          }
+  - id: jf_row_img_1
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_1), id(jf_row_img_1).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_1));
+          }
+  - id: jf_row_img_2
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_2), id(jf_row_img_2).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_2));
+          }
+  - id: jf_row_img_3
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_3), id(jf_row_img_3).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_3));
+          }
+  - id: jf_row_img_4
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_4), id(jf_row_img_4).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_4));
+          }
+  - id: jf_row_img_5
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_5), id(jf_row_img_5).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_5));
+          }
+  - id: jf_row_img_6
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_6), id(jf_row_img_6).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_6));
+          }
+  - id: jf_row_img_7
+    url: "${jellyfin_proxy_url}/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_jf_page_active)) {
+            lv_img_set_src(id(jf_row_pic_7), id(jf_row_img_7).get_lv_img_dsc());
+            lv_obj_invalidate(id(jf_row_pic_7));
+          }
+
+script:
+  - id: jf_poll_health
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${jellyfin_proxy_url}/health"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: 'id(g_jf_bridge_ok) = (response->status_code == 200);'
+          on_error:
+            then:
+              - lambda: 'id(g_jf_bridge_ok) = false;'
+
+  - id: jf_apply_ui
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+
+          bool ready = id(g_jf_bridge_ok) && !id(g_jf_busy);
+          lv_label_set_text(id(jf_status_lbl),
+            !id(g_jf_bridge_ok) ? "Jellyfin proxy offline" :
+            !id(g_ha_connected) ? "Home Assistant offline — cast disabled" :
+            id(g_jf_busy) ? "Loading movies..." :
+            id(g_jf_total) == 0 ? "No movies found" : "Tap a poster, then Play");
+
+          lv_obj_t *rows[] = {
+            id(jf_row_0), id(jf_row_1), id(jf_row_2), id(jf_row_3),
+            id(jf_row_4), id(jf_row_5), id(jf_row_6), id(jf_row_7),
+          };
+          lv_obj_t *labels[] = {
+            id(jf_row_lbl_0), id(jf_row_lbl_1), id(jf_row_lbl_2), id(jf_row_lbl_3),
+            id(jf_row_lbl_4), id(jf_row_lbl_5), id(jf_row_lbl_6), id(jf_row_lbl_7),
+          };
+
+          int count = 0;
+          if (!id(g_jf_movies_json).empty()) {
+            json::parse_json(id(g_jf_movies_json), [&](JsonObject root) -> bool {
+              JsonArray arr = root["movies"];
+              count = arr.size();
+              for (int i = 0; i < 8; i++) {
+                if (i < count) {
+                  JsonObject m = arr[i];
+                  const char *name = m["name"] | "?";
+                  int year = m["year"] | 0;
+                  char line[96];
+                  if (year > 0) snprintf(line, sizeof(line), "%s (%d)", name, year);
+                  else snprintf(line, sizeof(line), "%s", name);
+                  lv_label_set_text(labels[i], line);
+                  lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+                  bool sel = (i == id(g_jf_selected_row));
+                  lv_obj_set_style_bg_color(rows[i], lv_color_hex(sel ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg)), 0);
+                  lv_obj_set_style_border_color(rows[i], lv_color_hex(sel ? (uint32_t) id(g_theme_accent) : 0x243B55), 0);
+                  lv_obj_set_style_text_color(labels[i], lv_color_hex(sel ? (uint32_t) id(g_theme_accent) : 0xFFFFFF), 0);
+                } else {
+                  lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+                }
+              }
+              return true;
+            });
+          } else {
+            for (int i = 0; i < 8; i++) lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+          }
+
+          char page_buf[48];
+          int end = id(g_jf_start_index) + count;
+          if (id(g_jf_total) > 0) {
+            snprintf(page_buf, sizeof(page_buf), "%d-%d of %d",
+                     id(g_jf_start_index) + 1, end > 0 ? end : id(g_jf_start_index), id(g_jf_total));
+          } else {
+            snprintf(page_buf, sizeof(page_buf), "--");
+          }
+          lv_label_set_text(id(jf_page_lbl), page_buf);
+
+          if (!id(g_jf_selected_name).empty()) {
+            char title[128];
+            if (id(g_jf_selected_year) > 0)
+              snprintf(title, sizeof(title), "%s (%d)", id(g_jf_selected_name).c_str(), id(g_jf_selected_year));
+            else
+              snprintf(title, sizeof(title), "%s", id(g_jf_selected_name).c_str());
+            lv_label_set_text(id(jf_detail_title), title);
+          } else {
+            lv_label_set_text(id(jf_detail_title), ready ? "Select a movie" : "Jellyfin unavailable");
+          }
+
+          lv_obj_set_style_text_color(id(jf_status_lbl),
+            lv_color_hex(!id(g_jf_bridge_ok) ? (uint32_t) id(g_theme_warning) : (uint32_t) id(g_theme_text_muted)), 0);
+      - script.execute: jf_apply_cast_ui
+
+  - id: jf_apply_cast_ui
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          int n = 0;
+          if ("${jf_cast1_label}"[0]) n++;
+          if ("${jf_cast2_label}"[0]) n++;
+          if ("${jf_cast3_label}"[0]) n++;
+          if ("${jf_cast4_label}"[0]) n++;
+          if (n < 1) n = 1;
+          if (id(g_jf_cast_idx) >= n) id(g_jf_cast_idx) = 0;
+          if (id(g_jf_cast_idx) < 0) id(g_jf_cast_idx) = 0;
+          const char *labels[4] = {
+            "${jf_cast1_label}", "${jf_cast2_label}",
+            "${jf_cast3_label}", "${jf_cast4_label}",
+          };
+          const char *lbl = labels[id(g_jf_cast_idx)];
+          char line[64];
+          snprintf(line, sizeof(line), "Cast: %s", lbl[0] ? lbl : "Default");
+          lv_label_set_text(id(jf_cast_lbl), line);
+          lv_obj_set_style_text_color(id(jf_cast_lbl),
+            lv_color_hex((uint32_t) id(g_theme_text_secondary)), 0);
+
+  - id: jf_cast_prev
+    mode: single
+    then:
+      - lambda: |-
+          int n = 0;
+          if ("${jf_cast1_label}"[0]) n++;
+          if ("${jf_cast2_label}"[0]) n++;
+          if ("${jf_cast3_label}"[0]) n++;
+          if ("${jf_cast4_label}"[0]) n++;
+          if (n < 1) n = 1;
+          id(g_jf_cast_idx) = (id(g_jf_cast_idx) + n - 1) % n;
+      - script.execute: jf_apply_cast_ui
+
+  - id: jf_cast_next
+    mode: single
+    then:
+      - lambda: |-
+          int n = 0;
+          if ("${jf_cast1_label}"[0]) n++;
+          if ("${jf_cast2_label}"[0]) n++;
+          if ("${jf_cast3_label}"[0]) n++;
+          if ("${jf_cast4_label}"[0]) n++;
+          if (n < 1) n = 1;
+          id(g_jf_cast_idx) = (id(g_jf_cast_idx) + 1) % n;
+      - script.execute: jf_apply_cast_ui
+
+  - id: jf_load_one_row_poster
+    mode: single
+    parameters:
+      row: int
+    then:
+      - lambda: |-
+          if (id(g_jf_movies_json).empty()) return;
+          json::parse_json(id(g_jf_movies_json), [&](JsonObject root) -> bool {
+            JsonArray arr = root["movies"];
+            int r = row;
+            if (r < 0 || r >= (int) arr.size()) return true;
+            const char *mid = arr[r]["id"] | "";
+            if (!mid[0]) return true;
+            std::string url = "${jellyfin_proxy_url}/poster/";
+            url += mid;
+            switch (r) {
+              case 0: id(jf_row_img_0).set_url(url); id(jf_row_img_0).update(); break;
+              case 1: id(jf_row_img_1).set_url(url); id(jf_row_img_1).update(); break;
+              case 2: id(jf_row_img_2).set_url(url); id(jf_row_img_2).update(); break;
+              case 3: id(jf_row_img_3).set_url(url); id(jf_row_img_3).update(); break;
+              case 4: id(jf_row_img_4).set_url(url); id(jf_row_img_4).update(); break;
+              case 5: id(jf_row_img_5).set_url(url); id(jf_row_img_5).update(); break;
+              case 6: id(jf_row_img_6).set_url(url); id(jf_row_img_6).update(); break;
+              case 7: id(jf_row_img_7).set_url(url); id(jf_row_img_7).update(); break;
+            }
+            return true;
+          });
+
+  # One thumbnail at a time — parallel online_image downloads often fail on P4.
+  - id: jf_load_row_posters
+    mode: restart
+    then:
+      - script.execute: { id: jf_load_one_row_poster, row: 0 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 1 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 2 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 3 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 4 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 5 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 6 }
+      - delay: 300ms
+      - script.execute: { id: jf_load_one_row_poster, row: 7 }
+
+  - id: jf_fetch_movies
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_jf_busy);'
+          then: []
+          else:
+            - lambda: 'id(g_jf_busy) = true;'
+            - script.execute: jf_apply_ui
+            - http_request.get:
+                url: !lambda |-
+                  char url[160];
+                  snprintf(url, sizeof(url), "${jellyfin_proxy_url}/movies?start=%d&limit=8",
+                           id(g_jf_start_index));
+                  return std::string(url);
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        id(g_jf_busy) = false;
+                        if (response->status_code != 200) {
+                          id(g_jf_movies_json) = "";
+                          id(g_jf_total) = 0;
+                          id(g_jf_bridge_ok) = false;
+                        } else {
+                          id(g_jf_bridge_ok) = true;
+                          id(g_jf_movies_json) = body;
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                            id(g_jf_total) = root["total"] | 0;
+                            return true;
+                          });
+                          if (id(g_jf_selected_row) < 0) {
+                            id(jf_select_row).execute(0);
+                          } else {
+                            id(jf_load_row_posters).execute();
+                          }
+                        }
+                        id(jf_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_jf_busy) = false;
+                        id(g_jf_bridge_ok) = false;
+                        id(jf_apply_ui).execute();
+
+  - id: jf_select_row
+    mode: restart
+    parameters:
+      row: int
+    then:
+      - lambda: |-
+          id(g_jf_selected_row) = row;
+          id(g_jf_selected_id) = "";
+          id(g_jf_selected_name) = "";
+          id(g_jf_selected_year) = 0;
+          if (!id(g_jf_movies_json).empty()) {
+            json::parse_json(id(g_jf_movies_json), [&](JsonObject root) -> bool {
+              JsonArray arr = root["movies"];
+              if (row >= 0 && row < (int) arr.size()) {
+                JsonObject m = arr[row];
+                id(g_jf_selected_id) = m["id"] | "";
+                id(g_jf_selected_name) = m["name"] | "";
+                id(g_jf_selected_year) = m["year"] | 0;
+              }
+              return true;
+            });
+          }
+      - if:
+          condition:
+            lambda: 'return !id(g_jf_selected_id).empty();'
+          then:
+            - online_image.set_url:
+                id: jf_poster
+                url: !lambda |-
+                  return "${jellyfin_proxy_url}/poster/" + id(g_jf_selected_id);
+                update: true
+      - script.execute: jf_apply_ui
+
+  - id: jf_play_selected
+    mode: single
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: 'return !id(g_jf_selected_id).empty();'
+              - lambda: 'return id(g_ha_connected);'
+          then:
+            - logger.log:
+                level: INFO
+                tag: jellyfin
+                format: "Play request: %s"
+                args: ['id(g_jf_selected_name).c_str()']
+            - homeassistant.service:
+                service: "${jellyfin_play_script}"
+                data:
+                  item_id: !lambda 'return id(g_jf_selected_id);'
+                  item_name: !lambda 'return id(g_jf_selected_name);'
+                  media_player: !lambda |-
+                    const char *entities[4] = {
+                      "${jf_cast1_entity}", "${jf_cast2_entity}",
+                      "${jf_cast3_entity}", "${jf_cast4_entity}",
+                    };
+                    int idx = id(g_jf_cast_idx);
+                    if (idx < 0) idx = 0;
+                    if (idx > 3) idx = 3;
+                    const char *ent = entities[idx];
+                    if (!ent[0]) ent = "${jf_cast1_entity}";
+                    return std::string(ent);
+            - lvgl.label.update:
+                id: jf_status_lbl
+                text: !lambda |-
+                  const char *labels[4] = {
+                    "${jf_cast1_label}", "${jf_cast2_label}",
+                    "${jf_cast3_label}", "${jf_cast4_label}",
+                  };
+                  int idx = id(g_jf_cast_idx);
+                  if (idx < 0) idx = 0;
+                  if (idx > 3) idx = 3;
+                  char msg[96];
+                  snprintf(msg, sizeof(msg), "Casting to %s…",
+                           labels[idx][0] ? labels[idx] : "device");
+                  return std::string(msg);
+          else:
+            - lvgl.label.update:
+                id: jf_status_lbl
+                text: !lambda |-
+                  if (!id(g_ha_connected)) return std::string("Home Assistant offline");
+                  return std::string("Select a movie first");
+
+  - id: jf_page_prev
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_jf_start_index) >= 8 && !id(g_jf_busy);'
+          then:
+            - lambda: |-
+                id(g_jf_start_index) -= 8;
+                id(g_jf_selected_row) = -1;
+                id(g_jf_selected_id) = "";
+            - script.execute: jf_fetch_movies
+
+  - id: jf_page_next
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return (id(g_jf_start_index) + 8) < id(g_jf_total) && !id(g_jf_busy);'
+          then:
+            - lambda: |-
+                id(g_jf_start_index) += 8;
+                id(g_jf_selected_row) = -1;
+                id(g_jf_selected_id) = "";
+            - script.execute: jf_fetch_movies
+
+interval:
+  - interval: 120s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_jf_page_active);'
+          then:
+            - script.execute: jf_poll_health
+
+lvgl:
+  pages:
+    - id: jellyfin_page
+      bg_color: 0x071019
+      on_load:
+        - lambda: 'id(g_jf_page_active) = true;'
+        - script.execute: jf_apply_cast_ui
+        - script.execute: jf_fetch_movies
+      on_unload:
+        - lambda: |-
+            id(g_jf_page_active) = false;
+            id(g_jf_busy) = false;
+      on_swipe_right:
+        - lvgl.page.show: tuya_page
+      on_swipe_left:
+        - lvgl.page.show: slideshow_page
+      widgets:
+        - obj:
+            id: jf_header_bar
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0B1624
+            bg_opa: 98%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - button:
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Jellyfin Movies"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: tuya_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+
+        - obj:
+            id: jf_list_panel
+            x: 16
+            y: 68
+            width: 500
+            height: 470
+            align: TOP_LEFT
+            bg_color: 0x0D1624
+            bg_opa: 95%
+            border_color: 0x243B55
+            border_width: 2
+            radius: 16
+            pad_all: 8
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 4
+                  y: 0
+                  text: "Library"
+                  text_font: montserrat_18
+                  text_color: 0x7EB8FF
+              - button:
+                  id: jf_row_0
+                  align: TOP_LEFT
+                  x: 0
+                  y: 28
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 0
+                  widgets:
+                    - image:
+                        id: jf_row_pic_0
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_0
+                    - label:
+                        id: jf_row_lbl_0
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_1
+                  align: TOP_LEFT
+                  x: 0
+                  y: 80
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 1
+                  widgets:
+                    - image:
+                        id: jf_row_pic_1
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_1
+                    - label:
+                        id: jf_row_lbl_1
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_2
+                  align: TOP_LEFT
+                  x: 0
+                  y: 132
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 2
+                  widgets:
+                    - image:
+                        id: jf_row_pic_2
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_2
+                    - label:
+                        id: jf_row_lbl_2
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_3
+                  align: TOP_LEFT
+                  x: 0
+                  y: 184
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 3
+                  widgets:
+                    - image:
+                        id: jf_row_pic_3
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_3
+                    - label:
+                        id: jf_row_lbl_3
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_4
+                  align: TOP_LEFT
+                  x: 0
+                  y: 236
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 4
+                  widgets:
+                    - image:
+                        id: jf_row_pic_4
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_4
+                    - label:
+                        id: jf_row_lbl_4
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_5
+                  align: TOP_LEFT
+                  x: 0
+                  y: 288
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 5
+                  widgets:
+                    - image:
+                        id: jf_row_pic_5
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_5
+                    - label:
+                        id: jf_row_lbl_5
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_6
+                  align: TOP_LEFT
+                  x: 0
+                  y: 340
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 6
+                  widgets:
+                    - image:
+                        id: jf_row_pic_6
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_6
+                    - label:
+                        id: jf_row_lbl_6
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+              - button:
+                  id: jf_row_7
+                  align: TOP_LEFT
+                  x: 0
+                  y: 392
+                  width: 476
+                  height: 48
+                  bg_color: 0x122033
+                  radius: 10
+                  border_width: 1
+                  border_color: 0x243B55
+                  on_click:
+                    - script.execute:
+                        id: jf_select_row
+                        row: 7
+                  widgets:
+                    - image:
+                        id: jf_row_pic_7
+                        align: LEFT_MID
+                        x: 4
+                        src: jf_row_img_7
+                    - label:
+                        id: jf_row_lbl_7
+                        align: LEFT_MID
+                        x: 46
+                        text: "--"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+
+        - obj:
+            id: jf_detail_panel
+            x: 528
+            y: 68
+            width: 480
+            height: 470
+            align: TOP_LEFT
+            bg_color: 0x0D1624
+            bg_opa: 95%
+            border_color: 0x243B55
+            border_width: 2
+            radius: 16
+            pad_all: 10
+            widgets:
+              - obj:
+                  align: TOP_MID
+                  x: 0
+                  y: 0
+                  width: 280
+                  height: 400
+                  bg_color: 0x000000
+                  radius: 12
+                  border_width: 1
+                  border_color: 0x243B55
+                  pad_all: 0
+                  widgets:
+                    - image:
+                        id: jf_poster_widget
+                        align: CENTER
+                        src: jf_poster
+              - label:
+                  id: jf_detail_title
+                  align: TOP_MID
+                  y: 408
+                  width: 440
+                  text: "Select a movie"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+                  text_align: CENTER
+
+        - label:
+            id: jf_cast_lbl
+            align: BOTTOM_LEFT
+            x: 528
+            y: -58
+            text: "Cast: --"
+            text_font: montserrat_16
+            text_color: 0x8FA6C3
+
+        - button:
+            id: jf_cast_prev_btn
+            align: BOTTOM_LEFT
+            x: 528
+            y: -14
+            width: 44
+            height: 46
+            bg_color: 0x1A3552
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: jf_cast_prev
+            widgets:
+              - label: { align: CENTER, text: "<", text_font: montserrat_20, text_color: 0xFFFFFF }
+
+        - button:
+            id: jf_cast_next_btn
+            align: BOTTOM_LEFT
+            x: 780
+            y: -14
+            width: 44
+            height: 46
+            bg_color: 0x1A3552
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: jf_cast_next
+            widgets:
+              - label: { align: CENTER, text: ">", text_font: montserrat_20, text_color: 0xFFFFFF }
+
+        - button:
+            id: jf_play_btn
+            align: BOTTOM_LEFT
+            x: 578
+            y: -14
+            width: 196
+            height: 46
+            bg_color: 0x1E6B3A
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: jf_play_selected
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Cast Play"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+
+        - button:
+            id: jf_refresh_btn
+            align: BOTTOM_LEFT
+            x: 830
+            y: -14
+            width: 100
+            height: 46
+            bg_color: 0x1A3552
+            radius: 12
+            border_width: 0
+            on_click:
+              - lambda: |-
+                  id(g_jf_selected_row) = -1;
+                  id(g_jf_selected_id) = "";
+              - script.execute: jf_fetch_movies
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Refresh"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+
+        - button:
+            id: jf_prev_btn
+            align: BOTTOM_LEFT
+            x: 16
+            y: -14
+            width: 90
+            height: 46
+            bg_color: 0x1A3552
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: jf_page_prev
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "<"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+
+        - button:
+            id: jf_next_btn
+            align: BOTTOM_LEFT
+            x: 112
+            y: -14
+            width: 90
+            height: 46
+            bg_color: 0x1A3552
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: jf_page_next
+            widgets:
+              - label:
+                  align: CENTER
+                  text: ">"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+
+        - label:
+            id: jf_page_lbl
+            align: BOTTOM_LEFT
+            x: 220
+            y: -8
+            text: "--"
+            text_font: montserrat_16
+            text_color: 0x8FA6C3
+
+        - label:
+            id: jf_status_lbl
+            align: BOTTOM_LEFT
+            x: 220
+            y: -30
+            text: "Loading..."
+            text_font: montserrat_14
+            text_color: 0x8FA6C3

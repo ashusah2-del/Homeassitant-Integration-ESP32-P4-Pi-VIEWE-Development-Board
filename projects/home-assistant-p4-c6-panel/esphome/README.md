@@ -7,12 +7,12 @@ Raspberry Pi 5.
 
 The panel replaces a wall-mounted HA dashboard tablet. It boots to a
 photo-frame style **Immich slideshow** when idle, then exposes
-**seven purpose-built pages of live home controls** by swipe gesture:
+**eight purpose-built pages of live home controls** by swipe gesture:
 
 ```
-slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ energy ◀─swipe─▶ cameras ◀─swipe─▶ tuya
-   ▲                                                                                                     │
-   └────── 30s idle timeout ──────────────────────────────────────────────────────────────────────────────┘
+slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ energy ◀─swipe─▶ cameras ◀─swipe─▶ tuya ◀─swipe─▶ jellyfin
+   ▲                                                                                                                          │
+   └────────────────────────────── 30s idle timeout ───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -36,9 +36,10 @@ The default idle screen, modelled on a digital photo frame.
   rotated through if Immich is unreachable after three retries.
 - **HA-disconnected overlay** appears full-screen if no API client is
   connected, with a "reconnecting…" hint.
-- **Wake-word status pill** shows `Wake: Ready` with a pulsing green dot
-  while local "Okay Nabu" detection is armed, then changes through
-  Listening / Thinking / Speaking / Error states during Assist.
+- **Wake-word status pill** shows `Wake: Ready` with a pulsing dot
+  while local "Okay Nabu" detection is armed (colours follow the active
+  panel theme), then changes through Listening / Thinking / Speaking /
+  Error states during Assist.
 - **Layout settings** are launched from Settings. They let the calendar,
   weather widget, clock/date, and wake-word pill be shown or hidden, then
   dragged around the slideshow; visibility and positions are saved on the
@@ -148,12 +149,55 @@ version, Tuya bridge) plus on-panel tunables:
 - Slideshow interval (1–1440 min, syncs to `input_number.panel_slideshow_interval`)
 - Calendar overlay opacity (0–100 %, syncs to `input_number.panel_calendar_opacity`)
 - Slide transition effect (6 modes, syncs to `input_number.panel_transition_effect`)
+- **Panel colour theme** — five palettes cycled with `<` / `>`; syncs
+  bidirectionally to HA helper `input_select.panel_theme`
 - Backlight brightness (10–100 %)
 - Layout Settings subpage for showing/hiding and positioning the
   calendar, weather, time, and wake-word overlays
 
 Reached from the "Settings" link in the dashboard's bottom bar.
 Immich URL and calendar events can still be edited via HA helpers.
+
+---
+
+## Panel colour themes
+
+Five switchable palettes unify the entire LVGL UI at runtime via semantic
+tokens in `packages/theme_palettes.yaml`:
+
+| Index | Name | Character |
+|---|---|---|
+| 0 | Midnight | Green accent, current production look |
+| 1 | Graphite | Neutral Material dark, blue accent |
+| 2 | Warm Home | Amber/cozy tones |
+| 3 | Nord | Frost palette |
+| 4 | High Contrast | Accessibility (yellow on black) |
+
+**On-panel:** Settings → scroll the left column → **Panel colour theme**
+→ `<` / `>`.
+
+**Home Assistant:** create a Dropdown helper so changes sync both ways:
+
+```
+Settings → Devices & Services → Helpers → Create Helper → Dropdown
+  Name:       Panel Theme
+  Entity ID:  input_select.panel_theme
+  Options:    Midnight
+              Graphite
+              Warm Home
+              Nord
+              High Contrast
+```
+
+When the panel cycles a theme it calls `input_select.select_option`; when
+you change the helper in HA the panel applies the matching palette on the
+next state push. The chosen index is also stored in NVS (`g_panel_theme`)
+so the panel remembers its theme across reboots.
+
+Themed surfaces include page backgrounds, header/footer bars, cards
+(dashboard, Tado, presence, energy, cameras, Tuya), slideshow overlays,
+voice/wake pills, crash/HA-disconnect banners, and runtime status colours
+(lamps, presence dots, Tuya device states).
 
 ---
 
@@ -183,6 +227,26 @@ Config lives in `proxy.env` (gitignored): Immich URL + API key, HA URL
 + long-lived token, JPEG quality, retry count, and optional
 `FAVORITES_ONLY` / `IMMICH_PERSON_NAMES`.
 
+### Jellyfin proxy (`jellyfin-proxy/`)
+
+A small Python service (default port **8767**) that talks to Jellyfin on
+your LAN and exposes panel-friendly endpoints:
+
+- `GET /health` — bridge health check used on Wi-Fi connect and page load
+- `GET /movies?start=0&limit=8` — paginated movie list (JSON)
+- `GET /poster/<item_id>` — poster re-encoded as SOF0 baseline JPEG
+- `POST /play/<item_id>` — optional direct play on an active Jellyfin
+  client (requires `JELLYFIN_PLAY_CLIENT` in `proxy.env`)
+
+Config: copy `proxy.env.example` → `proxy.env` with `JELLYFIN_URL` and
+`JELLYFIN_API_KEY` (Dashboard → Advanced → API Keys).
+
+**Playback note:** The ESP32-P4 panel has no H.264/HEVC video decoder.
+The Jellyfin page browses your library and shows posters; tapping **Play**
+calls `script.jellyfin_play_on_panel` in Home Assistant so you can route
+playback to a TV, Shield, Chromecast, or the panel speaker (audio-only).
+Edit the script in `home_assistant/packages/esp32p4_panel.yaml`.
+
 ### Home-Assistant integration
 
 The panel uses ESPHome's native API (port 6053, noise-encrypted) with
@@ -207,8 +271,10 @@ home-assistant-p4-c6-panel/esphome/
 ├── packages/
 │   ├── core_ha.yaml                    ← API, OTA, safe_mode, HA sensors
 │   ├── display_touch_board.yaml        ← LVGL UI, all pages, online_image, scripts
+│   ├── theme_palettes.yaml             ← Five palettes, apply_panel_theme, voice UI colours
 │   ├── audio_voice_board.yaml          ← I2S codec, microWakeWord, voice assistant
 │   ├── tuya_local.yaml                 ← Tuya LAN page + HTTP scripts
+│   ├── jellyfin_local.yaml             ← Jellyfin movie browse page
 │   └── secrets.yaml                    ← (gitignored)
 └── secrets.yaml.example
 ```

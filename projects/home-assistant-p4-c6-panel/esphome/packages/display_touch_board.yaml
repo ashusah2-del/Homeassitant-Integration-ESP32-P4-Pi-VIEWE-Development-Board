@@ -200,6 +200,8 @@ globals:
   # Slideshow layout edit mode. The position globals are LVGL x/y offsets for
   # the draggable overlays and are restored on boot so custom placement sticks.
   - { id: g_layout_edit_mode, type: bool, restore_value: no, initial_value: 'false' }
+  # Once true, g_layout_*_x/y are absolute TOP_LEFT coords (legacy saves used anchor offsets).
+  - { id: g_layout_use_absolute, type: bool, restore_value: yes, initial_value: 'false' }
   - { id: g_layout_calendar_x, type: int, restore_value: yes, initial_value: '0' }
   - { id: g_layout_calendar_y, type: int, restore_value: yes, initial_value: '0' }
   - { id: g_layout_weather_x, type: int, restore_value: yes, initial_value: '-14' }
@@ -212,6 +214,7 @@ globals:
   - { id: g_layout_weather_visible, type: bool, restore_value: yes, initial_value: 'true' }
   - { id: g_layout_clock_visible, type: bool, restore_value: yes, initial_value: 'true' }
   - { id: g_layout_wake_visible, type: bool, restore_value: yes, initial_value: 'true' }
+  - { id: g_layout_bubble_visible, type: bool, restore_value: yes, initial_value: 'true' }
   # If the previous boot was a real fault, on_boot writes the human-
   # readable reason here. on_client_connected fires a persistent
   # notification into HA the first time HA reconnects and clears the
@@ -235,7 +238,7 @@ online_image:
     byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
-    update_interval: 60s
+    update_interval: never
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
@@ -250,7 +253,7 @@ online_image:
     byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
-    update_interval: 60s
+    update_interval: never
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
@@ -265,7 +268,7 @@ online_image:
     byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
-    update_interval: 60s
+    update_interval: never
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
@@ -280,7 +283,7 @@ online_image:
     byte_order: LITTLE_ENDIAN
     resize: 240x144
     buffer_size: 24576
-    update_interval: 60s
+    update_interval: never
     request_headers: { Accept: image/jpeg }
     on_download_finished:
       - lambda: |-
@@ -343,7 +346,10 @@ online_image:
             # g_slideshow_slot, which hasn't been advanced on a failed load.
             - online_image.set_url:
                 id: immich_photo
-                url: "${proxy_url}/random-photo"
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/random-photo?t=") + t;
                 update: true
           else:
             - globals.set: { id: g_immich_retry, value: '0' }
@@ -382,7 +388,10 @@ online_image:
             - globals.set: { id: g_immich_retry, value: !lambda return id(g_immich_retry) + 1; }
             - online_image.set_url:
                 id: immich_photo_b
-                url: "${proxy_url}/random-photo"
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/random-photo?t=") + t;
                 update: true
           else:
             - globals.set: { id: g_immich_retry, value: '0' }
@@ -392,6 +401,138 @@ online_image:
             - script.execute: try_fallback_image
 
 script:
+  - id: prepare_settings_page
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          lv_obj_clear_flag(id(settings_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_scroll_to(id(settings_page).obj, 0, 0, LV_ANIM_OFF);
+          lv_obj_add_flag(id(settings_footer), LV_OBJ_FLAG_FLOATING);
+          lv_obj_move_foreground(id(settings_footer));
+          lv_obj_add_flag(id(settings_left_panel), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_add_flag(id(settings_right_panel), LV_OBJ_FLAG_SCROLLABLE);
+
+  - id: prepare_layout_settings_page
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          lv_obj_clear_flag(id(layout_settings_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_scroll_to(id(layout_settings_page).obj, 0, 0, LV_ANIM_OFF);
+          lv_obj_add_flag(id(layout_settings_footer), LV_OBJ_FLAG_FLOATING);
+          lv_obj_move_foreground(id(layout_settings_footer));
+
+  - id: apply_slideshow_layout_positions
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          if (!id(g_layout_use_absolute)) {
+            id(g_layout_weather_x) = 1024 - 210 + id(g_layout_weather_x);
+            id(g_layout_weather_y) = 600 - 224 + id(g_layout_weather_y);
+            id(g_layout_clock_x) = 1024 - 220 + id(g_layout_clock_x);
+            id(g_layout_wake_x) = 1024 - 190 + id(g_layout_wake_x);
+            id(g_layout_use_absolute) = true;
+          }
+          lv_obj_set_align(id(calendar_panel), LV_ALIGN_TOP_LEFT);
+          lv_obj_set_align(id(weather_widget), LV_ALIGN_TOP_LEFT);
+          lv_obj_set_align(id(clock_pill_obj), LV_ALIGN_TOP_LEFT);
+          lv_obj_set_align(id(va_state_pill), LV_ALIGN_TOP_LEFT);
+          lv_obj_set_pos(id(calendar_panel), id(g_layout_calendar_x), id(g_layout_calendar_y));
+          lv_obj_set_pos(id(weather_widget), id(g_layout_weather_x), id(g_layout_weather_y));
+          lv_obj_set_pos(id(clock_pill_obj), id(g_layout_clock_x), id(g_layout_clock_y));
+          lv_obj_set_pos(id(va_state_pill), id(g_layout_wake_x), id(g_layout_wake_y));
+          lv_obj_set_width(id(slideshow_clock), 210);
+          lv_obj_set_width(id(slideshow_date_lbl), 210);
+          lv_obj_set_style_text_align(id(slideshow_clock), LV_TEXT_ALIGN_CENTER, 0);
+          lv_obj_set_style_text_align(id(slideshow_date_lbl), LV_TEXT_ALIGN_CENTER, 0);
+          lv_obj_align(id(slideshow_clock), LV_ALIGN_CENTER, 0, -18);
+          lv_obj_align(id(slideshow_date_lbl), LV_ALIGN_CENTER, 0, 28);
+
+  - id: reset_layout_defaults
+    mode: restart
+    then:
+      - lambda: |-
+          id(g_layout_calendar_x) = 0;
+          id(g_layout_calendar_y) = 0;
+          id(g_layout_weather_x) = 800;
+          id(g_layout_weather_y) = 362;
+          id(g_layout_clock_x) = 794;
+          id(g_layout_clock_y) = 8;
+          id(g_layout_wake_x) = 816;
+          id(g_layout_wake_y) = 126;
+          id(g_layout_use_absolute) = true;
+      - script.execute: apply_slideshow_layout_positions
+
+  - id: enter_layout_edit_mode
+    mode: restart
+    then:
+      - script.execute: apply_slideshow_layout_positions
+      - script.execute: apply_panel_theme
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          id(g_layout_edit_mode) = true;
+          lv_obj_add_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(calendar_panel), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(weather_widget), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(clock_pill_obj), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(va_state_pill), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(layout_edit_scrim), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(slideshow_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(slideshow_img), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_clear_flag(id(slideshow_img_b), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_clear_flag(id(stock_fallback_img), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_move_background(id(slideshow_img));
+          lv_obj_move_background(id(slideshow_img_b));
+          lv_obj_move_background(id(stock_fallback_img));
+          lv_obj_move_foreground(id(layout_edit_scrim));
+          uint32_t accent = (uint32_t) id(g_theme_accent);
+          uint32_t overlay = (uint32_t) id(g_theme_overlay_bg);
+          lv_obj_set_style_border_width(id(calendar_panel), 3, 0);
+          lv_obj_set_style_border_color(id(calendar_panel), lv_color_hex(accent), 0);
+          lv_obj_set_style_bg_color(id(weather_widget), lv_color_hex(overlay), 0);
+          lv_obj_set_style_bg_opa(id(weather_widget), LV_OPA_70, 0);
+          lv_obj_set_style_border_width(id(weather_widget), 2, 0);
+          lv_obj_set_style_border_color(id(weather_widget), lv_color_hex(accent), 0);
+          lv_obj_set_style_border_width(id(clock_pill_obj), 2, 0);
+          lv_obj_set_style_border_color(id(clock_pill_obj), lv_color_hex(accent), 0);
+          lv_obj_set_style_bg_opa(id(clock_pill_obj), LV_OPA_70, 0);
+          lv_obj_set_style_border_width(id(va_state_pill), 2, 0);
+          lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex(accent), 0);
+          lv_obj_move_foreground(id(calendar_panel));
+          lv_obj_move_foreground(id(weather_widget));
+          lv_obj_move_foreground(id(clock_pill_obj));
+          lv_obj_move_foreground(id(va_state_pill));
+          lv_obj_move_foreground(id(layout_edit_bar));
+
+  - id: exit_layout_edit_mode
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          id(g_layout_edit_mode) = false;
+          lv_obj_add_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(layout_edit_scrim), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_style_border_width(id(calendar_panel), 0, 0);
+          lv_obj_set_style_border_width(id(weather_widget), 0, 0);
+          lv_obj_set_style_border_width(id(clock_pill_obj), 0, 0);
+          lv_obj_set_style_bg_opa(id(clock_pill_obj), LV_OPA_50, 0);
+          lv_obj_set_style_border_width(id(va_state_pill), 1, 0);
+          int pct = id(g_calendar_opa_pct);
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+          uint32_t opa = (uint32_t)((pct * 255) / 100);
+          lv_obj_set_style_opa(id(calendar_panel), opa, 0);
+          lv_obj_set_style_opa(id(clock_pill_obj), opa, 0);
+          lv_obj_set_style_opa(id(slideshow_clock), opa, 0);
+          lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+          lv_obj_set_style_opa(id(weather_widget), LV_OPA_COVER, 0);
+      - script.execute: apply_slideshow_layout_visibility
+      - script.execute: apply_panel_theme
+
   - id: apply_slideshow_layout_visibility
     mode: restart
     then:
@@ -406,14 +547,15 @@ script:
           set_hidden(id(calendar_panel), !id(g_layout_calendar_visible));
           set_hidden(id(weather_widget), !id(g_layout_weather_visible));
           set_hidden(id(clock_pill_obj), !id(g_layout_clock_visible));
-          set_hidden(id(slideshow_clock), !id(g_layout_clock_visible));
-          set_hidden(id(slideshow_date_lbl), !id(g_layout_clock_visible));
           set_hidden(id(va_state_pill), !id(g_layout_wake_visible));
+          set_hidden(id(slideshow_layout_btn),
+            !id(g_layout_bubble_visible) || id(g_layout_edit_mode));
 
           lv_label_set_text(id(layout_calendar_toggle_lbl), id(g_layout_calendar_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_weather_toggle_lbl), id(g_layout_weather_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_clock_toggle_lbl), id(g_layout_clock_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_wake_toggle_lbl), id(g_layout_wake_visible) ? "Hide" : "Show");
+          lv_label_set_text(id(layout_bubble_toggle_lbl), id(g_layout_bubble_visible) ? "Hide" : "Show");
 
   # Renders the current "page" of calendar events into the 8 cal_row_N
   # slots. The HA on_value handler caches the full string in
@@ -496,6 +638,47 @@ script:
                          "?size=full&t=" + t;
                 update: true
 
+  # Camera thumbs only when HA is up — background polling while HA is offline
+  # was blocking the single online_image HTTP slot and starving the slideshow.
+  - id: refresh_camera_thumbs
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_ha_connected);'
+          then:
+            - online_image.set_url:
+                id: cam1_thumb
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/camera/${cam1_entity}?size=thumb&t=") + t;
+                update: true
+            - delay: 400ms
+            - online_image.set_url:
+                id: cam2_thumb
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/camera/${cam2_entity}?size=thumb&t=") + t;
+                update: true
+            - delay: 400ms
+            - online_image.set_url:
+                id: cam3_thumb
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/camera/${cam3_entity}?size=thumb&t=") + t;
+                update: true
+            - delay: 400ms
+            - online_image.set_url:
+                id: cam4_thumb
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/camera/${cam4_entity}?size=thumb&t=") + t;
+                update: true
+
   # Fetches a random baseline JPEG from the local proxy and displays it.
   # The proxy (immich-proxy.service on the Docker host) handles Immich API calls
   # and re-encodes all images as guaranteed SOF0 baseline JPEG before serving.
@@ -518,12 +701,18 @@ script:
           then:
             - online_image.set_url:
                 id: immich_photo_b
-                url: "${proxy_url}/random-photo"
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/random-photo?t=") + t;
                 update: true
           else:
             - online_image.set_url:
                 id: immich_photo
-                url: "${proxy_url}/random-photo"
+                url: !lambda |-
+                  char t[16];
+                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                  return std::string("${proxy_url}/random-photo?t=") + t;
                 update: true
 
   # Crossfade the just-loaded slot in while the previously-visible slot
@@ -548,6 +737,22 @@ script:
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
             final_x = (1024 - (int)dsc->header.w) / 2;
             final_y = (600  - (int)dsc->header.h) / 2;
+          }
+          if (id(g_layout_edit_mode)) {
+            lv_obj_clear_flag(in, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(out, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(in, final_x, final_y);
+            lv_img_set_zoom(in, 256);
+            lv_obj_set_style_opa(in, LV_OPA_COVER, 0);
+            lv_obj_move_background(in);
+            lv_obj_move_background(out);
+            lv_obj_move_foreground(id(layout_edit_scrim));
+            lv_obj_move_foreground(id(calendar_panel));
+            lv_obj_move_foreground(id(weather_widget));
+            lv_obj_move_foreground(id(clock_pill_obj));
+            lv_obj_move_foreground(id(va_state_pill));
+            lv_obj_move_foreground(id(layout_edit_bar));
+            return;
           }
           // Both widgets must be visible during the transition. Use
           // move_background so they sit at the bottom of the slideshow
@@ -688,6 +893,24 @@ script:
           lv_obj_add_flag(id(slideshow_placeholder_obj), LV_OBJ_FLAG_HIDDEN);
 
 interval:
+  # Retry Immich when the slideshow previously failed (e.g. HTTP slot was busy).
+  - interval: 2min
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_immich_ok) && !id(g_using_fallback);'
+          then:
+            - script.execute: refresh_immich_slideshow
+
+  # Camera grid thumbs — only when HA is connected (needs camera_proxy).
+  - interval: 90s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_ha_connected);'
+          then:
+            - script.execute: refresh_camera_thumbs
+
   # Slideshow refresh — fires every minute, only executes the refresh
   # script once the per-minute counter reaches the configured interval
   # (g_slideshow_interval_min). The interval is sourced from HA's
@@ -971,6 +1194,19 @@ lvgl:
                   y: 0
                   hidden: true
 
+        # Dim overlay during layout edit — sits above photos, below draggable widgets.
+        - obj:
+            id: layout_edit_scrim
+            width: 1024
+            height: 600
+            align: TOP_LEFT
+            bg_color: 0x000000
+            bg_opa: 40%
+            border_width: 0
+            pad_all: 0
+            clickable: false
+            hidden: true
+
         # ── Static placeholder (shown when all image sources fail) ──
         - obj:
             id: slideshow_placeholder_obj
@@ -1011,7 +1247,9 @@ lvgl:
             y: -14
             width: 210
             height: 224
-            bg_opa: TRANSP
+            bg_color: 0x050510
+            bg_opa: 55%
+            radius: 12
             border_width: 0
             pad_all: 0
             widgets:
@@ -1044,7 +1282,7 @@ lvgl:
                   id: wx_cond_lbl
                   align: TOP_MID
                   y: 174
-                  text: "—"
+                  text: "-"
                   text_font: montserrat_16
                   text_color: 0xCCCCCC
               # Humidity sits below the condition. Cyan tint so it doesn't
@@ -1073,6 +1311,7 @@ lvgl:
             widgets:
               # Title row (centered)
               - label:
+                  id: cal_title_lbl
                   align: TOP_MID
                   y: 10
                   text: "CALENDAR"
@@ -1097,6 +1336,7 @@ lvgl:
                   text_color: 0x69F0AE
               # Header divider
               - obj:
+                  id: cal_header_div
                   x: 0
                   y: 60
                   width: 340
@@ -1271,7 +1511,7 @@ lvgl:
                         text_color: 0xDDDDDD
                         long_mode: SCROLL_CIRCULAR
 
-        # ── Clock background pill (top-right, ensures readability) ──
+        # ── Clock pill (time + date centered inside background) ──
         - obj:
             id: clock_pill_obj
             width: 220
@@ -1283,28 +1523,25 @@ lvgl:
             bg_opa: 50%
             radius: 14
             border_width: 0
-
-        # ── Clock (top-right, above pill) ──────────────────────
-        - label:
-            id: slideshow_clock
-            align: TOP_RIGHT
-            x: -24
-            y: 16
-            text: "--:--"
-            text_font: montserrat_48
-            text_color: 0xFFFFFF
-            bg_opa: TRANSP
-
-        # ── Date (below clock) ─────────────────────────────────
-        - label:
-            id: slideshow_date_lbl
-            align: TOP_RIGHT
-            x: -24
-            y: 80
-            text: "---"
-            text_font: montserrat_20
-            text_color: 0xEEEEEE
-            bg_opa: TRANSP
+            widgets:
+              - label:
+                  id: slideshow_clock
+                  align: CENTER
+                  y: -18
+                  width: 210
+                  text: "--:--"
+                  text_font: montserrat_48
+                  text_color: 0xFFFFFF
+                  bg_opa: TRANSP
+              - label:
+                  id: slideshow_date_lbl
+                  align: CENTER
+                  y: 28
+                  width: 210
+                  text: "---"
+                  text_font: montserrat_20
+                  text_color: 0xEEEEEE
+                  bg_opa: TRANSP
 
         # ── Crash-recovery overlay (full screen, dismissible by tap).
         # The on_boot lambda checks esp_reset_reason() and unhides this
@@ -1325,6 +1562,7 @@ lvgl:
               - lvgl.widget.hide: crash_overlay
             widgets:
               - label:
+                  id: crash_title_lbl
                   align: CENTER
                   y: -160
                   text: "Panel Recovered From Crash"
@@ -1340,6 +1578,7 @@ lvgl:
                   text_color: 0xFFCCCC
                   long_mode: WRAP
               - label:
+                  id: crash_body_lbl
                   align: CENTER
                   y: -40
                   text: "The firmware caught the fault and rebooted itself.\nNothing is permanently damaged."
@@ -1347,6 +1586,7 @@ lvgl:
                   text_color: 0xDDDDDD
                   long_mode: WRAP
               - label:
+                  id: crash_steps_lbl
                   align: CENTER
                   y: 50
                   width: 880
@@ -1355,6 +1595,7 @@ lvgl:
                   text_color: 0xEEEEEE
                   long_mode: WRAP
               - label:
+                  id: crash_dismiss_lbl
                   align: BOTTOM_MID
                   y: -30
                   text: "Tap anywhere on this banner to dismiss"
@@ -1377,18 +1618,21 @@ lvgl:
                   align: CENTER
                   y: -72
               - label:
+                  id: ha_disc_title_lbl
                   align: CENTER
                   y: 28
                   text: "Home Assistant"
                   text_font: montserrat_36
                   text_color: 0xFFFFFF
               - label:
+                  id: ha_disc_status_lbl
                   align: CENTER
                   y: 80
                   text: "Not Connected"
                   text_font: montserrat_28
                   text_color: 0xFF5252
               - label:
+                  id: ha_disc_hint_lbl
                   align: CENTER
                   y: 128
                   text: "Reconnecting automatically..."
@@ -1509,6 +1753,7 @@ lvgl:
             hidden: true
             widgets:
               - label:
+                  id: layout_edit_lbl
                   align: LEFT_MID
                   x: 18
                   width: 300
@@ -1516,6 +1761,7 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0xFFFFFF
               - button:
+                  id: layout_reset_btn
                   align: RIGHT_MID
                   x: -150
                   width: 118
@@ -1525,21 +1771,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x66CCFF
                   on_click:
-                    - lambda: |-
-                        id(g_layout_calendar_x) = 0;
-                        id(g_layout_calendar_y) = 0;
-                        id(g_layout_weather_x) = -14;
-                        id(g_layout_weather_y) = -14;
-                        id(g_layout_clock_x) = -10;
-                        id(g_layout_clock_y) = 8;
-                        id(g_layout_wake_x) = -18;
-                        id(g_layout_wake_y) = 126;
-                        lv_obj_set_pos(id(calendar_panel), 0, 0);
-                        lv_obj_set_pos(id(weather_widget), -14, -14);
-                        lv_obj_set_pos(id(clock_pill_obj), -10, 8);
-                        lv_obj_set_pos(id(slideshow_clock), -24, 16);
-                        lv_obj_set_pos(id(slideshow_date_lbl), -24, 80);
-                        lv_obj_set_pos(id(va_state_pill), -18, 126);
+                    - script.execute: reset_layout_defaults
                   widgets:
                     - label:
                         align: CENTER
@@ -1547,6 +1779,7 @@ lvgl:
                         text_font: montserrat_16
                         text_color: 0xAACCFF
               - button:
+                  id: layout_done_btn
                   align: RIGHT_MID
                   x: -18
                   width: 118
@@ -1556,11 +1789,7 @@ lvgl:
                   border_width: 1
                   border_color: 0x69F0AE
                   on_click:
-                    - lambda: |-
-                        id(g_layout_edit_mode) = false;
-                        lv_obj_add_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
-                    - script.execute: apply_slideshow_layout_visibility
+                    - script.execute: exit_layout_edit_mode
                   widgets:
                     - label:
                         align: CENTER
@@ -1608,6 +1837,7 @@ lvgl:
             opa: 31%
 
         - obj:
+            id: dash_page_scrim
             width: 1024
             height: 600
             align: TOP_LEFT
@@ -1618,6 +1848,7 @@ lvgl:
 
         # ── Top bar ────────────────────────────────────────────
         - obj:
+            id: dash_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -1637,7 +1868,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -2252,6 +2483,7 @@ lvgl:
       widgets:
         # ── Top bar (same shape as dashboard) ──────────────────
         - obj:
+            id: tado_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -2271,7 +2503,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -2840,6 +3072,7 @@ lvgl:
 
 
         - obj:
+            id: pres_page_footer
             width: 1024
             height: 44
             align: BOTTOM_LEFT
@@ -2885,6 +3118,7 @@ lvgl:
         - lvgl.page.show: energy_page
       widgets:
         - obj:
+            id: pres_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -2904,7 +3138,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -2940,6 +3174,7 @@ lvgl:
                     - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
         - obj:
+            id: pres1_card
             x: 6
             y: 70
             width: 246
@@ -2963,6 +3198,7 @@ lvgl:
               - label: { id: pres1_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres2_card
             x: 258
             y: 70
             width: 246
@@ -2986,6 +3222,7 @@ lvgl:
               - label: { id: pres2_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres3_card
             x: 510
             y: 70
             width: 246
@@ -3009,6 +3246,7 @@ lvgl:
               - label: { id: pres3_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres4_card
             x: 762
             y: 70
             width: 246
@@ -3032,6 +3270,7 @@ lvgl:
               - label: { id: pres4_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres5_card
             x: 6
             y: 246
             width: 246
@@ -3055,6 +3294,7 @@ lvgl:
               - label: { id: pres5_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres6_card
             x: 258
             y: 246
             width: 246
@@ -3078,6 +3318,7 @@ lvgl:
               - label: { id: pres6_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres7_card
             x: 510
             y: 246
             width: 246
@@ -3101,6 +3342,7 @@ lvgl:
               - label: { id: pres7_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres8_card
             x: 762
             y: 246
             width: 246
@@ -3124,6 +3366,7 @@ lvgl:
               - label: { id: pres8_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres9_card
             x: 6
             y: 422
             width: 246
@@ -3147,6 +3390,7 @@ lvgl:
               - label: { id: pres9_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres10_card
             x: 258
             y: 422
             width: 246
@@ -3170,6 +3414,7 @@ lvgl:
               - label: { id: pres10_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres11_card
             x: 510
             y: 422
             width: 246
@@ -3193,6 +3438,7 @@ lvgl:
               - label: { id: pres11_lbl, align: BOTTOM_MID, y: -10, text: "CLEAR", text_font: montserrat_16, text_color: 0x7B8794 }
 
         - obj:
+            id: pres12_card
             x: 762
             y: 422
             width: 246
@@ -3260,6 +3506,7 @@ lvgl:
         - lvgl.page.show: camera_page
       widgets:
         - obj:
+            id: energy_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -3279,7 +3526,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -3315,6 +3562,7 @@ lvgl:
                     - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
         - obj:
+            id: energy_flow_panel
             x: 30
             y: 78
             width: 964
@@ -3369,6 +3617,7 @@ lvgl:
 
               # Home load
               - obj:
+                  id: energy_home_card
                   x: 470
                   y: 126
                   width: 170
@@ -3402,6 +3651,7 @@ lvgl:
 
         # Daily summary cards
         - obj:
+            id: energy_import_card
             x: 30
             y: 466
             width: 464
@@ -3416,6 +3666,7 @@ lvgl:
               - label: { align: TOP_LEFT, x: 18, y: 16, text: "Import this period", text_font: montserrat_18, text_color: 0xAAAAAA }
               - label: { id: energy_import_val, align: BOTTOM_LEFT, x: 18, y: -18, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
         - obj:
+            id: energy_export_card
             x: 530
             y: 466
             width: 464
@@ -3432,6 +3683,7 @@ lvgl:
 
 
         - obj:
+            id: energy_page_footer
             width: 1024
             height: 44
             align: BOTTOM_LEFT
@@ -3470,12 +3722,15 @@ lvgl:
     # ═══════════════════════════════════════════════════════════
     - id: camera_page
       bg_color: 0x071019
+      on_load:
+        - script.execute: refresh_camera_thumbs
       on_swipe_right:
         - lvgl.page.show: energy_page
       on_swipe_left:
         - lvgl.page.show: tuya_page
       widgets:
         - obj:
+            id: cam_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -3495,7 +3750,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -3531,6 +3786,7 @@ lvgl:
                     - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
         - obj:
+            id: cam1_tile
             x: 20
             y: 70
             width: 480
@@ -3570,6 +3826,7 @@ lvgl:
                   bg_color: 0x02060A
                   bg_opa: 72%
         - obj:
+            id: cam2_tile
             x: 524
             y: 70
             width: 480
@@ -3598,6 +3855,7 @@ lvgl:
               - image: { id: cam2_widget, src: cam2_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam2_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x02060A, bg_opa: 72% }
         - obj:
+            id: cam3_tile
             x: 20
             y: 332
             width: 480
@@ -3626,6 +3884,7 @@ lvgl:
               - image: { id: cam3_widget, src: cam3_thumb, align: CENTER }
               - label: { align: BOTTOM_LEFT, x: 6, y: -2, text: "${cam3_name}", text_font: montserrat_20, text_color: 0xFFFFFF, bg_color: 0x02060A, bg_opa: 72% }
         - obj:
+            id: cam4_tile
             x: 524
             y: 332
             width: 480
@@ -3656,6 +3915,7 @@ lvgl:
 
 
         - obj:
+            id: cam_page_footer
             width: 1024
             height: 44
             align: BOTTOM_LEFT
@@ -3700,6 +3960,7 @@ lvgl:
         - lvgl.page.show: camera_page
       widgets:
         - obj:
+            id: cam_view_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -3719,7 +3980,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -3813,9 +4074,13 @@ lvgl:
     # ═══════════════════════════════════════════════════════════
     - id: settings_page
       bg_color: 0x071019
+      on_load:
+        - script.execute: prepare_settings_page
+        - script.execute: apply_panel_theme
       widgets:
         # ── Header bar ─────────────────────────────────────────
         - obj:
+            id: settings_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -3835,7 +4100,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -3873,6 +4138,7 @@ lvgl:
                     - label: { align: CENTER, text: "Layout", text_font: montserrat_16, text_color: 0xFFFFFF }
 
         - obj:
+            id: settings_layout_banner
             x: 32
             y: 68
             width: 960
@@ -3888,6 +4154,7 @@ lvgl:
               - lvgl.page.show: layout_settings_page
             widgets:
               - label:
+                  id: settings_layout_banner_title
                   x: 22
                   y: 12
                   text: "SLIDESHOW LAYOUT"
@@ -3897,7 +4164,7 @@ lvgl:
                   x: 22
                   y: 40
                   width: 720
-                  text: "Show/hide and drag Calendar, Weather, Time, and Wake controls."
+                  text: "Show/hide overlays and the layout shortcut button. Drag placement opens from Settings if the button is hidden."
                   text_font: montserrat_16
                   text_color: 0xFFFFFF
                   long_mode: WRAP
@@ -3920,10 +4187,11 @@ lvgl:
                         text_color: 0xFFFFFF
 
         - obj:
+            id: settings_left_panel
             x: 0
             y: 172
             width: 500
-            height: 528
+            height: 384
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x243B55
@@ -3933,6 +4201,7 @@ lvgl:
             pad_top: 20
             widgets:
               - label:
+                  id: settings_sec_status_lbl
                   x: 0
                   y: 0
                   text: "STATUS"
@@ -4010,6 +4279,7 @@ lvgl:
                   bg_color: 0x1A3552
                   border_width: 0
               - label:
+                  id: settings_sec_config_lbl
                   x: 0
                   y: 278
                   text: "CONFIGURATION"
@@ -4180,7 +4450,6 @@ lvgl:
                           lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
                           lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
                           lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
-                          lv_obj_set_style_opa(id(weather_widget),     opa, 0);
                         }
                         char b[12];
                         snprintf(b, sizeof(b), "%d %%", v);
@@ -4220,7 +4489,6 @@ lvgl:
                           lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
                           lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
                           lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
-                          lv_obj_set_style_opa(id(weather_widget),     opa, 0);
                         }
                         char b[12];
                         snprintf(b, sizeof(b), "%d %%", v);
@@ -4299,12 +4567,55 @@ lvgl:
                           entity_id: input_number.panel_transition_effect
                           value: !lambda 'return id(g_transition_effect);'
 
+              # ── Panel theme cycler ────────────────────────────
+              - label:
+                  x: 0
+                  y: 640
+                  text: "Panel colour theme:"
+                  text_font: montserrat_16
+                  text_color: 0xAAAAAA
+              - button:
+                  x: 0
+                  y: 668
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x1A3552
+                  border_width: 0
+                  text: "<"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - script.execute: panel_theme_prev
+              - label:
+                  id: settings_theme_val
+                  x: 70
+                  y: 676
+                  width: 180
+                  text: "Midnight"
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+              - button:
+                  x: 296
+                  y: 668
+                  width: 56
+                  height: 44
+                  radius: 22
+                  bg_color: 0x1A3552
+                  border_width: 0
+                  text: ">"
+                  text_font: montserrat_24
+                  text_color: 0xFFFFFF
+                  on_click:
+                    - script.execute: panel_theme_next
+
         # ── Backlight + setup guide (right half) ─────────────────
         - obj:
+            id: settings_right_panel
             x: 512
             y: 172
             width: 500
-            height: 528
+            height: 384
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x243B55
@@ -4314,63 +4625,16 @@ lvgl:
             pad_top: 20
             pad_right: 12
             widgets:
-              - obj:
+              - label:
+                  id: settings_sec_backlight_lbl
                   x: 0
                   y: 0
-                  width: 476
-                  height: 104
-                  bg_color: 0x113225
-                  bg_opa: 100%
-                  border_width: 2
-                  border_color: 0x69F0AE
-                  radius: 16
-                  pad_all: 0
-                  on_click:
-                    - script.execute: apply_slideshow_layout_visibility
-                    - lvgl.page.show: layout_settings_page
-                  widgets:
-                    - label:
-                        x: 18
-                        y: 14
-                        text: "SLIDESHOW LAYOUT"
-                        text_font: montserrat_18
-                        text_color: 0x69F0AE
-                    - label:
-                        x: 18
-                        y: 42
-                        width: 330
-                        text: "Show/hide and drag Calendar, Weather, Time, and Wake controls."
-                        text_font: montserrat_16
-                        text_color: 0xFFFFFF
-                        long_mode: WRAP
-                    - button:
-                        align: RIGHT_MID
-                        x: -16
-                        width: 112
-                        height: 40
-                        radius: 10
-                        bg_color: 0x1A3552
-                        border_width: 0
-                        on_click:
-                          - script.execute: apply_slideshow_layout_visibility
-                          - lvgl.page.show: layout_settings_page
-                        widgets:
-                          - label:
-                              align: CENTER
-                              text: "Open"
-                              text_font: montserrat_16
-                              text_color: 0xFFFFFF
-              - label:
-                  x: 0
-                  y: 122
-
                   text: "BACKLIGHT"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 156
-
+                  y: 34
                   width: 476
                   text: "Adjust panel brightness (10-100%):"
                   text_font: montserrat_16
@@ -4378,8 +4642,7 @@ lvgl:
                   long_mode: WRAP
               - button:
                   x: 0
-                  y: 188
-
+                  y: 66
                   width: 56
                   height: 44
                   radius: 22
@@ -4402,16 +4665,14 @@ lvgl:
               - label:
                   id: settings_backlight_val
                   x: 70
-                  y: 196
-
+                  y: 74
                   width: 120
                   text: "80%"
                   text_font: montserrat_24
                   text_color: 0xFFFFFF
               - button:
                   x: 200
-                  y: 188
-
+                  y: 66
                   width: 56
                   height: 44
                   radius: 22
@@ -4431,44 +4692,23 @@ lvgl:
                     - light.turn_on:
                         id: panel_backlight
                         brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
-              - button:
-                  x: 290
-                  y: 188
-
-                  width: 170
-                  height: 44
-                  radius: 10
-                  bg_color: 0x113225
-                  border_width: 1
-                  border_color: 0x69F0AE
-                  on_click:
-                    - script.execute: apply_slideshow_layout_visibility
-                    - lvgl.page.show: layout_settings_page
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "Layout Settings"
-                        text_font: montserrat_16
-                        text_color: 0xFFFFFF
               - obj:
                   x: 0
-                  y: 246
-
+                  y: 124
                   width: 476
                   height: 2
                   bg_color: 0x1A3552
                   border_width: 0
               - label:
+                  id: settings_sec_helpers_lbl
                   x: 0
-                  y: 258
-
+                  y: 136
                   text: "HA HELPERS"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 292
-
+                  y: 170
                   width: 476
                   text: "Slideshow, opacity and transition settings\nsync to HA helpers automatically."
                   text_font: montserrat_16
@@ -4476,8 +4716,7 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 338
-
+                  y: 216
                   width: 476
                   text: "Immich URL and calendar events can still\nbe edited in HA: Settings > Helpers"
                   text_font: montserrat_16
@@ -4485,23 +4724,21 @@ lvgl:
                   long_mode: WRAP
               - obj:
                   x: 0
-                  y: 392
-
+                  y: 270
                   width: 476
                   height: 2
                   bg_color: 0x1A3552
                   border_width: 0
               - label:
+                  id: settings_sec_wifi_lbl
                   x: 0
-                  y: 404
-
+                  y: 282
                   text: "WIFI SETUP"
                   text_font: montserrat_18
                   text_color: 0x69F0AE
               - label:
                   x: 0
-                  y: 438
-
+                  y: 316
                   width: 476
                   text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
                   text_font: montserrat_16
@@ -4509,8 +4746,7 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 496
-
+                  y: 374
                   width: 476
                   text: "SSID: ${fallback_ap_ssid}"
                   text_font: montserrat_16
@@ -4518,8 +4754,7 @@ lvgl:
                   long_mode: WRAP
               - label:
                   x: 0
-                  y: 524
-
+                  y: 402
                   width: 476
                   text: "Connect and open any webpage\nto configure WiFi."
                   text_font: montserrat_16
@@ -4527,24 +4762,21 @@ lvgl:
                   long_mode: WRAP
               - obj:
                   x: 0
-                  y: 582
-
+                  y: 460
                   width: 476
                   height: 2
                   bg_color: 0x401010
                   border_width: 0
               - label:
                   x: 0
-                  y: 594
-
+                  y: 472
                   text: "DIAGNOSTICS"
                   text_font: montserrat_18
                   text_color: 0xFF6666
               - button:
                   id: test_crash_btn
                   x: 0
-                  y: 624
-
+                  y: 502
                   width: 280
                   height: 44
                   radius: 8
@@ -4571,6 +4803,7 @@ lvgl:
 
 
         - obj:
+            id: settings_footer
             width: 1024
             height: 44
             align: BOTTOM_LEFT
@@ -4609,9 +4842,11 @@ lvgl:
     - id: layout_settings_page
       bg_color: 0x071019
       on_load:
+        - script.execute: prepare_layout_settings_page
         - script.execute: apply_slideshow_layout_visibility
       widgets:
         - obj:
+            id: layout_hdr_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -4631,7 +4866,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -4670,7 +4905,7 @@ lvgl:
             x: 32
             y: 82
             width: 900
-            text: "Choose which slideshow overlays are visible. Use Edit Positions to place them anywhere, then tap Done."
+            text: "Choose which slideshow overlays are visible. Hide the layout button for a clean photo frame; open Layout from Settings anytime."
             text_font: montserrat_18
             text_color: 0xCCCCCC
             long_mode: WRAP
@@ -4679,7 +4914,7 @@ lvgl:
             x: 32
             y: 138
             width: 960
-            height: 274
+            height: 300
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x263B55
@@ -4719,7 +4954,7 @@ lvgl:
                           - label: { id: layout_calendar_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
               - obj:
                   x: 22
-                  y: 110
+                  y: 106
                   width: 916
                   height: 46
                   bg_color: 0x111D2B
@@ -4743,7 +4978,7 @@ lvgl:
                           - label: { id: layout_weather_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
               - obj:
                   x: 22
-                  y: 162
+                  y: 154
                   width: 916
                   height: 46
                   bg_color: 0x111D2B
@@ -4767,7 +5002,7 @@ lvgl:
                           - label: { id: layout_clock_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
               - obj:
                   x: 22
-                  y: 214
+                  y: 202
                   width: 916
                   height: 46
                   bg_color: 0x111D2B
@@ -4789,12 +5024,36 @@ lvgl:
                           - script.execute: apply_slideshow_layout_visibility
                         widgets:
                           - label: { id: layout_wake_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
+              - obj:
+                  x: 22
+                  y: 250
+                  width: 916
+                  height: 46
+                  bg_color: 0x111D2B
+                  bg_opa: 100%
+                  border_width: 0
+                  radius: 10
+                  widgets:
+                    - label: { align: LEFT_MID, x: 16, text: "Layout button", text_font: montserrat_18, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "Layout v… shortcut (bottom-left)", text_font: montserrat_16, text_color: 0xAAAAAA }
+                    - button:
+                        align: RIGHT_MID
+                        x: -14
+                        width: 100
+                        height: 32
+                        radius: 8
+                        bg_color: 0x1A3552
+                        on_click:
+                          - lambda: 'id(g_layout_bubble_visible) = !id(g_layout_bubble_visible);'
+                          - script.execute: apply_slideshow_layout_visibility
+                        widgets:
+                          - label: { id: layout_bubble_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: 0xFFFFFF }
 
         - obj:
             x: 32
-            y: 434
+            y: 448
             width: 960
-            height: 126
+            height: 108
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x263B55
@@ -4819,23 +5078,7 @@ lvgl:
                   border_color: 0x69F0AE
                   on_click:
                     - lvgl.page.show: slideshow_page
-                    - lambda: |-
-                        id(g_layout_edit_mode) = true;
-                        lv_obj_add_flag(id(tap_zone_btn), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(calendar_panel), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(weather_widget), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(clock_pill_obj), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(slideshow_clock), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(slideshow_date_lbl), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(va_state_pill), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_clear_flag(id(layout_edit_bar), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_move_foreground(id(calendar_panel));
-                        lv_obj_move_foreground(id(weather_widget));
-                        lv_obj_move_foreground(id(clock_pill_obj));
-                        lv_obj_move_foreground(id(slideshow_clock));
-                        lv_obj_move_foreground(id(slideshow_date_lbl));
-                        lv_obj_move_foreground(id(va_state_pill));
-                        lv_obj_move_foreground(id(layout_edit_bar));
+                    - script.execute: enter_layout_edit_mode
                   widgets:
                     - label:
                         align: CENTER
@@ -4857,20 +5100,8 @@ lvgl:
                         id(g_layout_weather_visible) = true;
                         id(g_layout_clock_visible) = true;
                         id(g_layout_wake_visible) = true;
-                        id(g_layout_calendar_x) = 0;
-                        id(g_layout_calendar_y) = 0;
-                        id(g_layout_weather_x) = -14;
-                        id(g_layout_weather_y) = -14;
-                        id(g_layout_clock_x) = -10;
-                        id(g_layout_clock_y) = 8;
-                        id(g_layout_wake_x) = -18;
-                        id(g_layout_wake_y) = 126;
-                        lv_obj_set_pos(id(calendar_panel), 0, 0);
-                        lv_obj_set_pos(id(weather_widget), -14, -14);
-                        lv_obj_set_pos(id(clock_pill_obj), -10, 8);
-                        lv_obj_set_pos(id(slideshow_clock), -24, 16);
-                        lv_obj_set_pos(id(slideshow_date_lbl), -24, 80);
-                        lv_obj_set_pos(id(va_state_pill), -18, 126);
+                        id(g_layout_bubble_visible) = true;
+                    - script.execute: reset_layout_defaults
                     - script.execute: apply_slideshow_layout_visibility
                   widgets:
                     - label:
@@ -4888,6 +5119,7 @@ lvgl:
                   long_mode: WRAP
 
         - obj:
+            id: layout_settings_footer
             width: 1024
             height: 44
             align: BOTTOM_LEFT

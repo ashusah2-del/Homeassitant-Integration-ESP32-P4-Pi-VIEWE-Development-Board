@@ -9,7 +9,7 @@
 #
 # Strip buttons use optimistic toggle (immediate visual + revert on error).
 # All other controls update on HTTP 200; show "---" on error.
-# Navigation: Cameras → [swipe left] → Tuya → [swipe left] → Slideshow
+# Navigation: Cameras → [swipe left] → Tuya → [swipe left] → Jellyfin → Slideshow
 #
 # IMPORTANT: device polls run sequentially (one HTTP call at a time) and the
 # UI is refreshed once at the end. Parallel polls + repeated apply_ui used to
@@ -135,66 +135,69 @@ script:
           }
           bool bridge_ready = id(g_tuya_bridge_ok);
           auto strip_state = [](bool known, bool on) -> const char* { return known ? (on ? "ON" : "OFF") : "?"; };
-          auto strip_color = [](bool known, bool on) -> uint32_t { return known ? (on ? 0x69F0AEU : 0x666666U) : 0xAACCFFU; };
+          auto strip_color = [](bool known, bool on) -> uint32_t {
+            if (!known) return (uint32_t) id(g_theme_info);
+            return on ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_lamp_off);
+          };
 
           // Bedroom power strip: bridge readiness controls whether buttons look usable;
           // per-device online only means we have a fresh state value.
-          lv_obj_set_style_bg_color(id(strip_s1_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_strip_s1) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_bg_color(id(strip_s1_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_strip_s1) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(strip_s1_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s1)) : "--");
-          lv_obj_set_style_text_color(id(strip_s1_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_strip_online), id(g_strip_s1))), 0);
-          lv_obj_set_style_bg_color(id(strip_s2_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_strip_s2) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(strip_s1_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_strip_online), id(g_strip_s1))), 0);
+          lv_obj_set_style_bg_color(id(strip_s2_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_strip_s2) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(strip_s2_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s2)) : "--");
-          lv_obj_set_style_text_color(id(strip_s2_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_strip_online), id(g_strip_s2))), 0);
-          lv_obj_set_style_bg_color(id(strip_s3_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_strip_s3) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(strip_s2_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_strip_online), id(g_strip_s2))), 0);
+          lv_obj_set_style_bg_color(id(strip_s3_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_strip_s3) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(strip_s3_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s3)) : "--");
-          lv_obj_set_style_text_color(id(strip_s3_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_strip_online), id(g_strip_s3))), 0);
-          lv_obj_set_style_bg_color(id(strip_s4_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_strip_s4) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(strip_s3_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_strip_online), id(g_strip_s3))), 0);
+          lv_obj_set_style_bg_color(id(strip_s4_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_strip_s4) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(strip_s4_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_s4)) : "--");
-          lv_obj_set_style_text_color(id(strip_s4_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_strip_online), id(g_strip_s4))), 0);
-          lv_obj_set_style_bg_color(id(strip_usb_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_strip_usb) ? 0x1E4E8CU : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(strip_s4_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_strip_online), id(g_strip_s4))), 0);
+          lv_obj_set_style_bg_color(id(strip_usb_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_strip_usb) ? (uint32_t) id(g_theme_info) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(strip_usb_lbl), bridge_ready ? strip_state(id(g_strip_online), id(g_strip_usb)) : "--");
-          lv_obj_set_style_text_color(id(strip_usb_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : (id(g_strip_online) ? (id(g_strip_usb) ? 0xAABBFFU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(strip_usb_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : (id(g_strip_online) ? (id(g_strip_usb) ? (uint32_t) id(g_theme_info) : (uint32_t) id(g_theme_lamp_off)) : (uint32_t) id(g_theme_info))), 0);
           lv_label_set_text(id(strip_status_lbl), !bridge_ready ? "BRIDGE OFF" : (id(g_strip_online) ? "ONLINE" : "READY"));
-          lv_obj_set_style_text_color(id(strip_status_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_strip_online) ? 0x69F0AEU : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(strip_status_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_warning) : (id(g_strip_online) ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_info))), 0);
 
           // Power switch strip
-          lv_obj_set_style_bg_color(id(switch_s1_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_switch_s1) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_bg_color(id(switch_s1_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_switch_s1) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(switch_s1_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s1)) : "--");
-          lv_obj_set_style_text_color(id(switch_s1_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_switch_online), id(g_switch_s1))), 0);
-          lv_obj_set_style_bg_color(id(switch_s2_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_switch_s2) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(switch_s1_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_switch_online), id(g_switch_s1))), 0);
+          lv_obj_set_style_bg_color(id(switch_s2_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_switch_s2) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(switch_s2_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s2)) : "--");
-          lv_obj_set_style_text_color(id(switch_s2_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_switch_online), id(g_switch_s2))), 0);
-          lv_obj_set_style_bg_color(id(switch_s3_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_switch_s3) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(switch_s2_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_switch_online), id(g_switch_s2))), 0);
+          lv_obj_set_style_bg_color(id(switch_s3_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_switch_s3) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(switch_s3_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s3)) : "--");
-          lv_obj_set_style_text_color(id(switch_s3_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_switch_online), id(g_switch_s3))), 0);
-          lv_obj_set_style_bg_color(id(switch_s4_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_switch_s4) ? 0x166534U : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(switch_s3_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_switch_online), id(g_switch_s3))), 0);
+          lv_obj_set_style_bg_color(id(switch_s4_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_switch_s4) ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(switch_s4_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_s4)) : "--");
-          lv_obj_set_style_text_color(id(switch_s4_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : strip_color(id(g_switch_online), id(g_switch_s4))), 0);
-          lv_obj_set_style_bg_color(id(switch_usb_btn), lv_color_hex(!bridge_ready ? 0x101820U : (id(g_switch_usb) ? 0x1E4E8CU : 0x111827U)), 0);
+          lv_obj_set_style_text_color(id(switch_s4_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : strip_color(id(g_switch_online), id(g_switch_s4))), 0);
+          lv_obj_set_style_bg_color(id(switch_usb_btn), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_card_bg) : (id(g_switch_usb) ? (uint32_t) id(g_theme_info) : (uint32_t) id(g_theme_card_bg))), 0);
           lv_label_set_text(id(switch_usb_lbl), bridge_ready ? strip_state(id(g_switch_online), id(g_switch_usb)) : "--");
-          lv_obj_set_style_text_color(id(switch_usb_lbl), lv_color_hex(!bridge_ready ? 0x6B7280U : (id(g_switch_online) ? (id(g_switch_usb) ? 0xAABBFFU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(switch_usb_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_text_muted) : (id(g_switch_online) ? (id(g_switch_usb) ? (uint32_t) id(g_theme_info) : (uint32_t) id(g_theme_lamp_off)) : (uint32_t) id(g_theme_info))), 0);
           lv_label_set_text(id(switch_status_lbl), !bridge_ready ? "BRIDGE OFF" : (id(g_switch_online) ? "ONLINE" : "READY"));
-          lv_obj_set_style_text_color(id(switch_status_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_switch_online) ? 0x69F0AEU : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(switch_status_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_warning) : (id(g_switch_online) ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_info))), 0);
 
           // Locks + plugs
           lv_label_set_text(id(mukta_lock_lbl), !bridge_ready ? "---" : (id(g_mukta_online) ? (id(g_mukta_locked) ? "LOCKED" : "UNLOCKED") : "READY"));
-          lv_obj_set_style_text_color(id(mukta_lock_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_mukta_online) ? (id(g_mukta_locked) ? 0xFF5252U : 0x69F0AEU) : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(mukta_lock_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_warning) : (id(g_mukta_online) ? (id(g_mukta_locked) ? (uint32_t) id(g_theme_error) : (uint32_t) id(g_theme_success)) : (uint32_t) id(g_theme_info))), 0);
           lv_label_set_text(id(bedroom_lbl), !bridge_ready ? "---" : (id(g_bedroom_online) ? (id(g_bedroom_on) ? "UNLOCKED" : "LOCKED") : "READY"));
-          lv_obj_set_style_text_color(id(bedroom_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_bedroom_online) ? (id(g_bedroom_on) ? 0x69F0AEU : 0xFF5252U) : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(bedroom_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_warning) : (id(g_bedroom_online) ? (id(g_bedroom_on) ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_error)) : (uint32_t) id(g_theme_info))), 0);
           lv_label_set_text(id(tuya_dr_lbl), !bridge_ready ? "---" : (id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? "ON" : "OFF") : "READY"));
-          lv_obj_set_style_text_color(id(tuya_dr_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? 0x69F0AEU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(tuya_dr_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_warning) : (id(g_tuya_dr_online) ? (id(g_tuya_dr_on) ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_lamp_off)) : (uint32_t) id(g_theme_info))), 0);
           lv_label_set_text(id(tuya_garden_lbl), !bridge_ready ? "---" : (id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? "ON" : "OFF") : "READY"));
-          lv_obj_set_style_text_color(id(tuya_garden_lbl), lv_color_hex(!bridge_ready ? 0xFF8F00U : (id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? 0x69F0AEU : 0x666666U) : 0xAACCFFU)), 0);
+          lv_obj_set_style_text_color(id(tuya_garden_lbl), lv_color_hex(!bridge_ready ? (uint32_t) id(g_theme_warning) : (id(g_tuya_garden_online) ? (id(g_tuya_garden_on) ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_lamp_off)) : (uint32_t) id(g_theme_info))), 0);
 
           // Safety sensors
           lv_label_set_text(id(smoke_state_lbl), id(g_smoke_state) < 0 ? "?" : (id(g_smoke_state) ? "! SMOKE !" : "CLEAR"));
-          lv_obj_set_style_text_color(id(smoke_state_lbl), lv_color_hex(id(g_smoke_state) < 0 ? 0xFF8F00U : (id(g_smoke_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_obj_set_style_text_color(id(smoke_state_lbl), lv_color_hex(id(g_smoke_state) < 0 ? (uint32_t) id(g_theme_warning) : (id(g_smoke_state) ? (uint32_t) id(g_theme_error) : (uint32_t) id(g_theme_success))), 0);
           lv_label_set_text(id(co_state_lbl), id(g_co_state) < 0 ? "?" : (id(g_co_state) ? "! CO !" : "CLEAR"));
-          lv_obj_set_style_text_color(id(co_state_lbl), lv_color_hex(id(g_co_state) < 0 ? 0xFF8F00U : (id(g_co_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_obj_set_style_text_color(id(co_state_lbl), lv_color_hex(id(g_co_state) < 0 ? (uint32_t) id(g_theme_warning) : (id(g_co_state) ? (uint32_t) id(g_theme_error) : (uint32_t) id(g_theme_success))), 0);
           lv_label_set_text(id(water_state_lbl), id(g_water_state) < 0 ? "?" : (id(g_water_state) ? "! WATER !" : "CLEAR"));
-          lv_obj_set_style_text_color(id(water_state_lbl), lv_color_hex(id(g_water_state) < 0 ? 0xFF8F00U : (id(g_water_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_obj_set_style_text_color(id(water_state_lbl), lv_color_hex(id(g_water_state) < 0 ? (uint32_t) id(g_theme_warning) : (id(g_water_state) ? (uint32_t) id(g_theme_error) : (uint32_t) id(g_theme_success))), 0);
           lv_label_set_text(id(alarm_state_lbl), id(g_alarm_state) < 0 ? "?" : (id(g_alarm_state) ? "! ALARM !" : "OK"));
-          lv_obj_set_style_text_color(id(alarm_state_lbl), lv_color_hex(id(g_alarm_state) < 0 ? 0xFF8F00U : (id(g_alarm_state) ? 0xFF5252U : 0x69F0AEU)), 0);
+          lv_obj_set_style_text_color(id(alarm_state_lbl), lv_color_hex(id(g_alarm_state) < 0 ? (uint32_t) id(g_theme_warning) : (id(g_alarm_state) ? (uint32_t) id(g_theme_error) : (uint32_t) id(g_theme_success))), 0);
 
   - id: tuya_refresh_all
     mode: restart
@@ -1207,11 +1210,12 @@ lvgl:
       on_swipe_right:
         - lvgl.page.show: camera_page
       on_swipe_left:
-        - lvgl.page.show: slideshow_page
+        - lvgl.page.show: jellyfin_page
       widgets:
 
         # ── Top bar ─────────────────────────────────────────────────────────────
         - obj:
+            id: tuya_header_bar
             width: 1024
             height: 58
             align: TOP_LEFT
@@ -1231,7 +1235,7 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    - lvgl.page.show: slideshow_page
                   widgets:
                     - image:
                         align: CENTER
@@ -1262,11 +1266,12 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: slideshow_page
+                    - lvgl.page.show: jellyfin_page
                   widgets:
                     - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
 
         - obj:
+            id: tuya_strip_panel
             x: 20
             y: 70
             width: 984
@@ -1511,6 +1516,7 @@ lvgl:
         # Left half (x 0–239): Mukta Lock
         # Right half (x 247–486): Bedroom Knob
         - obj:
+            id: tuya_locks_panel
             x: 20
             y: 242
             width: 486
@@ -1627,6 +1633,7 @@ lvgl:
 
         # ══ Row 2 Right: WiFi Plugs ══════════════════════════════════════════════
         - obj:
+            id: tuya_plugs_panel
             x: 518
             y: 242
             width: 486
@@ -1743,6 +1750,7 @@ lvgl:
 
         # ══ Row 3 Left: Safety Sensors ═══════════════════════════════════════════
         - obj:
+            id: tuya_sensors_panel
             x: 20
             y: 414
             width: 486
@@ -1828,6 +1836,7 @@ lvgl:
 
         # ══ Row 3 Right: Alarm ════════════════════════════════════════════════════
         - obj:
+            id: tuya_alarm_panel
             x: 518
             y: 414
             width: 486
@@ -1875,6 +1884,7 @@ lvgl:
 
 
         - obj:
+            id: tuya_page_footer
             width: 1024
             height: 44
             align: BOTTOM_LEFT
