@@ -15,7 +15,7 @@ substitutions:
   # Leave label empty to hide a slot. Cycle with < > on the Jellyfin page before Play.
   jf_cast1_label: "Drawing Room"
   jf_cast1_entity: media_player.lg_webos_tv_58b2
-  jf_cast2_label: "Bedroom"
+  jf_cast2_label: "Fire TV"
   jf_cast2_entity: media_player.ashok_s_fire_tv_cube
   jf_cast3_label: ""
   jf_cast3_entity: ""
