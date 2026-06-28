@@ -156,10 +156,10 @@ globals:
   # Camera entity slugs for thumbnail refresh. Initialized from compile-time
   # substitutions; overridable at runtime by panel_hub_config.yaml on_boot fetch.
   # Devices that don't define cam subs get "" (empty = slot skipped in refresh).
-  - { id: g_cam1_entity, type: std::string, restore_value: no, initial_value: '"${cam1_entity:}"' }
-  - { id: g_cam2_entity, type: std::string, restore_value: no, initial_value: '"${cam2_entity:}"' }
-  - { id: g_cam3_entity, type: std::string, restore_value: no, initial_value: '"${cam3_entity:}"' }
-  - { id: g_cam4_entity, type: std::string, restore_value: no, initial_value: '"${cam4_entity:}"' }
+  - { id: g_cam1_entity, type: std::string, restore_value: no, initial_value: '"${cam1_entity}"' }
+  - { id: g_cam2_entity, type: std::string, restore_value: no, initial_value: '"${cam2_entity}"' }
+  - { id: g_cam3_entity, type: std::string, restore_value: no, initial_value: '"${cam3_entity}"' }
+  - { id: g_cam4_entity, type: std::string, restore_value: no, initial_value: '"${cam4_entity}"' }
   # Panel backlight brightness 10–100 %, editable on the settings page.
   - { id: g_backlight_pct, type: int, restore_value: yes, initial_value: '80' }
   # Tuya bridge reachability — updated by tuya_local health poll when included.
