@@ -84,7 +84,9 @@ automation:
 script:
   # Panel Jellyfin page: pick a movie, choose cast target with < >, tap Cast Play.
   # LG webOS: launches the Jellyfin webOS app at the selected item via webostv.command.
-  # Fire TV Cube: sends an ADB intent to launch the Jellyfin Android TV app at the item.
+  # Fire TV Cube: requires the "Android TV" (ADB) integration in HA.
+  #   Fire TV: Settings → My Fire TV → Developer Options → ADB Debugging ON, then
+  #   HA: Settings → Integrations → Add → "Android TV" → enter Fire TV IP.
   jellyfin_play_on_panel:
     alias: Jellyfin cast play from panel
     mode: queued
