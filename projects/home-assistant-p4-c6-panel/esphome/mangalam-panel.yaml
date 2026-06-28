@@ -16,7 +16,7 @@ substitutions:
   jf_cast1_label: "Drawing Room"
   jf_cast1_entity: media_player.lg_webos_tv_58b2
   jf_cast2_label: "Fire TV"
-  jf_cast2_entity: media_player.ashok_s_fire_tv_cube
+  jf_cast2_entity: media_player.fire_tv_192_168_55_77
   jf_cast3_label: ""
   jf_cast3_entity: ""
   jf_cast4_label: ""

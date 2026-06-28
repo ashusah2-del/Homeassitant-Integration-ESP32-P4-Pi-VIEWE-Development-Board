@@ -122,11 +122,11 @@ script:
                       params:
                         contentId: "{{ item_id }}"
                         contentTargetUrl: "jellyfin://jellyfin/play?itemid={{ item_id }}&serverId=cde23bef4a1c413185304272f50478c0"
-          - conditions: "{{ media_player == 'media_player.ashok_s_fire_tv_cube' }}"
+          - conditions: "{{ media_player == 'media_player.fire_tv_192_168_55_77' }}"
             sequence:
               - service: androidtv.adb_command
                 target:
-                  entity_id: media_player.ashok_s_fire_tv_cube
+                  entity_id: media_player.fire_tv_192_168_55_77
                 data:
                   command: >-
                     am start -a android.intent.action.VIEW
