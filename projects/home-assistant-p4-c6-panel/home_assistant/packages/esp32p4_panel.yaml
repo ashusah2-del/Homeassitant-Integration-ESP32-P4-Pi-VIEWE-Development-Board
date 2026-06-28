@@ -45,8 +45,8 @@ automation:
         event: start
     action:
       - variables:
-          week_start: "{{ (now().date() - timedelta(days=now().weekday())).isoformat() }}"
-          week_end: "{{ (now().date() - timedelta(days=now().weekday()) + timedelta(days=6)).isoformat() + 'T23:59:59' }}"
+          week_start: "{{ now().date().isoformat() }}"
+          week_end: "{{ (now().date() + timedelta(days=7)).isoformat() + 'T23:59:59' }}"
       - service: calendar.get_events
         target:
           entity_id: >
