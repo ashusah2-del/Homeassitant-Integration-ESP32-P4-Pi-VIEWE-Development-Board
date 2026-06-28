@@ -340,6 +340,7 @@ packages:
   audio_voice: !include packages/audio_voice_board.yaml
   tuya: !include packages/tuya_local.yaml
   jellyfin: !include packages/jellyfin_local.yaml
+  hub_config: !include packages/panel_hub_config.yaml
 
 wifi:
   ssid: !secret wifi_ssid

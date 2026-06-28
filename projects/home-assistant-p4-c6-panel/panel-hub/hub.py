@@ -73,9 +73,10 @@ POSTER_QUALITY  = int(os.getenv("POSTER_QUALITY", "85"))
 OLLAMA_URL      = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL    = os.getenv("OLLAMA_MODEL", "llama3.2")
 
-DEVICES_FILE    = os.getenv("DEVICES_FILE", "devices.json")
-HUB_PORT        = int(os.getenv("HUB_PORT", "8768"))
-CAL_REFRESH_HRS = int(os.getenv("CALENDAR_REFRESH_HRS", "1"))
+DEVICES_FILE       = os.getenv("DEVICES_FILE", "devices.json")
+PANEL_CONFIG_FILE  = os.getenv("PANEL_CONFIG_FILE", "panel_config.json")
+HUB_PORT           = int(os.getenv("HUB_PORT", "8768"))
+CAL_REFRESH_HRS    = int(os.getenv("CALENDAR_REFRESH_HRS", "1"))
 
 # ── Image helpers ─────────────────────────────────────────────────────────────
 
@@ -430,6 +431,26 @@ def _tuya_update_keys(updates: list) -> list:
     return updated
 
 
+# ── Panel config ──────────────────────────────────────────────────────────────
+
+_DEFAULT_CAMERAS = [
+    {"slot": 0, "label": "Front Door", "entity": "front_door"},
+    {"slot": 1, "label": "Front Bell", "entity": "front_door_bell"},
+    {"slot": 2, "label": "Side Door",  "entity": "side_door"},
+    {"slot": 3, "label": "Garden",     "entity": "garden"},
+]
+
+
+def _load_panel_config() -> dict:
+    if os.path.exists(PANEL_CONFIG_FILE):
+        try:
+            with open(PANEL_CONFIG_FILE) as f:
+                return json.load(f)
+        except Exception as e:
+            log.error("panel_config load failed: %s", e)
+    return {"cameras": _DEFAULT_CAMERAS}
+
+
 # ── Calendar refresh ──────────────────────────────────────────────────────────
 
 async def refresh_calendar() -> None:
@@ -437,9 +458,8 @@ async def refresh_calendar() -> None:
         log.warning("Calendar refresh skipped: HA_URL/HA_TOKEN not set")
         return
     now = datetime.now(timezone.utc)
-    week_start = (now - timedelta(days=now.weekday())).replace(
-        hour=0, minute=0, second=0, microsecond=0)
-    week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_end = today + timedelta(days=7, hours=23, minutes=59, seconds=59)
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(f"{HA_URL}/api/states", headers=HA_HEADERS)
@@ -452,7 +472,7 @@ async def refresh_calendar() -> None:
                 r2 = await client.get(
                     f"{HA_URL}/api/calendars/{cal_id}",
                     headers=HA_HEADERS,
-                    params={"start": week_start.isoformat(),
+                    params={"start": today.isoformat(),
                             "end": week_end.isoformat()})
                 if r2.status_code != 200:
                     continue
@@ -469,7 +489,7 @@ async def refresh_calendar() -> None:
                     lines.append(line[:40])
 
             lines.sort()
-            value = "\n".join(lines)[:254] if lines else "No events this week"
+            value = "\n".join(lines)[:254] if lines else "No upcoming events"
             await client.post(
                 f"{HA_URL}/api/services/input_text/set_value",
                 headers=HA_HEADERS,
@@ -912,6 +932,80 @@ async def panel_status():
     except Exception as e:
         log.error("panel status: %s", e)
     return result
+
+
+# ── Panel dynamic config ─────────────────────────────────────────────────────
+
+@app.get("/panel/config")
+async def panel_config_endpoint():
+    """Return panel runtime config — camera slots, feature flags.
+
+    The ESPHome panel fetches this at boot to configure camera entity slugs
+    without requiring a reflash. Edit panel_config.json and reboot the panel.
+    """
+    cfg = _load_panel_config()
+    cfg.setdefault("features", {
+        "immich":   bool(IMMICH_URL and IMMICH_KEY),
+        "jellyfin": bool(JELLYFIN_URL and JELLYFIN_KEY),
+        "tuya":     _TUYA_OK and bool(_tuya_config.get("wifi_devices") or _tuya_config.get("gateways")),
+        "ollama":   bool(OLLAMA_URL),
+        "calendar": bool(HA_URL and HA_TOKEN),
+    })
+    return cfg
+
+
+@app.get("/panel/rooms")
+async def panel_rooms():
+    """Aggregate light state for each room from HA in a single API call."""
+    rooms = [
+        {"room": 1, "label": "Drawing Room",  "light": "switch.drawinglights"},
+        {"room": 2, "label": "Office",         "light": "light.office_lights"},
+        {"room": 3, "label": "Hallway",        "light": "light.hallway"},
+        {"room": 4, "label": "Stairs",         "light": "light.stairs_light"},
+        {"room": 5, "label": "Bedroom",        "light": "light.bedroom_lights"},
+        {"room": 6, "label": "Conservatory",   "light": "switch.conservatory_switch"},
+    ]
+    all_states: dict[str, str] = {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{HA_URL}/api/states", headers=HA_HEADERS)
+            r.raise_for_status()
+            all_states = {s["entity_id"]: s["state"] for s in r.json()}
+    except Exception as e:
+        log.error("panel/rooms: %s", e)
+    return [{"room": rm["room"], "label": rm["label"],
+             "light": rm["light"], "state": all_states.get(rm["light"], "unavailable")}
+            for rm in rooms]
+
+
+@app.get("/panel/presence")
+async def panel_presence():
+    """Aggregate occupancy/motion state for all presence sensors in one HA call."""
+    sensors = [
+        {"slot": 1,  "label": "Hallway",      "entity": "binary_sensor.hallway_motion_sensor_motion"},
+        {"slot": 2,  "label": "Hallway PS",   "entity": "binary_sensor.hallway_ps_motion"},
+        {"slot": 3,  "label": "Stairs",       "entity": "binary_sensor.stairs_motion_sensor_motion"},
+        {"slot": 4,  "label": "Drawing",      "entity": "binary_sensor.dr_motion_sensor_motion_2"},
+        {"slot": 5,  "label": "Office",       "entity": "binary_sensor.office_presence_sensor_occupancy"},
+        {"slot": 6,  "label": "Toilet",       "entity": "binary_sensor.tze200_3towulqd_ts0601_motion_4"},
+        {"slot": 7,  "label": "Conservatory", "entity": "binary_sensor.cps_motion"},
+        {"slot": 8,  "label": "Repeater",     "entity": "binary_sensor.repeater_motion"},
+        {"slot": 9,  "label": "Front Door",   "entity": "binary_sensor.front_door_motion_detected"},
+        {"slot": 10, "label": "Front Bell",   "entity": "binary_sensor.front_door_bell_motion_detected"},
+        {"slot": 11, "label": "Side Door",    "entity": "binary_sensor.side_door_motion_detected"},
+        {"slot": 12, "label": "Garden",       "entity": "binary_sensor.garden_motion_detected"},
+    ]
+    all_states: dict[str, str] = {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{HA_URL}/api/states", headers=HA_HEADERS)
+            r.raise_for_status()
+            all_states = {s["entity_id"]: s["state"] for s in r.json()}
+    except Exception as e:
+        log.error("panel/presence: %s", e)
+    return [{"slot": s["slot"], "label": s["label"], "entity": s["entity"],
+             "active": all_states.get(s["entity"], "off") == "on"}
+            for s in sensors]
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

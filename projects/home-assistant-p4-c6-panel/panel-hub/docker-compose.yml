@@ -7,6 +7,7 @@ services:
     volumes:
       - ./hub.env:/app/hub.env:ro
       - ./devices.json:/app/devices.json
+      - ./panel_config.json:/app/panel_config.json:ro
     env_file:
       - hub.env
     healthcheck:

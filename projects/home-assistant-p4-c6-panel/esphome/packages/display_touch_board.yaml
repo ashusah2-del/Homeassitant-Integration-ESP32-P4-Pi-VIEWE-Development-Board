@@ -153,6 +153,13 @@ globals:
   - { id: g_on_camera_view, type: bool, restore_value: no, initial_value: 'false' }
   # Proxy camera entity slug for the live-view page (e.g. "front_door").
   - { id: g_camera_live_entity, type: std::string, restore_value: no, initial_value: '""' }
+  # Camera entity slugs for thumbnail refresh. Initialized from compile-time
+  # substitutions; overridable at runtime by panel_hub_config.yaml on_boot fetch.
+  # Devices that don't define cam subs get "" (empty = slot skipped in refresh).
+  - { id: g_cam1_entity, type: std::string, restore_value: no, initial_value: '"${cam1_entity:}"' }
+  - { id: g_cam2_entity, type: std::string, restore_value: no, initial_value: '"${cam2_entity:}"' }
+  - { id: g_cam3_entity, type: std::string, restore_value: no, initial_value: '"${cam3_entity:}"' }
+  - { id: g_cam4_entity, type: std::string, restore_value: no, initial_value: '"${cam4_entity:}"' }
   # Panel backlight brightness 10–100 %, editable on the settings page.
   - { id: g_backlight_pct, type: int, restore_value: yes, initial_value: '80' }
   # Tuya bridge reachability — updated by tuya_local health poll when included.
@@ -640,6 +647,8 @@ script:
 
   # Camera thumbs only when HA is up — background polling while HA is offline
   # was blocking the single online_image HTTP slot and starving the slideshow.
+  # URLs are built from g_camN_entity globals (runtime overridable via /panel/config).
+  # Slots with empty entity strings are silently skipped.
   - id: refresh_camera_thumbs
     mode: restart
     then:
@@ -647,37 +656,53 @@ script:
           condition:
             lambda: 'return id(g_ha_connected);'
           then:
-            - online_image.set_url:
-                id: cam1_thumb
-                url: !lambda |-
-                  char t[16];
-                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  return std::string("${proxy_url}/camera/${cam1_entity}?size=thumb&t=") + t;
-                update: true
-            - delay: 400ms
-            - online_image.set_url:
-                id: cam2_thumb
-                url: !lambda |-
-                  char t[16];
-                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  return std::string("${proxy_url}/camera/${cam2_entity}?size=thumb&t=") + t;
-                update: true
-            - delay: 400ms
-            - online_image.set_url:
-                id: cam3_thumb
-                url: !lambda |-
-                  char t[16];
-                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  return std::string("${proxy_url}/camera/${cam3_entity}?size=thumb&t=") + t;
-                update: true
-            - delay: 400ms
-            - online_image.set_url:
-                id: cam4_thumb
-                url: !lambda |-
-                  char t[16];
-                  snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  return std::string("${proxy_url}/camera/${cam4_entity}?size=thumb&t=") + t;
-                update: true
+            - if:
+                condition:
+                  lambda: 'return !id(g_cam1_entity).empty();'
+                then:
+                  - online_image.set_url:
+                      id: cam1_thumb
+                      url: !lambda |-
+                        char t[16];
+                        snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                        return std::string("${proxy_url}/camera/") + id(g_cam1_entity) + "?size=thumb&t=" + t;
+                      update: true
+                  - delay: 400ms
+            - if:
+                condition:
+                  lambda: 'return !id(g_cam2_entity).empty();'
+                then:
+                  - online_image.set_url:
+                      id: cam2_thumb
+                      url: !lambda |-
+                        char t[16];
+                        snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                        return std::string("${proxy_url}/camera/") + id(g_cam2_entity) + "?size=thumb&t=" + t;
+                      update: true
+                  - delay: 400ms
+            - if:
+                condition:
+                  lambda: 'return !id(g_cam3_entity).empty();'
+                then:
+                  - online_image.set_url:
+                      id: cam3_thumb
+                      url: !lambda |-
+                        char t[16];
+                        snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                        return std::string("${proxy_url}/camera/") + id(g_cam3_entity) + "?size=thumb&t=" + t;
+                      update: true
+                  - delay: 400ms
+            - if:
+                condition:
+                  lambda: 'return !id(g_cam4_entity).empty();'
+                then:
+                  - online_image.set_url:
+                      id: cam4_thumb
+                      url: !lambda |-
+                        char t[16];
+                        snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
+                        return std::string("${proxy_url}/camera/") + id(g_cam4_entity) + "?size=thumb&t=" + t;
+                      update: true
 
   # Fetches a random baseline JPEG from the local proxy and displays it.
   # The proxy (immich-proxy.service on the Docker host) handles Immich API calls

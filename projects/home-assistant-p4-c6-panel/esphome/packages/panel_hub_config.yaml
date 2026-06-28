@@ -1,0 +1,55 @@
+# panel_hub_config.yaml — fetches /panel/config from the hub at boot and
+# updates camera entity globals (g_cam1_entity … g_cam4_entity) at runtime.
+#
+# This means changing which camera maps to a slot only requires editing
+# panel_config.json on the Docker host and rebooting the panel — no reflash.
+#
+# Falls back to compile-time substitution values (set as globals' initial_value
+# in display_touch_board.yaml) when the hub is unreachable.
+#
+# Include in mangalam-panel.yaml under packages: alongside core_ha and
+# display_touch_board, but NOT in guition_p4_7inch_compat.yaml which has no
+# camera or hub substitutions.
+
+esphome:
+  on_boot:
+    # Priority -200 runs after WiFi (10), OTA, and LVGL init (-100) are done.
+    priority: -200.0
+    then:
+      - wait_until:
+          condition:
+            wifi.connected:
+          timeout: 60s
+      - http_request.get:
+          url: "${proxy_url}/panel/config"
+          capture_response: true
+          max_response_buffer_size: 2048
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    ESP_LOGW("hub_config",
+                      "GET /panel/config → %d, keeping compiled defaults",
+                      response->status_code);
+                    return;
+                  }
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                    JsonArray cams = root["cameras"].as<JsonArray>();
+                    for (JsonObject cam : cams) {
+                      int slot = cam["slot"].as<int>();
+                      const char* entity = cam["entity"] | "";
+                      if (!entity[0]) continue;
+                      if      (slot == 0) id(g_cam1_entity) = entity;
+                      else if (slot == 1) id(g_cam2_entity) = entity;
+                      else if (slot == 2) id(g_cam3_entity) = entity;
+                      else if (slot == 3) id(g_cam4_entity) = entity;
+                    }
+                    ESP_LOGI("hub_config", "Camera config applied from hub (%d slots)",
+                             (int)cams.size());
+                    return true;
+                  });
+          on_error:
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "GET /panel/config failed (network error) — using compiled defaults"

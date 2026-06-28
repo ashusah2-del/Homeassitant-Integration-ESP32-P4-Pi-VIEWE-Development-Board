@@ -1,0 +1,8 @@
+{
+  "cameras": [
+    {"slot": 0, "label": "Front Door",  "entity": "front_door"},
+    {"slot": 1, "label": "Front Bell",  "entity": "front_door_bell"},
+    {"slot": 2, "label": "Side Door",   "entity": "side_door"},
+    {"slot": 3, "label": "Garden",      "entity": "garden"}
+  ]
+}
