@@ -1,0 +1,18 @@
+services:
+  panel-hub:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8768:8768"
+    volumes:
+      - ./hub.env:/app/hub.env:ro
+      - ./devices.json:/app/devices.json
+    env_file:
+      - hub.env
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8768/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

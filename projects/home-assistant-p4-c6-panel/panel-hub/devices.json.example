@@ -1,0 +1,78 @@
+{
+  "wifi_devices": [
+    {
+      "name": "Drawing Room Plug",
+      "id": "DEVICE_ID_HERE",
+      "ip": "192.168.x.x",
+      "version": "3.3",
+      "local_key": "REPLACE_ME",
+      "type": "simple",
+      "dps_on": 1
+    },
+    {
+      "name": "Garden Plug",
+      "id": "DEVICE_ID_HERE",
+      "ip": "192.168.x.x",
+      "version": "3.3",
+      "local_key": "REPLACE_ME",
+      "type": "simple",
+      "dps_on": 1
+    }
+  ],
+  "gateways": [
+    {
+      "name": "Zigbee Gateway",
+      "id": "GATEWAY_ID_HERE",
+      "ip": "192.168.x.x",
+      "version": "3.4",
+      "local_key": "REPLACE_ME",
+      "sub_devices": [
+        {
+          "name": "Power Strip (4+1)",
+          "id": "SUB_DEVICE_ID_HERE",
+          "type": "strip",
+          "dps_map": {"s1": 1, "s2": 2, "s3": 3, "s4": 4, "usb": 7}
+        },
+        {
+          "name": "Multifunction Alarm",
+          "id": "SUB_DEVICE_ID_HERE",
+          "type": "alarm",
+          "dps_alarm": 1
+        },
+        {
+          "name": "Smoke Detector",
+          "id": "SUB_DEVICE_ID_HERE",
+          "type": "sensor",
+          "dps_state": 1
+        },
+        {
+          "name": "CO Alarm",
+          "id": "SUB_DEVICE_ID_HERE",
+          "type": "sensor",
+          "dps_state": 1
+        },
+        {
+          "name": "Water Sensor",
+          "id": "SUB_DEVICE_ID_HERE",
+          "type": "sensor",
+          "dps_state": 1
+        }
+      ]
+    },
+    {
+      "name": "BT Gateway",
+      "id": "BT_GW_ID_HERE",
+      "ip": "192.168.x.x",
+      "version": "3.4",
+      "local_key": "REPLACE_ME",
+      "sub_devices": [
+        {
+          "name": "Mukta Lock",
+          "id": "LOCK_ID_HERE",
+          "type": "lock",
+          "dps_locked": 8
+        }
+      ]
+    }
+  ]
+}
