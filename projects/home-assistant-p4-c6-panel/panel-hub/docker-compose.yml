@@ -1,5 +1,13 @@
 services:
+  adb-server:
+    image: sorccu/adb:latest
+    container_name: adb-server
+    network_mode: host
+    restart: unless-stopped
+
   panel-hub:
+    depends_on:
+      - adb-server
     build: .
     restart: unless-stopped
     ports:
