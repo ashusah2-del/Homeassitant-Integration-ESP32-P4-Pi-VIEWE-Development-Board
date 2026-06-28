@@ -45,14 +45,14 @@ automation:
         event: start
     action:
       - variables:
-          week_start: "{{ now().date() - timedelta(days=now().weekday()) }}"
+          week_start: "{{ (now().date() - timedelta(days=now().weekday())).isoformat() }}"
           week_end: "{{ (now().date() - timedelta(days=now().weekday()) + timedelta(days=6)).isoformat() + 'T23:59:59' }}"
       - service: calendar.get_events
         target:
           entity_id: >
             {{ states.calendar | map(attribute='entity_id') | list | join(', ') }}
         data:
-          start_date_time: "{{ week_start.isoformat() + 'T00:00:00' }}"
+          start_date_time: "{{ week_start + 'T00:00:00' }}"
           end_date_time: "{{ week_end }}"
         response_variable: cal_response
       - variables:
