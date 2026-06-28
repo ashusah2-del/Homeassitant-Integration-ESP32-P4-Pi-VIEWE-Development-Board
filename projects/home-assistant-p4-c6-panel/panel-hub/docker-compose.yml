@@ -8,6 +8,7 @@ services:
       - ./hub.env:/app/hub.env:ro
       - ./devices.json:/app/devices.json
       - ./panel_config.json:/app/panel_config.json:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     env_file:
       - hub.env
     healthcheck:

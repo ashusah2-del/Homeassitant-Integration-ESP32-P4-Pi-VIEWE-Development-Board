@@ -66,6 +66,8 @@ JELLYFIN_URL         = os.getenv("JELLYFIN_URL", "").rstrip("/")
 JELLYFIN_KEY         = os.getenv("JELLYFIN_API_KEY", "")
 JELLYFIN_USER_ID     = os.getenv("JELLYFIN_USER_ID", "").strip()
 JELLYFIN_PLAY_CLIENT = os.getenv("JELLYFIN_PLAY_CLIENT", "").strip()
+FIRETV_ADB_CONTAINER = os.getenv("FIRETV_ADB_CONTAINER", "adb-server")
+FIRETV_ADB_DEVICE    = os.getenv("FIRETV_ADB_DEVICE", "192.168.55.77:5555")
 POSTER_MAX_W    = int(os.getenv("POSTER_MAX_W", "280"))
 POSTER_MAX_H    = int(os.getenv("POSTER_MAX_H", "400"))
 POSTER_QUALITY  = int(os.getenv("POSTER_QUALITY", "85"))
@@ -722,25 +724,104 @@ async def poster(item_id: str):
 async def play(item_id: str):
     if not JELLYFIN_PLAY_CLIENT:
         return {"ok": False, "message": "JELLYFIN_PLAY_CLIENT not configured"}
-    try:
+    needle = JELLYFIN_PLAY_CLIENT.lower()
+    # Retry for up to 15s — app may still be launching when HA calls us
+    target = None
+    for attempt in range(5):
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(f"{JELLYFIN_URL}/Sessions",
                                   headers={"X-Emby-Token": JELLYFIN_KEY})
             r.raise_for_status()
             sessions = r.json()
-        needle = JELLYFIN_PLAY_CLIENT.lower()
         target = next((s for s in sessions if needle in
                        (s.get("DeviceName", "") + s.get("Client", "")).lower()), None)
-        if not target:
-            raise HTTPException(404, f"No active Jellyfin session matching '{JELLYFIN_PLAY_CLIENT}'")
+        if target:
+            break
+        log.info("Jellyfin session '%s' not found yet (attempt %d/5), retrying…", JELLYFIN_PLAY_CLIENT, attempt + 1)
+        await asyncio.sleep(3)
+    if not target:
+        raise HTTPException(404, f"No active Jellyfin session matching '{JELLYFIN_PLAY_CLIENT}' after retries")
+    try:
+        params: dict[str, Any] = {
+            "playCommand": "PlayNow",
+            "itemIds": item_id,
+            "startPositionTicks": 0,
+            "controllingUserId": JELLYFIN_USER_ID or target.get("UserId", ""),
+        }
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 f"{JELLYFIN_URL}/Sessions/{target['Id']}/Playing",
                 headers={"X-Emby-Token": JELLYFIN_KEY},
-                json={"ItemIds": [item_id], "PlayCommand": "PlayNow",
-                      "StartPositionTicks": 0})
-            r.raise_for_status()
+                params=params)
+            if not r.is_success:
+                log.error("Jellyfin play %d: %s", r.status_code, r.text)
+                r.raise_for_status()
         log.info("Jellyfin play %s on %s", item_id, target.get("DeviceName"))
+        return {"ok": True, "session": target["Id"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@app.post("/jellyfin/cast/{item_id}")
+async def jellyfin_cast(item_id: str):
+    """Launch Jellyfin on Fire TV via ADB, then push the item via Sessions API."""
+    # 1. Wake Fire TV and open Jellyfin app via the adb-server Docker container
+    def _adb_launch() -> str:
+        try:
+            import docker as docker_sdk
+            client = docker_sdk.from_env()
+            container = client.containers.get(FIRETV_ADB_CONTAINER)
+            ec, out = container.exec_run(
+                f"adb -s {FIRETV_ADB_DEVICE} shell am start -n org.jellyfin.androidtv/.ui.startup.StartupActivity",
+                demux=False)
+            return out.decode(errors="replace").strip() if out else f"exit {ec}"
+        except Exception as ex:
+            return f"error: {ex}"
+    result_msg = await asyncio.get_event_loop().run_in_executor(None, _adb_launch)
+    log.info("ADB launch Jellyfin: %s", result_msg)
+
+    # 2. Poll Jellyfin Sessions until the Fire TV client appears (up to 20s)
+    needle = (JELLYFIN_PLAY_CLIENT or "jellyfin android tv").lower()
+    target = None
+    for attempt in range(7):
+        await asyncio.sleep(3)
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(f"{JELLYFIN_URL}/Sessions",
+                                      headers={"X-Emby-Token": JELLYFIN_KEY})
+                r.raise_for_status()
+                sessions = r.json()
+            target = next((s for s in sessions if needle in
+                           (s.get("DeviceName", "") + s.get("Client", "")).lower()), None)
+            if target:
+                break
+        except Exception:
+            pass
+        log.info("Waiting for Jellyfin Fire TV session (attempt %d/7)…", attempt + 1)
+
+    if not target:
+        raise HTTPException(404, "Jellyfin Fire TV session not found after 21s")
+
+    # 3. Push the item to the active session
+    # Jellyfin /Sessions/{id}/Playing takes query params, not a JSON body
+    try:
+        params: dict[str, Any] = {
+            "playCommand": "PlayNow",
+            "itemIds": item_id,
+            "startPositionTicks": 0,
+            "controllingUserId": JELLYFIN_USER_ID or target.get("UserId", ""),
+        }
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                f"{JELLYFIN_URL}/Sessions/{target['Id']}/Playing",
+                headers={"X-Emby-Token": JELLYFIN_KEY},
+                params=params)
+            if not r.is_success:
+                log.error("Jellyfin cast Sessions/Playing %d: %s", r.status_code, r.text)
+                r.raise_for_status()
+        log.info("Jellyfin cast %s → %s", item_id, target.get("DeviceName"))
         return {"ok": True, "session": target["Id"]}
     except HTTPException:
         raise

@@ -81,12 +81,20 @@ automation:
         data:
           value: "{{ lines[:254] if lines else 'No events' }}"
 
+rest_command:
+  jellyfin_hub_cast:
+    url: "http://192.168.55.59:8768/jellyfin/cast/{{ item_id }}"
+    method: POST
+    content_type: "application/json"
+    payload: "{}"
+    timeout: 30
+
 script:
   # Panel Jellyfin page: pick a movie, choose cast target with < >, tap Cast Play.
   # LG webOS: launches the Jellyfin webOS app at the selected item via webostv.command.
-  # Fire TV Cube: requires the "Android TV" (ADB) integration in HA.
-  #   Fire TV: Settings → My Fire TV → Developer Options → ADB Debugging ON, then
-  #   HA: Settings → Integrations → Add → "Android TV" → enter Fire TV IP.
+  # Fire TV Cube: ADB opens the Jellyfin app, then the panel-hub uses the Jellyfin
+  #   Sessions API to push the specific movie to the active Fire TV session.
+  #   Requires the Android TV (ADB) integration in HA pointed at 192.168.55.77.
   jellyfin_play_on_panel:
     alias: Jellyfin cast play from panel
     mode: queued
@@ -124,14 +132,9 @@ script:
                         contentTargetUrl: "jellyfin://jellyfin/play?itemid={{ item_id }}&serverId=cde23bef4a1c413185304272f50478c0"
           - conditions: "{{ media_player == 'media_player.fire_tv_192_168_55_77' }}"
             sequence:
-              - service: androidtv.adb_command
-                target:
-                  entity_id: media_player.fire_tv_192_168_55_77
+              - service: rest_command.jellyfin_hub_cast
                 data:
-                  command: >-
-                    am start -a android.intent.action.VIEW
-                    -d "jellyfin://jellyfin/play?itemid={{ item_id }}&serverId=cde23bef4a1c413185304272f50478c0"
-                    org.jellyfin.androidtv
+                  item_id: "{{ item_id }}"
         default:
           - service: logbook.log
             data:
