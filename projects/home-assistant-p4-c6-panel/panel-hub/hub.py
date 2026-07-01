@@ -1102,11 +1102,23 @@ def _ihost_headers() -> dict:
 
 
 def _parse_ihost_device(d: dict) -> dict:
-    serial = d.get("serialNumber", "")
+    serial = d.get("serial_number", d.get("serialNumber", ""))
     name = d.get("name", serial)
-    power = d.get("state", {}).get("power", {})
+    category = d.get("display_category", "")
+    state = d.get("state") or {}
+    power = state.get("power", {}) or {}
     on = (power.get("powerState") == "on") if power else None
-    return {"serial": serial, "name": name, "on": on}
+    temp = state.get("temperature", {})
+    hum  = state.get("humidity", {})
+    return {
+        "serial": serial,
+        "name": name,
+        "category": category,
+        "online": d.get("online", False),
+        "on": on,
+        "temperature": temp.get("temperature") if temp else None,
+        "humidity": hum.get("humidity") if hum else None,
+    }
 
 
 async def _ihost_device_list() -> list:
@@ -1117,7 +1129,9 @@ async def _ihost_device_list() -> list:
         )
         r.raise_for_status()
         data = r.json()
-    return [_parse_ihost_device(d) for d in data.get("data", {}).get("deviceList", [])]
+    # iHost Open API v2 uses snake_case: device_list / serial_number
+    raw = data.get("data", {}).get("device_list", data.get("data", {}).get("deviceList", []))
+    return [_parse_ihost_device(d) for d in raw]
 
 
 async def _ihost_set_power(serial: str, on: bool) -> bool:
@@ -1125,7 +1139,7 @@ async def _ihost_set_power(serial: str, on: bool) -> bool:
     async with httpx.AsyncClient(timeout=8) as client:
         r = await client.put(
             f"{IHOST_URL}/open-api/v2/rest/devices/{serial}/state",
-            headers=_ihost_headers(),
+            headers={**_ihost_headers(), "Content-Type": "application/json"},
             json=payload,
         )
         data = r.json()

@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/proxy.env"
-IHOST_URL="${IHOST_URL:-http://ihost.local}"
+IHOST_URL="${IHOST_URL:-http://192.168.55.79}"
 
 echo "Requesting token from ${IHOST_URL} ..."
 RESP=$(curl -sf "${IHOST_URL}/open-api/v2/rest/bridge/access_token?app_name=panel")

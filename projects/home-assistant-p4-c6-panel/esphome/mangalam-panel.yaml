@@ -13,21 +13,24 @@ substitutions:
   jellyfin_play_script: "script.jellyfin_play_on_panel"
   ihost_proxy_url: !secret ihost_proxy_url
 
-  # iHost / eWeLink page — 6 toggle slots (3×2 grid).
-  # Leave ih_devN_label empty to hide that card slot.
-  # Fill ih_devN_serial after running: curl http://localhost:8768/devices
-  ih_dev1_label: ""
-  ih_dev1_serial: ""
-  ih_dev2_label: ""
-  ih_dev2_serial: ""
-  ih_dev3_label: ""
-  ih_dev3_serial: ""
-  ih_dev4_label: ""
-  ih_dev4_serial: ""
-  ih_dev5_label: ""
-  ih_dev5_serial: ""
-  ih_dev6_label: ""
-  ih_dev6_serial: ""
+  # iHost / eWeLink page — 6 temp/humidity sensor cards (3×2) + 2 switch slots.
+  # Leave label empty to hide that slot. Serials from: curl http://192.168.55.59:8768/ihost/devices
+  ih_sensor1_label: "Office"
+  ih_sensor1_serial: "00124b00292aea32"
+  ih_sensor2_label: "Loft"
+  ih_sensor2_serial: "a4c138d8dc1ec8e7"
+  ih_sensor3_label: "Kitchen"
+  ih_sensor3_serial: "a4c138eaa5652d16"
+  ih_sensor4_label: "Advik"
+  ih_sensor4_serial: "a4c138a89a27a5d3"
+  ih_sensor5_label: "Mukta"
+  ih_sensor5_serial: "00124b00292ade95"
+  ih_sensor6_label: "Main Bedroom"
+  ih_sensor6_serial: "a4c13814e98b17af"
+  ih_sw1_label: "Drawing Room"
+  ih_sw1_serial: "00124b0024c30e72"
+  ih_sw2_label: ""
+  ih_sw2_serial: ""
   # Jellyfin cast targets — map labels to HA media_player entities (Chromecast, Shield, TV…).
   # Leave label empty to hide a slot. Cycle with < > on the Jellyfin page before Play.
   jf_cast1_label: "Drawing Room"
