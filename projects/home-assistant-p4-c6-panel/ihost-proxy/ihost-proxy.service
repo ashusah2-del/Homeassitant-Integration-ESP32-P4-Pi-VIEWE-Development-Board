@@ -1,0 +1,17 @@
+[Unit]
+Description=iHost Open API proxy for ESP32-P4 panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/docker/ESPs3 Device/projects/home-assistant-p4-c6-panel/ihost-proxy
+EnvironmentFile=%h/docker/ESPs3 Device/projects/home-assistant-p4-c6-panel/ihost-proxy/proxy.env
+ExecStart=/usr/bin/python3 %h/docker/ESPs3 Device/projects/home-assistant-p4-c6-panel/ihost-proxy/proxy.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

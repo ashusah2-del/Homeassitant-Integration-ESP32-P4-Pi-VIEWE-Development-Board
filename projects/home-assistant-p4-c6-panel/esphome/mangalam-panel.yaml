@@ -11,6 +11,23 @@ substitutions:
   jellyfin_url: !secret jellyfin_server_url
   jellyfin_api_key: !secret jellyfin_api_key
   jellyfin_play_script: "script.jellyfin_play_on_panel"
+  ihost_proxy_url: !secret ihost_proxy_url
+
+  # iHost / eWeLink page — 6 toggle slots (3×2 grid).
+  # Leave ih_devN_label empty to hide that card slot.
+  # Fill ih_devN_serial after running: curl http://localhost:8768/devices
+  ih_dev1_label: ""
+  ih_dev1_serial: ""
+  ih_dev2_label: ""
+  ih_dev2_serial: ""
+  ih_dev3_label: ""
+  ih_dev3_serial: ""
+  ih_dev4_label: ""
+  ih_dev4_serial: ""
+  ih_dev5_label: ""
+  ih_dev5_serial: ""
+  ih_dev6_label: ""
+  ih_dev6_serial: ""
   # Jellyfin cast targets — map labels to HA media_player entities (Chromecast, Shield, TV…).
   # Leave label empty to hide a slot. Cycle with < > on the Jellyfin page before Play.
   jf_cast1_label: "Drawing Room"
@@ -340,6 +357,7 @@ packages:
   audio_voice: !include packages/audio_voice_board.yaml
   tuya: !include packages/tuya_local.yaml
   jellyfin: !include packages/jellyfin_local.yaml
+  ihost: !include packages/ihost_local.yaml
   hub_config: !include packages/panel_hub_config.yaml
 
 wifi:
@@ -350,6 +368,7 @@ wifi:
     - script.execute: refresh_immich_slideshow
     - script.execute: tuya_poll_health
     - script.execute: jf_poll_health
+    - script.execute: ih_poll_health
   ap:
     ssid: !secret fallback_ap_ssid
     password: !secret fallback_ap_password

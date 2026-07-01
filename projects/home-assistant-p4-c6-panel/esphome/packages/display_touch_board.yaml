@@ -1853,7 +1853,7 @@ lvgl:
     - id: dashboard_page
       bg_color: 0x071019
       on_swipe_left:
-        - lvgl.page.show: tado_page
+        - lvgl.page.show: ihost_page
       widgets:
         - image:
             id: dash_bg_img
@@ -2502,7 +2502,7 @@ lvgl:
     - id: tado_page
       bg_color: 0x071019
       on_swipe_right:
-        - lvgl.page.show: dashboard_page
+        - lvgl.page.show: ihost_page
       on_swipe_left:
         - lvgl.page.show: presence_page
       widgets:

@@ -75,6 +75,9 @@ POSTER_QUALITY  = int(os.getenv("POSTER_QUALITY", "85"))
 OLLAMA_URL      = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL    = os.getenv("OLLAMA_MODEL", "llama3.2")
 
+IHOST_URL   = os.getenv("IHOST_URL", "http://ihost.local").rstrip("/")
+IHOST_TOKEN = os.getenv("IHOST_TOKEN", "")
+
 DEVICES_FILE       = os.getenv("DEVICES_FILE", "devices.json")
 PANEL_CONFIG_FILE  = os.getenv("PANEL_CONFIG_FILE", "panel_config.json")
 HUB_PORT           = int(os.getenv("HUB_PORT", "8768"))
@@ -1087,6 +1090,110 @@ async def panel_presence():
     return [{"slot": s["slot"], "label": s["label"], "entity": s["entity"],
              "active": all_states.get(s["entity"], "off") == "on"}
             for s in sensors]
+
+
+# ── iHost / eWeLink ──────────────────────────────────────────────────────────
+
+def _ihost_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {IHOST_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+
+def _parse_ihost_device(d: dict) -> dict:
+    serial = d.get("serialNumber", "")
+    name = d.get("name", serial)
+    power = d.get("state", {}).get("power", {})
+    on = (power.get("powerState") == "on") if power else None
+    return {"serial": serial, "name": name, "on": on}
+
+
+async def _ihost_device_list() -> list:
+    async with httpx.AsyncClient(timeout=8) as client:
+        r = await client.get(
+            f"{IHOST_URL}/open-api/v2/rest/devices",
+            headers=_ihost_headers(),
+        )
+        r.raise_for_status()
+        data = r.json()
+    return [_parse_ihost_device(d) for d in data.get("data", {}).get("deviceList", [])]
+
+
+async def _ihost_set_power(serial: str, on: bool) -> bool:
+    payload = {"power": {"powerState": "on" if on else "off"}}
+    async with httpx.AsyncClient(timeout=8) as client:
+        r = await client.put(
+            f"{IHOST_URL}/open-api/v2/rest/devices/{serial}/state",
+            headers=_ihost_headers(),
+            json=payload,
+        )
+        data = r.json()
+    return data.get("error", 1) == 0
+
+
+@app.get("/ihost/health")
+async def ihost_health():
+    if not IHOST_TOKEN:
+        raise HTTPException(503, "IHOST_TOKEN not configured — run get_token.sh")
+    try:
+        devices = await _ihost_device_list()
+        return {"ok": True, "devices": len(devices)}
+    except Exception as exc:
+        log.warning("ihost health: %s", exc)
+        raise HTTPException(503, {"ok": False, "error": str(exc)})
+
+
+@app.get("/ihost/devices")
+async def ihost_devices():
+    try:
+        return await _ihost_device_list()
+    except Exception as exc:
+        log.error("ihost devices: %s", exc)
+        raise HTTPException(503, {"ok": False, "error": str(exc)})
+
+
+@app.get("/ihost/device/{serial}")
+async def ihost_device_state(serial: str):
+    try:
+        devices = await _ihost_device_list()
+        for d in devices:
+            if d["serial"] == serial:
+                return {"ok": True, **d}
+        raise HTTPException(404, {"ok": False, "on": None})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error("ihost device %s: %s", serial, exc)
+        raise HTTPException(503, {"ok": False, "error": str(exc)})
+
+
+@app.post("/ihost/device/{serial}/{action}")
+async def ihost_device_control(serial: str, action: str):
+    if action not in ("on", "off", "toggle"):
+        raise HTTPException(400, "action must be on, off, or toggle")
+    if action == "toggle":
+        devices = await _ihost_device_list()
+        dev = next((d for d in devices if d["serial"] == serial), None)
+        if dev is None:
+            raise HTTPException(404, {"ok": False})
+        target = not bool(dev.get("on"))
+    else:
+        target = (action == "on")
+    ok = await _ihost_set_power(serial, target)
+    return {"ok": ok, "on": target if ok else None}
+
+
+@app.post("/ihost/device/{serial}")
+async def ihost_device_set(serial: str, request: Request):
+    """HA rest switch compat: POST body {"on": true/false}."""
+    try:
+        body = await request.json()
+        target = bool(body.get("on", False))
+    except Exception:
+        raise HTTPException(400, "body must be JSON with 'on' key")
+    ok = await _ihost_set_power(serial, target)
+    return {"ok": ok, "on": target if ok else None}
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

@@ -1,0 +1,884 @@
+# ─── iHost / eWeLink page ──────────────────────────────────────────────────────
+# Direct LAN control of eWeLink/Sonoff devices via iHost Open API v2.
+# The ihost-proxy service (port 8768) bridges the panel to the iHost REST API.
+#
+# Layout:  3×2 grid of device toggle cards, each tap does optimistic on/off.
+# Navigation: Dashboard → [swipe left] → iHost → [swipe left] → Tado
+#
+# Setup:
+#   1. Press the iHost button, run ihost-proxy/get_token.sh within 5 min.
+#   2. Run: curl http://localhost:8768/devices   to get serial numbers.
+#   3. Fill ih_dev1_serial … ih_dev6_serial in mangalam-panel.yaml.
+#   4. Set ih_dev1_label … ih_dev6_label (leave empty to hide the slot).
+#   5. OTA-flash the panel.
+#
+# HTTP pattern: optimistic toggle — flip state immediately, revert on error.
+# No parallel HTTP requests; each toggle blocks until the proxy responds.
+
+globals:
+  - id: g_ih_bridge_ok
+    type: bool
+    restore_value: false
+
+  - id: g_ih_busy
+    type: bool
+    restore_value: false
+
+  - id: g_ih_page_active
+    type: bool
+    restore_value: false
+
+  # Per-device state: -1 = unknown/not polled, 0 = off, 1 = on
+  - id: g_ih_dev1
+    type: int
+    restore_value: false
+    initial_value: "-1"
+  - id: g_ih_dev2
+    type: int
+    restore_value: false
+    initial_value: "-1"
+  - id: g_ih_dev3
+    type: int
+    restore_value: false
+    initial_value: "-1"
+  - id: g_ih_dev4
+    type: int
+    restore_value: false
+    initial_value: "-1"
+  - id: g_ih_dev5
+    type: int
+    restore_value: false
+    initial_value: "-1"
+  - id: g_ih_dev6
+    type: int
+    restore_value: false
+    initial_value: "-1"
+
+script:
+  # ── Bridge health ──────────────────────────────────────────────────────────
+  - id: ih_poll_health
+    mode: single
+    then:
+      - http_request.get:
+          url: "${ihost_proxy_url}/health"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  id(g_ih_bridge_ok) = (response->status_code == 200);
+                  id(ih_apply_ui).execute();
+          on_error:
+            then:
+              - lambda: |-
+                  id(g_ih_bridge_ok) = false;
+                  id(ih_apply_ui).execute();
+
+  # ── Refresh device states sequentially ────────────────────────────────────
+  - id: ih_refresh_states
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy);'
+          then:
+            - lambda: 'id(g_ih_busy) = true;'
+            - if:
+                condition:
+                  lambda: 'return strlen("${ih_dev1_serial}") > 0;'
+                then:
+                  - http_request.get:
+                      url: "${ihost_proxy_url}/device/${ih_dev1_serial}"
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code == 200)
+                                json::parse_json(body, [](JsonObject r) -> bool {
+                                  id(g_ih_dev1) = r["on"].as<bool>() ? 1 : 0; return true;
+                                });
+                              else id(g_ih_dev1) = -1;
+                      on_error:
+                        then:
+                          - lambda: 'id(g_ih_dev1) = -1;'
+            - delay: 150ms
+            - if:
+                condition:
+                  lambda: 'return strlen("${ih_dev2_serial}") > 0;'
+                then:
+                  - http_request.get:
+                      url: "${ihost_proxy_url}/device/${ih_dev2_serial}"
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code == 200)
+                                json::parse_json(body, [](JsonObject r) -> bool {
+                                  id(g_ih_dev2) = r["on"].as<bool>() ? 1 : 0; return true;
+                                });
+                              else id(g_ih_dev2) = -1;
+                      on_error:
+                        then:
+                          - lambda: 'id(g_ih_dev2) = -1;'
+            - delay: 150ms
+            - if:
+                condition:
+                  lambda: 'return strlen("${ih_dev3_serial}") > 0;'
+                then:
+                  - http_request.get:
+                      url: "${ihost_proxy_url}/device/${ih_dev3_serial}"
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code == 200)
+                                json::parse_json(body, [](JsonObject r) -> bool {
+                                  id(g_ih_dev3) = r["on"].as<bool>() ? 1 : 0; return true;
+                                });
+                              else id(g_ih_dev3) = -1;
+                      on_error:
+                        then:
+                          - lambda: 'id(g_ih_dev3) = -1;'
+            - delay: 150ms
+            - if:
+                condition:
+                  lambda: 'return strlen("${ih_dev4_serial}") > 0;'
+                then:
+                  - http_request.get:
+                      url: "${ihost_proxy_url}/device/${ih_dev4_serial}"
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code == 200)
+                                json::parse_json(body, [](JsonObject r) -> bool {
+                                  id(g_ih_dev4) = r["on"].as<bool>() ? 1 : 0; return true;
+                                });
+                              else id(g_ih_dev4) = -1;
+                      on_error:
+                        then:
+                          - lambda: 'id(g_ih_dev4) = -1;'
+            - delay: 150ms
+            - if:
+                condition:
+                  lambda: 'return strlen("${ih_dev5_serial}") > 0;'
+                then:
+                  - http_request.get:
+                      url: "${ihost_proxy_url}/device/${ih_dev5_serial}"
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code == 200)
+                                json::parse_json(body, [](JsonObject r) -> bool {
+                                  id(g_ih_dev5) = r["on"].as<bool>() ? 1 : 0; return true;
+                                });
+                              else id(g_ih_dev5) = -1;
+                      on_error:
+                        then:
+                          - lambda: 'id(g_ih_dev5) = -1;'
+            - delay: 150ms
+            - if:
+                condition:
+                  lambda: 'return strlen("${ih_dev6_serial}") > 0;'
+                then:
+                  - http_request.get:
+                      url: "${ihost_proxy_url}/device/${ih_dev6_serial}"
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code == 200)
+                                json::parse_json(body, [](JsonObject r) -> bool {
+                                  id(g_ih_dev6) = r["on"].as<bool>() ? 1 : 0; return true;
+                                });
+                              else id(g_ih_dev6) = -1;
+                      on_error:
+                        then:
+                          - lambda: 'id(g_ih_dev6) = -1;'
+            - script.execute: ih_apply_ui
+            - lambda: 'id(g_ih_busy) = false;'
+
+  # ── UI apply ──────────────────────────────────────────────────────────────
+  - id: ih_apply_ui
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          bool ok = id(g_ih_bridge_ok);
+
+          auto dev_bg = [ok](int s) -> uint32_t {
+            if (!ok || s < 0) return (uint32_t)id(g_theme_card_bg);
+            return s ? (uint32_t)id(g_theme_accent_bg) : (uint32_t)id(g_theme_card_bg);
+          };
+          auto dev_text = [ok](int s) -> const char* {
+            if (!ok) return "--";
+            if (s < 0) return "---";
+            return s ? "ON" : "OFF";
+          };
+          auto dev_color = [ok](int s) -> uint32_t {
+            if (!ok || s < 0) return (uint32_t)id(g_theme_text_muted);
+            return s ? (uint32_t)id(g_theme_success) : (uint32_t)id(g_theme_lamp_off);
+          };
+
+          lv_label_set_text(id(ih_status_lbl), ok ? "ONLINE" : "OFFLINE");
+          lv_obj_set_style_text_color(id(ih_status_lbl),
+            lv_color_hex(ok ? (uint32_t)id(g_theme_success) : (uint32_t)id(g_theme_warning)), 0);
+
+          lv_obj_set_style_bg_color(id(ih_card1), lv_color_hex(dev_bg(id(g_ih_dev1))), 0);
+          lv_label_set_text(id(ih_state1), dev_text(id(g_ih_dev1)));
+          lv_obj_set_style_text_color(id(ih_state1), lv_color_hex(dev_color(id(g_ih_dev1))), 0);
+
+          lv_obj_set_style_bg_color(id(ih_card2), lv_color_hex(dev_bg(id(g_ih_dev2))), 0);
+          lv_label_set_text(id(ih_state2), dev_text(id(g_ih_dev2)));
+          lv_obj_set_style_text_color(id(ih_state2), lv_color_hex(dev_color(id(g_ih_dev2))), 0);
+
+          lv_obj_set_style_bg_color(id(ih_card3), lv_color_hex(dev_bg(id(g_ih_dev3))), 0);
+          lv_label_set_text(id(ih_state3), dev_text(id(g_ih_dev3)));
+          lv_obj_set_style_text_color(id(ih_state3), lv_color_hex(dev_color(id(g_ih_dev3))), 0);
+
+          lv_obj_set_style_bg_color(id(ih_card4), lv_color_hex(dev_bg(id(g_ih_dev4))), 0);
+          lv_label_set_text(id(ih_state4), dev_text(id(g_ih_dev4)));
+          lv_obj_set_style_text_color(id(ih_state4), lv_color_hex(dev_color(id(g_ih_dev4))), 0);
+
+          lv_obj_set_style_bg_color(id(ih_card5), lv_color_hex(dev_bg(id(g_ih_dev5))), 0);
+          lv_label_set_text(id(ih_state5), dev_text(id(g_ih_dev5)));
+          lv_obj_set_style_text_color(id(ih_state5), lv_color_hex(dev_color(id(g_ih_dev5))), 0);
+
+          lv_obj_set_style_bg_color(id(ih_card6), lv_color_hex(dev_bg(id(g_ih_dev6))), 0);
+          lv_label_set_text(id(ih_state6), dev_text(id(g_ih_dev6)));
+          lv_obj_set_style_text_color(id(ih_state6), lv_color_hex(dev_color(id(g_ih_dev6))), 0);
+
+  # ── Toggle scripts (optimistic: flip immediately, revert on HTTP error) ────
+  - id: ih_toggle_dev1
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy) && id(g_ih_bridge_ok) && strlen("${ih_dev1_serial}") > 0;'
+          then:
+            - lambda: |-
+                id(g_ih_busy) = true;
+                id(g_ih_dev1) = (id(g_ih_dev1) == 1) ? 0 : 1;
+            - script.execute: ih_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_ih_dev1) == 1;'
+                then:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev1_serial}/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev1) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev1) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                else:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev1_serial}/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev1) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev1) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+
+  - id: ih_toggle_dev2
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy) && id(g_ih_bridge_ok) && strlen("${ih_dev2_serial}") > 0;'
+          then:
+            - lambda: |-
+                id(g_ih_busy) = true;
+                id(g_ih_dev2) = (id(g_ih_dev2) == 1) ? 0 : 1;
+            - script.execute: ih_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_ih_dev2) == 1;'
+                then:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev2_serial}/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev2) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev2) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                else:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev2_serial}/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev2) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev2) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+
+  - id: ih_toggle_dev3
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy) && id(g_ih_bridge_ok) && strlen("${ih_dev3_serial}") > 0;'
+          then:
+            - lambda: |-
+                id(g_ih_busy) = true;
+                id(g_ih_dev3) = (id(g_ih_dev3) == 1) ? 0 : 1;
+            - script.execute: ih_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_ih_dev3) == 1;'
+                then:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev3_serial}/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev3) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev3) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                else:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev3_serial}/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev3) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev3) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+
+  - id: ih_toggle_dev4
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy) && id(g_ih_bridge_ok) && strlen("${ih_dev4_serial}") > 0;'
+          then:
+            - lambda: |-
+                id(g_ih_busy) = true;
+                id(g_ih_dev4) = (id(g_ih_dev4) == 1) ? 0 : 1;
+            - script.execute: ih_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_ih_dev4) == 1;'
+                then:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev4_serial}/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev4) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev4) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                else:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev4_serial}/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev4) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev4) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+
+  - id: ih_toggle_dev5
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy) && id(g_ih_bridge_ok) && strlen("${ih_dev5_serial}") > 0;'
+          then:
+            - lambda: |-
+                id(g_ih_busy) = true;
+                id(g_ih_dev5) = (id(g_ih_dev5) == 1) ? 0 : 1;
+            - script.execute: ih_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_ih_dev5) == 1;'
+                then:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev5_serial}/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev5) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev5) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                else:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev5_serial}/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev5) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev5) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+
+  - id: ih_toggle_dev6
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_ih_busy) && id(g_ih_bridge_ok) && strlen("${ih_dev6_serial}") > 0;'
+          then:
+            - lambda: |-
+                id(g_ih_busy) = true;
+                id(g_ih_dev6) = (id(g_ih_dev6) == 1) ? 0 : 1;
+            - script.execute: ih_apply_ui
+            - if:
+                condition:
+                  lambda: 'return id(g_ih_dev6) == 1;'
+                then:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev6_serial}/on"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev6) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev6) = 0;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                else:
+                  - http_request.post:
+                      url: "${ihost_proxy_url}/device/${ih_dev6_serial}/off"
+                      body: ""
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code != 200) id(g_ih_dev6) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(g_ih_dev6) = 1;
+                              id(g_ih_busy) = false;
+                              id(ih_apply_ui).execute();
+
+# ── 60s health ticker ─────────────────────────────────────────────────────────
+interval:
+  - interval: 60s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_ih_page_active);'
+          then:
+            - script.execute: ih_refresh_states
+
+# ── LVGL page ─────────────────────────────────────────────────────────────────
+lvgl:
+  pages:
+    - id: ihost_page
+      bg_color: 0x071019
+      on_load:
+        - lambda: |-
+            id(g_ih_page_active) = true;
+            // Hide cards whose label is empty — compile-time strlen check.
+            if (strlen("${ih_dev1_label}") == 0) lv_obj_add_flag(id(ih_card1), LV_OBJ_FLAG_HIDDEN);
+            if (strlen("${ih_dev2_label}") == 0) lv_obj_add_flag(id(ih_card2), LV_OBJ_FLAG_HIDDEN);
+            if (strlen("${ih_dev3_label}") == 0) lv_obj_add_flag(id(ih_card3), LV_OBJ_FLAG_HIDDEN);
+            if (strlen("${ih_dev4_label}") == 0) lv_obj_add_flag(id(ih_card4), LV_OBJ_FLAG_HIDDEN);
+            if (strlen("${ih_dev5_label}") == 0) lv_obj_add_flag(id(ih_card5), LV_OBJ_FLAG_HIDDEN);
+            if (strlen("${ih_dev6_label}") == 0) lv_obj_add_flag(id(ih_card6), LV_OBJ_FLAG_HIDDEN);
+        - script.execute: ih_poll_health
+        - script.execute: ih_refresh_states
+      on_unload:
+        - lambda: |-
+            id(g_ih_page_active) = false;
+            id(g_ih_busy) = false;
+      on_swipe_right:
+        - lvgl.page.show: dashboard_page
+      on_swipe_left:
+        - lvgl.page.show: tado_page
+      widgets:
+
+        # ── Top bar ───────────────────────────────────────────────────────────
+        - obj:
+            id: ih_header_bar
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0B1624
+            bg_opa: 98%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - button:
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
+              - label:
+                  align: CENTER
+                  x: -50
+                  text: "iHost / Sonoff"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - label:
+                  id: ih_status_lbl
+                  align: CENTER
+                  x: 100
+                  text: "..."
+                  text_font: montserrat_14
+                  text_color: 0xFFAA00
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: dashboard_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: tado_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -140
+                  width: 52
+                  height: 38
+                  bg_color: 0x0D2540
+                  radius: 9
+                  border_width: 1
+                  border_color: 0x263B55
+                  on_click:
+                    - script.execute: ih_poll_health
+                    - script.execute: ih_refresh_states
+                  widgets:
+                    - label: { align: CENTER, text: "R", text_font: montserrat_18, text_color: 0xAABBCC }
+
+        # ── Row 1: cards 1-3 (y=72) ───────────────────────────────────────────
+        # Card 1
+        - obj:
+            id: ih_card1
+            x: 16
+            y: 72
+            width: 322
+            height: 248
+            align: TOP_LEFT
+            radius: 14
+            bg_color: 0x0D1A28
+            bg_opa: 100%
+            border_width: 1
+            border_color: 0x1E3A5F
+            clickable: true
+            on_click:
+              - script.execute: ih_toggle_dev1
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 14
+                  text: "${ih_dev1_label}"
+                  text_font: montserrat_20
+                  text_color: 0xCCDDEE
+                  long_mode: DOT
+                  width: 290
+              - label:
+                  id: ih_state1
+                  align: CENTER
+                  y: 14
+                  text: "---"
+                  text_font: montserrat_48
+                  text_color: 0x4A5568
+              - label:
+                  align: BOTTOM_MID
+                  y: -14
+                  text: "tap to toggle"
+                  text_font: montserrat_12
+                  text_color: 0x3A4A5A
+
+        # Card 2
+        - obj:
+            id: ih_card2
+            x: 350
+            y: 72
+            width: 322
+            height: 248
+            align: TOP_LEFT
+            radius: 14
+            bg_color: 0x0D1A28
+            bg_opa: 100%
+            border_width: 1
+            border_color: 0x1E3A5F
+            clickable: true
+            on_click:
+              - script.execute: ih_toggle_dev2
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 14
+                  text: "${ih_dev2_label}"
+                  text_font: montserrat_20
+                  text_color: 0xCCDDEE
+                  long_mode: DOT
+                  width: 290
+              - label:
+                  id: ih_state2
+                  align: CENTER
+                  y: 14
+                  text: "---"
+                  text_font: montserrat_48
+                  text_color: 0x4A5568
+              - label:
+                  align: BOTTOM_MID
+                  y: -14
+                  text: "tap to toggle"
+                  text_font: montserrat_12
+                  text_color: 0x3A4A5A
+
+        # Card 3
+        - obj:
+            id: ih_card3
+            x: 684
+            y: 72
+            width: 322
+            height: 248
+            align: TOP_LEFT
+            radius: 14
+            bg_color: 0x0D1A28
+            bg_opa: 100%
+            border_width: 1
+            border_color: 0x1E3A5F
+            clickable: true
+            on_click:
+              - script.execute: ih_toggle_dev3
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 14
+                  text: "${ih_dev3_label}"
+                  text_font: montserrat_20
+                  text_color: 0xCCDDEE
+                  long_mode: DOT
+                  width: 290
+              - label:
+                  id: ih_state3
+                  align: CENTER
+                  y: 14
+                  text: "---"
+                  text_font: montserrat_48
+                  text_color: 0x4A5568
+              - label:
+                  align: BOTTOM_MID
+                  y: -14
+                  text: "tap to toggle"
+                  text_font: montserrat_12
+                  text_color: 0x3A4A5A
+
+        # ── Row 2: cards 4-6 (y=332) ──────────────────────────────────────────
+        # Card 4
+        - obj:
+            id: ih_card4
+            x: 16
+            y: 332
+            width: 322
+            height: 248
+            align: TOP_LEFT
+            radius: 14
+            bg_color: 0x0D1A28
+            bg_opa: 100%
+            border_width: 1
+            border_color: 0x1E3A5F
+            clickable: true
+            on_click:
+              - script.execute: ih_toggle_dev4
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 14
+                  text: "${ih_dev4_label}"
+                  text_font: montserrat_20
+                  text_color: 0xCCDDEE
+                  long_mode: DOT
+                  width: 290
+              - label:
+                  id: ih_state4
+                  align: CENTER
+                  y: 14
+                  text: "---"
+                  text_font: montserrat_48
+                  text_color: 0x4A5568
+              - label:
+                  align: BOTTOM_MID
+                  y: -14
+                  text: "tap to toggle"
+                  text_font: montserrat_12
+                  text_color: 0x3A4A5A
+
+        # Card 5
+        - obj:
+            id: ih_card5
+            x: 350
+            y: 332
+            width: 322
+            height: 248
+            align: TOP_LEFT
+            radius: 14
+            bg_color: 0x0D1A28
+            bg_opa: 100%
+            border_width: 1
+            border_color: 0x1E3A5F
+            clickable: true
+            on_click:
+              - script.execute: ih_toggle_dev5
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 14
+                  text: "${ih_dev5_label}"
+                  text_font: montserrat_20
+                  text_color: 0xCCDDEE
+                  long_mode: DOT
+                  width: 290
+              - label:
+                  id: ih_state5
+                  align: CENTER
+                  y: 14
+                  text: "---"
+                  text_font: montserrat_48
+                  text_color: 0x4A5568
+              - label:
+                  align: BOTTOM_MID
+                  y: -14
+                  text: "tap to toggle"
+                  text_font: montserrat_12
+                  text_color: 0x3A4A5A
+
+        # Card 6
+        - obj:
+            id: ih_card6
+            x: 684
+            y: 332
+            width: 322
+            height: 248
+            align: TOP_LEFT
+            radius: 14
+            bg_color: 0x0D1A28
+            bg_opa: 100%
+            border_width: 1
+            border_color: 0x1E3A5F
+            clickable: true
+            on_click:
+              - script.execute: ih_toggle_dev6
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 14
+                  text: "${ih_dev6_label}"
+                  text_font: montserrat_20
+                  text_color: 0xCCDDEE
+                  long_mode: DOT
+                  width: 290
+              - label:
+                  id: ih_state6
+                  align: CENTER
+                  y: 14
+                  text: "---"
+                  text_font: montserrat_48
+                  text_color: 0x4A5568
+              - label:
+                  align: BOTTOM_MID
+                  y: -14
+                  text: "tap to toggle"
+                  text_font: montserrat_12
+                  text_color: 0x3A4A5A

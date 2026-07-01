@@ -1,0 +1,102 @@
+# ─── iHost / eWeLink HA integration ──────────────────────────────────────────
+# Creates switch entities in Home Assistant backed by the ihost-proxy service.
+# These can be used in Lovelace dashboards, automations, and scripts.
+#
+# Prerequisites:
+#   1. ihost-proxy must be running on the Docker host (port 8768).
+#   2. Replace PLACEHOLDER_DEV*_SERIAL with actual serial numbers from:
+#         curl http://192.168.55.59:8768/devices
+#   3. Set friendly names via the name fields below.
+#   4. Drop this file into your HA packages folder and reload.
+#
+# The proxy's GET /device/<serial> returns {"ok":…,"on":bool,"name":"…"}
+# The proxy's POST /device/<serial> with {"on":true/false} controls it.
+# Scan interval is 30s; control is near-instant via the proxy.
+
+switch:
+  - platform: rest
+    name: "iHost Device 1"
+    unique_id: ihost_device_1
+    resource: "http://192.168.55.59:8768/ihost/device/PLACEHOLDER_DEV1_SERIAL"
+    body_on: '{"on": true}'
+    body_off: '{"on": false}'
+    is_on_template: "{{ value_json.on }}"
+    headers:
+      Content-Type: application/json
+    method: POST
+    scan_interval: 30
+    device_class: outlet
+    icon: mdi:power-socket
+
+  - platform: rest
+    name: "iHost Device 2"
+    unique_id: ihost_device_2
+    resource: "http://192.168.55.59:8768/ihost/device/PLACEHOLDER_DEV2_SERIAL"
+    body_on: '{"on": true}'
+    body_off: '{"on": false}'
+    is_on_template: "{{ value_json.on }}"
+    headers:
+      Content-Type: application/json
+    method: POST
+    scan_interval: 30
+    device_class: outlet
+    icon: mdi:power-socket
+
+  - platform: rest
+    name: "iHost Device 3"
+    unique_id: ihost_device_3
+    resource: "http://192.168.55.59:8768/ihost/device/PLACEHOLDER_DEV3_SERIAL"
+    body_on: '{"on": true}'
+    body_off: '{"on": false}'
+    is_on_template: "{{ value_json.on }}"
+    headers:
+      Content-Type: application/json
+    method: POST
+    scan_interval: 30
+    device_class: outlet
+    icon: mdi:power-socket
+
+  - platform: rest
+    name: "iHost Device 4"
+    unique_id: ihost_device_4
+    resource: "http://192.168.55.59:8768/ihost/device/PLACEHOLDER_DEV4_SERIAL"
+    body_on: '{"on": true}'
+    body_off: '{"on": false}'
+    is_on_template: "{{ value_json.on }}"
+    headers:
+      Content-Type: application/json
+    method: POST
+    scan_interval: 30
+    device_class: outlet
+    icon: mdi:power-socket
+
+  - platform: rest
+    name: "iHost Device 5"
+    unique_id: ihost_device_5
+    resource: "http://192.168.55.59:8768/ihost/device/PLACEHOLDER_DEV5_SERIAL"
+    body_on: '{"on": true}'
+    body_off: '{"on": false}'
+    is_on_template: "{{ value_json.on }}"
+    headers:
+      Content-Type: application/json
+    method: POST
+    scan_interval: 30
+    device_class: outlet
+    icon: mdi:power-socket
+
+  - platform: rest
+    name: "iHost Device 6"
+    unique_id: ihost_device_6
+    resource: "http://192.168.55.59:8768/ihost/device/PLACEHOLDER_DEV6_SERIAL"
+    body_on: '{"on": true}'
+    body_off: '{"on": false}'
+    is_on_template: "{{ value_json.on }}"
+    headers:
+      Content-Type: application/json
+    method: POST
+    scan_interval: 30
+    device_class: outlet
+    icon: mdi:power-socket
+
+# Remove any of the above that you don't need.
+# Add entries to groups or Lovelace manually after they appear as entities.
