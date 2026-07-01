@@ -51,8 +51,8 @@ IMMICH_URL      = os.getenv("IMMICH_URL", "").rstrip("/")
 IMMICH_KEY      = os.getenv("IMMICH_API_KEY", "")
 FAVORITES_ONLY  = os.getenv("FAVORITES_ONLY", "false").lower() in ("1", "true", "yes", "on")
 PERSON_NAMES    = [p.strip() for p in os.getenv("IMMICH_PERSON_NAMES", "").split(",") if p.strip()]
-PORTRAIT_PREFER = os.getenv("PORTRAIT_PREFER", "true").lower() in ("1", "true", "yes", "on")
-PORTRAIT_BATCH  = int(os.getenv("PORTRAIT_BATCH", "4"))
+LANDSCAPE_PREFER = os.getenv("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
+PORTRAIT_BATCH   = int(os.getenv("PORTRAIT_BATCH", "4"))
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
@@ -147,7 +147,7 @@ async def fetch_random_photo() -> bytes | None:
     for attempt in range(RETRIES):
         try:
             search: dict[str, Any] = {
-                "size": PORTRAIT_BATCH if PORTRAIT_PREFER else 1,
+                "size": PORTRAIT_BATCH if LANDSCAPE_PREFER else 1,
                 "type": "IMAGE",
             }
             person_name = None
@@ -176,9 +176,9 @@ async def fetch_random_photo() -> bytes | None:
             if not images:
                 continue
 
-            if PORTRAIT_PREFER:
-                portrait = [a for a in images if (a.get("height") or 0) > (a.get("width") or 0)]
-                item = (portrait or images)[0]
+            if LANDSCAPE_PREFER:
+                landscape = [a for a in images if (a.get("width") or 0) >= (a.get("height") or 0)]
+                item = (landscape or images)[0]
             else:
                 item = images[0]
 
@@ -198,7 +198,7 @@ async def fetch_random_photo() -> bytes | None:
             jpeg = await loop.run_in_executor(
                 None, encode_sof0, raw, PHOTO_MAX_W, PHOTO_MAX_H, JPEG_QUALITY, 2)
 
-            orient = "portrait" if (item.get("height", 0) > item.get("width", 0)) else "landscape"
+            orient = "landscape" if (item.get("width", 0) >= item.get("height", 0)) else "portrait-fallback"
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
             log.info("photo %s (%s, %s) SOF 0xFF%02X: %d→%d bytes",
                      item["id"], scope, orient, sof, len(raw), len(jpeg))
