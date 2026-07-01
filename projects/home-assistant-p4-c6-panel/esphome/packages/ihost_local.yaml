@@ -130,205 +130,203 @@ script:
   - id: ih_refresh_all
     mode: restart
     then:
+      # Always claim the lock first — on restart the old coroutine dies here,
+      # so g_ih_busy is reset to true at the top of every run.
+      - lambda: 'id(g_ih_busy) = true;'
+
+      # Sensor 1
       - if:
           condition:
-            lambda: 'return !id(g_ih_busy);'
+            lambda: 'return strlen("${ih_sensor1_serial}") > 0;'
           then:
-            - lambda: 'id(g_ih_busy) = true;'
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sensor1_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            id(g_ih_t1) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
+                            id(g_ih_h1) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
+                            id(g_ih_ol1) = r["online"].as<bool>();
+                            return true;
+                          });
+                        else { id(g_ih_t1) = -99; id(g_ih_h1) = -1; id(g_ih_ol1) = false; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_t1) = -99; id(g_ih_h1) = -1; id(g_ih_ol1) = false;'
+      - delay: 120ms
 
-            # Sensor 1
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sensor1_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sensor1_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  id(g_ih_t1) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
-                                  id(g_ih_h1) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
-                                  id(g_ih_ol1) = r["online"].as<bool>();
-                                  return true;
-                                });
-                              else { id(g_ih_t1) = -99; id(g_ih_h1) = -1; id(g_ih_ol1) = false; }
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_t1) = -99; id(g_ih_h1) = -1; id(g_ih_ol1) = false;'
-            - delay: 120ms
+      # Sensor 2
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sensor2_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sensor2_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            id(g_ih_t2) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
+                            id(g_ih_h2) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
+                            id(g_ih_ol2) = r["online"].as<bool>();
+                            return true;
+                          });
+                        else { id(g_ih_t2) = -99; id(g_ih_h2) = -1; id(g_ih_ol2) = false; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_t2) = -99; id(g_ih_h2) = -1; id(g_ih_ol2) = false;'
+      - delay: 120ms
 
-            # Sensor 2
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sensor2_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sensor2_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  id(g_ih_t2) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
-                                  id(g_ih_h2) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
-                                  id(g_ih_ol2) = r["online"].as<bool>();
-                                  return true;
-                                });
-                              else { id(g_ih_t2) = -99; id(g_ih_h2) = -1; id(g_ih_ol2) = false; }
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_t2) = -99; id(g_ih_h2) = -1; id(g_ih_ol2) = false;'
-            - delay: 120ms
+      # Sensor 3
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sensor3_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sensor3_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            id(g_ih_t3) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
+                            id(g_ih_h3) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
+                            id(g_ih_ol3) = r["online"].as<bool>();
+                            return true;
+                          });
+                        else { id(g_ih_t3) = -99; id(g_ih_h3) = -1; id(g_ih_ol3) = false; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_t3) = -99; id(g_ih_h3) = -1; id(g_ih_ol3) = false;'
+      - delay: 120ms
 
-            # Sensor 3
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sensor3_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sensor3_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  id(g_ih_t3) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
-                                  id(g_ih_h3) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
-                                  id(g_ih_ol3) = r["online"].as<bool>();
-                                  return true;
-                                });
-                              else { id(g_ih_t3) = -99; id(g_ih_h3) = -1; id(g_ih_ol3) = false; }
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_t3) = -99; id(g_ih_h3) = -1; id(g_ih_ol3) = false;'
-            - delay: 120ms
+      # Sensor 4
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sensor4_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sensor4_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            id(g_ih_t4) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
+                            id(g_ih_h4) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
+                            id(g_ih_ol4) = r["online"].as<bool>();
+                            return true;
+                          });
+                        else { id(g_ih_t4) = -99; id(g_ih_h4) = -1; id(g_ih_ol4) = false; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_t4) = -99; id(g_ih_h4) = -1; id(g_ih_ol4) = false;'
+      - delay: 120ms
 
-            # Sensor 4
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sensor4_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sensor4_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  id(g_ih_t4) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
-                                  id(g_ih_h4) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
-                                  id(g_ih_ol4) = r["online"].as<bool>();
-                                  return true;
-                                });
-                              else { id(g_ih_t4) = -99; id(g_ih_h4) = -1; id(g_ih_ol4) = false; }
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_t4) = -99; id(g_ih_h4) = -1; id(g_ih_ol4) = false;'
-            - delay: 120ms
+      # Sensor 5
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sensor5_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sensor5_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            id(g_ih_t5) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
+                            id(g_ih_h5) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
+                            id(g_ih_ol5) = r["online"].as<bool>();
+                            return true;
+                          });
+                        else { id(g_ih_t5) = -99; id(g_ih_h5) = -1; id(g_ih_ol5) = false; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_t5) = -99; id(g_ih_h5) = -1; id(g_ih_ol5) = false;'
+      - delay: 120ms
 
-            # Sensor 5
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sensor5_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sensor5_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  id(g_ih_t5) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
-                                  id(g_ih_h5) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
-                                  id(g_ih_ol5) = r["online"].as<bool>();
-                                  return true;
-                                });
-                              else { id(g_ih_t5) = -99; id(g_ih_h5) = -1; id(g_ih_ol5) = false; }
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_t5) = -99; id(g_ih_h5) = -1; id(g_ih_ol5) = false;'
-            - delay: 120ms
+      # Sensor 6
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sensor6_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sensor6_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            id(g_ih_t6) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
+                            id(g_ih_h6) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
+                            id(g_ih_ol6) = r["online"].as<bool>();
+                            return true;
+                          });
+                        else { id(g_ih_t6) = -99; id(g_ih_h6) = -1; id(g_ih_ol6) = false; }
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_t6) = -99; id(g_ih_h6) = -1; id(g_ih_ol6) = false;'
+      - delay: 120ms
 
-            # Sensor 6
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sensor6_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sensor6_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  id(g_ih_t6) = r["temperature"].isNull() ? -99.f : r["temperature"].as<float>();
-                                  id(g_ih_h6) = r["humidity"].isNull() ? -1.f  : r["humidity"].as<float>();
-                                  id(g_ih_ol6) = r["online"].as<bool>();
-                                  return true;
-                                });
-                              else { id(g_ih_t6) = -99; id(g_ih_h6) = -1; id(g_ih_ol6) = false; }
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_t6) = -99; id(g_ih_h6) = -1; id(g_ih_ol6) = false;'
-            - delay: 120ms
+      # Switch 1
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sw1_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sw1_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            if (!r["on"].isNull())
+                              id(g_ih_sw1) = r["on"].as<bool>() ? 1 : 0;
+                            else id(g_ih_sw1) = -1;
+                            return true;
+                          });
+                        else id(g_ih_sw1) = -1;
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_sw1) = -1;'
+      - delay: 120ms
 
-            # Switch 1
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sw1_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sw1_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  if (!r["on"].isNull())
-                                    id(g_ih_sw1) = r["on"].as<bool>() ? 1 : 0;
-                                  else id(g_ih_sw1) = -1;
-                                  return true;
-                                });
-                              else id(g_ih_sw1) = -1;
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_sw1) = -1;'
-            - delay: 120ms
+      # Switch 2
+      - if:
+          condition:
+            lambda: 'return strlen("${ih_sw2_serial}") > 0;'
+          then:
+            - http_request.get:
+                url: "${ihost_proxy_url}/device/${ih_sw2_serial}"
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200)
+                          json::parse_json(body, [](JsonObject r) -> bool {
+                            if (!r["on"].isNull())
+                              id(g_ih_sw2) = r["on"].as<bool>() ? 1 : 0;
+                            else id(g_ih_sw2) = -1;
+                            return true;
+                          });
+                        else id(g_ih_sw2) = -1;
+                on_error:
+                  then:
+                    - lambda: 'id(g_ih_sw2) = -1;'
 
-            # Switch 2
-            - if:
-                condition:
-                  lambda: 'return strlen("${ih_sw2_serial}") > 0;'
-                then:
-                  - http_request.get:
-                      url: "${ihost_proxy_url}/device/${ih_sw2_serial}"
-                      capture_response: true
-                      on_response:
-                        then:
-                          - lambda: |-
-                              if (response->status_code == 200)
-                                json::parse_json(body, [](JsonObject r) -> bool {
-                                  if (!r["on"].isNull())
-                                    id(g_ih_sw2) = r["on"].as<bool>() ? 1 : 0;
-                                  else id(g_ih_sw2) = -1;
-                                  return true;
-                                });
-                              else id(g_ih_sw2) = -1;
-                      on_error:
-                        then:
-                          - lambda: 'id(g_ih_sw2) = -1;'
-
-            - script.execute: ih_apply_ui
-            - lambda: 'id(g_ih_busy) = false;'
+      - script.execute: ih_apply_ui
+      - lambda: 'id(g_ih_busy) = false;'
 
   # ── UI apply ──────────────────────────────────────────────────────────────
   - id: ih_apply_ui
