@@ -472,12 +472,12 @@ async def refresh_calendar() -> None:
             cal_ids = [s["entity_id"] for s in r.json()
                        if s["entity_id"].startswith("calendar.")]
 
-            lines: list[str] = []
+            events: list[tuple[datetime, str]] = []
             for cal_id in cal_ids:
                 r2 = await client.get(
                     f"{HA_URL}/api/calendars/{cal_id}",
                     headers=HA_HEADERS,
-                    params={"start": today.isoformat(),
+                    params={"start": now.isoformat(),
                             "end": week_end.isoformat()})
                 if r2.status_code != 200:
                     continue
@@ -487,13 +487,14 @@ async def refresh_calendar() -> None:
                     summary = evt.get("summary", "")
                     if "T" in dt_str:
                         dt = datetime.fromisoformat(dt_str)
-                        line = f"{dt.strftime('%a %H:%M')} {summary}"
+                        line = f"{dt.strftime('%a %d %H:%M')} {summary}"
                     else:
-                        dt = datetime.fromisoformat(dt_str)
-                        line = f"{dt.strftime('%a')} All Day: {summary}"
-                    lines.append(line[:40])
+                        dt = datetime.fromisoformat(dt_str).replace(tzinfo=timezone.utc)
+                        line = f"{dt.strftime('%a %d')} All Day: {summary}"
+                    events.append((dt, line[:40]))
 
-            lines.sort()
+            events.sort(key=lambda x: x[0])
+            lines = [line for _, line in events]
             value = "\n".join(lines)[:254] if lines else "No upcoming events"
             await client.post(
                 f"{HA_URL}/api/services/input_text/set_value",
