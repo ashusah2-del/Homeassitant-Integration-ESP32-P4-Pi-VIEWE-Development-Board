@@ -1136,15 +1136,16 @@ async def _ihost_device_list() -> list:
 
 
 async def _ihost_set_power(serial: str, on: bool) -> bool:
-    payload = {"power": {"powerState": "on" if on else "off"}}
+    payload = {"state": {"power": {"powerState": "on" if on else "off"}}}
     async with httpx.AsyncClient(timeout=8) as client:
         r = await client.put(
-            f"{IHOST_URL}/open-api/v2/rest/devices/{serial}/state",
+            f"{IHOST_URL}/open-api/v2/rest/devices/{serial}",
             headers={**_ihost_headers(), "Content-Type": "application/json"},
             json=payload,
         )
-        data = r.json()
-    return data.get("error", 1) == 0
+        if not r.content:
+            return True
+        return r.json().get("error", 1) == 0
 
 
 @app.get("/ihost/health")
