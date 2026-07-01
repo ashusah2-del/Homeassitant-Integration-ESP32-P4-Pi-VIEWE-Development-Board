@@ -640,7 +640,7 @@ lvgl:
                   id: ih_temp1
                   align: CENTER
                   y: 0
-                  text: "--\xc2\xb0""C"
+                  text: "--°C"
                   text_font: montserrat_36
                   text_color: 0x4A5568
               - label:
@@ -678,7 +678,7 @@ lvgl:
                   id: ih_temp2
                   align: CENTER
                   y: 0
-                  text: "--\xc2\xb0""C"
+                  text: "--°C"
                   text_font: montserrat_36
                   text_color: 0x4A5568
               - label:
@@ -716,7 +716,7 @@ lvgl:
                   id: ih_temp3
                   align: CENTER
                   y: 0
-                  text: "--\xc2\xb0""C"
+                  text: "--°C"
                   text_font: montserrat_36
                   text_color: 0x4A5568
               - label:
@@ -758,7 +758,7 @@ lvgl:
                   id: ih_temp4
                   align: CENTER
                   y: 0
-                  text: "--\xc2\xb0""C"
+                  text: "--°C"
                   text_font: montserrat_36
                   text_color: 0x4A5568
               - label:
@@ -796,7 +796,7 @@ lvgl:
                   id: ih_temp5
                   align: CENTER
                   y: 0
-                  text: "--\xc2\xb0""C"
+                  text: "--°C"
                   text_font: montserrat_36
                   text_color: 0x4A5568
               - label:
@@ -834,7 +834,7 @@ lvgl:
                   id: ih_temp6
                   align: CENTER
                   y: 0
-                  text: "--\xc2\xb0""C"
+                  text: "--°C"
                   text_font: montserrat_36
                   text_color: 0x4A5568
               - label:
