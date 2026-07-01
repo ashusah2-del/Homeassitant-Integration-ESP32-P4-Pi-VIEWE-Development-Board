@@ -40,10 +40,10 @@ HA_TOKEN     = os.environ.get("HA_TOKEN", "")
 # 800x480 is a safe 16-pixel-aligned canvas for JPEGDEC on the ESP32 panel.
 MAX_W           = int(os.environ.get("MAX_W", "800"))
 MAX_H           = int(os.environ.get("MAX_H", "480"))
-# Fetch N candidates per request and prefer portrait (height > width).
-# Falls back to any orientation when no portrait exists in the batch.
-PORTRAIT_PREFER = os.environ.get("PORTRAIT_PREFER", "true").lower() in ("1", "true", "yes", "on")
-PORTRAIT_BATCH  = int(os.environ.get("PORTRAIT_BATCH", "4"))
+# Fetch N candidates per request and prefer landscape (width >= height).
+# Falls back to any orientation when no landscape exists in the batch.
+LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
+PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
 _PERSON_IDS: list[tuple[str, str]] | None = None
 
 
@@ -144,18 +144,18 @@ def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
     return out.getvalue()
 
 
-def _pick_portrait_preferred(assets: list) -> dict:
-    """Return a portrait asset (height > width) if one exists, else first asset."""
-    if not PORTRAIT_PREFER:
+def _pick_landscape_preferred(assets: list) -> dict:
+    """Return a landscape asset (width >= height) if one exists, else first asset."""
+    if not LANDSCAPE_PREFER:
         return assets[0]
-    portrait = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)]
-    return (portrait or assets)[0]
+    landscape = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)]
+    return (landscape or assets)[0]
 
 
 def fetch_safe_jpeg() -> bytes | None:
     for attempt in range(RETRIES):
         try:
-            batch = PORTRAIT_BATCH if PORTRAIT_PREFER else 1
+            batch = PORTRAIT_BATCH if LANDSCAPE_PREFER else 1
             search = {"size": batch, "type": "IMAGE"}
             person_filter = _resolve_person_ids()
             person_name = None
@@ -188,8 +188,8 @@ def fetch_safe_jpeg() -> bytes | None:
             if not images:
                 log.warning("attempt %d: no IMAGE assets in batch", attempt)
                 continue
-            item = _pick_portrait_preferred(images)
-            is_portrait = (item.get("height") or 0) > (item.get("width") or 0)
+            item = _pick_landscape_preferred(images)
+            is_landscape = (item.get("width") or 0) >= (item.get("height") or 0)
             asset_id = item["id"]
 
             jpeg_raw = _get(
@@ -205,7 +205,7 @@ def fetch_safe_jpeg() -> bytes | None:
             # exhaust ESP32 PSRAM during decode and crash the device.
             result = _to_baseline_jpeg(jpeg_raw)
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
-            orient_tag = "portrait" if is_portrait else "landscape-fallback"
+            orient_tag = "landscape" if is_landscape else "portrait-fallback"
             log.info(
                 "asset %s (%s, %s) SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
                 asset_id, scope, orient_tag, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
