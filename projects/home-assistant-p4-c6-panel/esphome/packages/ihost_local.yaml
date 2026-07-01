@@ -583,7 +583,7 @@ lvgl:
                     - script.execute: ih_poll_health
                     - script.execute: ih_refresh_all
                   widgets:
-                    - label: { align: CENTER, text: "R", text_font: montserrat_18, text_color: 0xAABBCC }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xAABBCC }
               - button:
                   align: RIGHT_MID
                   x: -78
