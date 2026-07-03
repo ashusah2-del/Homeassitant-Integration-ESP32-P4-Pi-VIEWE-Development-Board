@@ -144,6 +144,21 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  # Hypon battery has no separate charge/discharge sign in the cloud API —
+  # only a magnitude. Direction is inferred from the SOC trend between
+  # consecutive polls (-1 = unknown/first reading, so no arrow is drawn).
+  - id: g_hypon_prev_soc
+    type: float
+    restore_value: no
+    initial_value: '-1.0'
+  - id: g_hypon_battery_soc
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_hypon_battery_power
+    type: float
+    restore_value: no
+    initial_value: '0.0'
   # Cycles through embedded stock images (0–3)
   - id: g_stock_idx
     type: int
@@ -998,7 +1013,7 @@ interval:
           lv_opa_t o = flow_phase ? LV_OPA_COVER : LV_OPA_30;
           lv_obj_set_style_opa(id(energy_arrow_grid), o, 0);
           lv_obj_set_style_opa(id(energy_arrow_solar), o, 0);
-          lv_obj_set_style_opa(id(energy_arrow_export), o, 0);
+          lv_obj_set_style_opa(id(energy_arrow_battery), o, 0);
       - lvgl.label.update:
           id: slideshow_clock
           text: !lambda |-
@@ -3758,11 +3773,11 @@ lvgl:
               # the old ">" text labels floated ~20px above them.
               - obj: { x: 236, y: 82, width: 250, height: 6, bg_color: 0x44AAFF, border_width: 0, radius: 3 }
               - obj: { x: 236, y: 276, width: 250, height: 6, bg_color: 0xFFD54F, border_width: 0, radius: 3 }
-              - obj: { x: 636, y: 184, width: 210, height: 6, bg_color: 0xFFB74D, border_width: 0, radius: 3 }
+              - obj: { id: energy_line_battery, x: 636, y: 184, width: 210, height: 6, bg_color: 0xB388FF, border_width: 0, radius: 3 }
               - obj: { x: 484, y: 86, width: 6, height: 194, bg_color: 0x2D6F7B, border_width: 0, radius: 3 }
               - label: { id: energy_arrow_grid,   x: 348, y: 72,  text: "", text_font: montserrat_22, text_color: 0x44AAFF }
               - label: { id: energy_arrow_solar,  x: 348, y: 266, text: "", text_font: montserrat_22, text_color: 0xFFD54F }
-              - label: { id: energy_arrow_export, x: 728, y: 174, text: "", text_font: montserrat_22, text_color: 0xFFB74D }
+              - label: { id: energy_arrow_battery, x: 728, y: 174, text: "", text_font: montserrat_22, text_color: 0xB388FF }
 
               # Grid — live signed power. Title + colours flip between
               # IMPORT (blue) and EXPORT (green) from the sensor's sign in
@@ -3783,7 +3798,7 @@ lvgl:
                     - label: { id: energy_grid_title, align: TOP_MID, y: 12, text: "GRID IMPORT", text_font: montserrat_18, text_color: 0x44AAFF }
                     - label: { id: energy_grid_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
-              # Solar production today (utility_meter, resets midnight)
+              # Solar — live PV power from Hypon proxy, today's kWh as subtitle
               - obj:
                   x: 28
                   y: 236
@@ -3796,8 +3811,9 @@ lvgl:
                   radius: 18
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "SOLAR TODAY", text_font: montserrat_18, text_color: 0xFFD54F }
-                    - label: { id: energy_solar_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
+                    - label: { align: TOP_MID, y: 10, text: "SOLAR", text_font: montserrat_18, text_color: 0xFFD54F }
+                    - label: { id: energy_solar_val, align: CENTER, y: 2, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
+                    - label: { id: energy_solar_today_val, align: BOTTOM_MID, y: -8, text: "today: --", text_font: montserrat_14, text_color: 0xCCCCCC }
 
               # Home load
               - obj:
@@ -3816,22 +3832,25 @@ lvgl:
                     - label: { align: TOP_MID, y: 18, text: "HOME LOAD", text_font: montserrat_20, text_color: 0x69F0AE }
                     - label: { id: energy_home_val, align: CENTER, y: 22, text: "--", text_font: montserrat_30, text_color: 0xFFFFFF }
 
-              # Export meter
+              # Battery — Hypon Cloud only reports a power magnitude, no
+              # charge/discharge sign; direction comes from the SOC trend
+              # (update_hypon_battery_card script in core_ha.yaml).
               - obj:
+                  id: energy_battery_card
                   x: 754
                   y: 130
                   width: 180
                   height: 122
-                  bg_color: 0x2A1C0A
+                  bg_color: 0x1C1A2A
                   bg_opa: 96%
-                  border_color: 0xFFB74D
+                  border_color: 0xB388FF
                   border_width: 2
                   radius: 18
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "EXPORT", text_font: montserrat_18, text_color: 0xFFB74D }
-                    - label: { id: energy_export_flow_val, align: CENTER, y: 4, text: "--", text_font: montserrat_24, text_color: 0xFFFFFF }
-                    - label: { align: BOTTOM_MID, y: -12, text: "export meter", text_font: montserrat_18, text_color: 0xCCCCCC }
+                    - label: { align: TOP_MID, y: 12, text: "BATTERY", text_font: montserrat_18, text_color: 0xB388FF }
+                    - label: { id: energy_battery_soc_val, align: CENTER, y: 4, text: "--", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { id: energy_battery_flow_val, align: BOTTOM_MID, y: -12, text: "--", text_font: montserrat_14, text_color: 0xCCCCCC }
 
         # Daily summary cards
         - obj:

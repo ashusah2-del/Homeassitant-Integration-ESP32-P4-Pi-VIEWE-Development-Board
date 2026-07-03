@@ -130,6 +130,41 @@ time:
     timezone: Europe/London
 
 script:
+  # Redraws the Energy page battery card from the two cached Hypon globals
+  # (SOC + power magnitude). Called from both energy_battery_soc_s and
+  # energy_battery_power_s so either one arriving redraws with the latest
+  # of both — the Hypon proxy updates both from the same poll anyway.
+  - id: update_hypon_battery_card
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          float soc = id(g_hypon_battery_soc);
+          float power = id(g_hypon_battery_power);
+          float prev = id(g_hypon_prev_soc);
+          char b[40];
+          snprintf(b, sizeof(b), "%.0f%%", soc);
+          lv_label_set_text(id(energy_battery_soc_val), b);
+
+          uint32_t c;
+          if (prev < 0.0f) {
+            lv_label_set_text(id(energy_battery_flow_val), "--");
+            c = 0xB388FF;
+          } else if (soc > prev + 0.4f) {
+            snprintf(b, sizeof(b), "charging %.0f W", power);
+            lv_label_set_text(id(energy_battery_flow_val), b);
+            c = 0x69F0AE;
+          } else if (soc < prev - 0.4f) {
+            snprintf(b, sizeof(b), "discharging %.0f W", power);
+            lv_label_set_text(id(energy_battery_flow_val), b);
+            c = 0xFFB74D;
+          } else {
+            lv_label_set_text(id(energy_battery_flow_val), "steady");
+            c = 0xB388FF;
+          }
+          lv_obj_set_style_border_color(id(energy_battery_card), lv_color_hex(c), 0);
+          lv_obj_set_style_text_color(id(energy_arrow_battery), lv_color_hex(c), 0);
+          id(g_hypon_prev_soc) = soc;
+
   # Re-apply cached HA weather values to the slideshow widget. Needed because
   # weather updates often arrive before g_lvgl_ready, so the first push is dropped.
   - id: refresh_weather_widget
@@ -1214,6 +1249,16 @@ text_sensor:
             lv_obj_set_style_border_color(id(energy_grid_card), lv_color_hex(c), 0);
             lv_obj_set_style_text_color(id(energy_arrow_grid), lv_color_hex(c), 0);
   - platform: homeassistant
+    id: energy_solar_power_s
+    entity_id: "${energy_solar_power}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_solar_power_unit}";
+            lv_label_set_text(id(energy_solar_val), v.c_str());
+  - platform: homeassistant
     id: energy_solar_energy_s
     entity_id: "${energy_solar_energy}"
     internal: true
@@ -1221,8 +1266,8 @@ text_sensor:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_solar_energy_unit}";
-            lv_label_set_text(id(energy_solar_val), v.c_str());
+            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "today: --" : "today: " + x + " ${energy_solar_energy_unit}";
+            lv_label_set_text(id(energy_solar_today_val), v.c_str());
   - platform: homeassistant
     id: energy_home_power_s
     entity_id: "${energy_home_power}"
@@ -1233,16 +1278,31 @@ text_sensor:
             if (!id(g_lvgl_ready)) return;
             std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_home_power_unit}";
             lv_label_set_text(id(energy_home_val), v.c_str());
+  # Battery card. The Hypon Cloud API only reports a power *magnitude*
+  # (w_cha) with no charge/discharge sign, so direction is inferred from
+  # the SOC trend between polls in update_hypon_battery_card below.
   - platform: homeassistant
-    id: energy_export_energy_s
-    entity_id: "${energy_export_energy}"
+    id: energy_battery_soc_s
+    entity_id: "${energy_battery_soc}"
     internal: true
     on_value:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_export_energy_unit}";
-            lv_label_set_text(id(energy_export_flow_val), v.c_str());
+            if (x.empty() || x == "unknown" || x == "unavailable") return;
+            id(g_hypon_battery_soc) = atof(x.c_str());
+        - script.execute: update_hypon_battery_card
+  - platform: homeassistant
+    id: energy_battery_power_s
+    entity_id: "${energy_battery_power}"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            if (x.empty() || x == "unknown" || x == "unavailable") return;
+            id(g_hypon_battery_power) = atof(x.c_str());
+        - script.execute: update_hypon_battery_card
   - platform: homeassistant
     id: energy_today_import_s
     entity_id: "${energy_today_import}"

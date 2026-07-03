@@ -124,20 +124,23 @@ substitutions:
   weather_entity: weather.forecast_home
   weather_location: "Home"
 
-  # Energy page — mirrors Home Assistant's Energy dashboard sources.
-  # Grid import/home load come from the Zigbee bi-directional smart meter.
-  energy_grid_power: sensor.zigbee_bi_smart_meter_phase_a_power
+  # Energy page — live grid/home/solar/battery flow now comes from
+  # hypon-proxy (Hypontech Cloud's own inverter-tied meter, poll every
+  # 60s — see projects/home-assistant-p4-c6-panel/hypon-proxy/), which
+  # is steadier than the old Zigbee smart meter and actually knows about
+  # the home battery. Daily import/export billing totals still come from
+  # Octopus — that's a separate concern (utility billing, not live flow).
+  energy_grid_power: sensor.hypon_grid_power
   energy_grid_power_unit: "W"
-  # Daily solar comes straight from the Hypontech Cloud integration (native
-  # HA core integration since 2026.3, added 2026-07-03) — it already resets
-  # at midnight on Hypontech's own servers, so no utility_meter workaround
-  # is needed like the old Zigbee-meter path required.
+  energy_solar_power: sensor.hypon_pv_power
+  energy_solar_power_unit: "W"
   energy_solar_energy: sensor.overview_today_energy
   energy_solar_energy_unit: "kWh"
-  energy_home_power: sensor.zigbee_bi_smart_meter_phase_a_power
+  energy_home_power: sensor.hypon_home_load
   energy_home_power_unit: "W"
-  energy_export_energy: sensor.octopus_energy_electricity_24l3459421_2000060811420_export_previous_accumulative_consumption
-  energy_export_energy_unit: "kWh"
+  energy_battery_power: sensor.hypon_battery_power
+  energy_battery_power_unit: "W"
+  energy_battery_soc: sensor.hypon_battery_soc
   energy_today_import: sensor.octopus_energy_electricity_24l3459421_2000011520182_current_accumulative_consumption
   energy_today_export: sensor.octopus_energy_electricity_24l3459421_2000060811420_export_previous_accumulative_consumption
   energy_energy_unit: "kWh"

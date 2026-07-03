@@ -506,8 +506,9 @@ script:
           lv_obj_set_style_border_color(id(energy_home_card), lv_color_hex(t.accent_border), 0);
           lv_obj_set_style_text_color(id(energy_grid_val), lv_color_hex(t.text_primary), 0);
           lv_obj_set_style_text_color(id(energy_solar_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_solar_today_val), lv_color_hex(t.text_secondary), 0);
           lv_obj_set_style_text_color(id(energy_home_val), lv_color_hex(t.text_primary), 0);
-          lv_obj_set_style_text_color(id(energy_export_flow_val), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(energy_battery_soc_val), lv_color_hex(t.text_primary), 0);
           lv_obj_set_style_text_color(id(energy_import_val), lv_color_hex(t.text_primary), 0);
           lv_obj_set_style_text_color(id(energy_export_val), lv_color_hex(t.text_primary), 0);
 

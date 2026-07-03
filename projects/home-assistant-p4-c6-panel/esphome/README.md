@@ -106,14 +106,18 @@ grey = CLEAR) and an ACTIVE/CLEAR label.
 ### 5. Energy (`energy_page`)
 
 A Home Assistant-driven energy diagram between Presence and Cameras.
-It shows grid import, solar production, live load, and export
-readings. The HA entities are configured via
-substitutions in `mangalam-panel.yaml`:
+It shows grid power, solar production, home load, and battery SOC —
+grid/solar/home/battery all come from the Hypon Cloud proxy (see
+`hypon-proxy/`), since the account is a hybrid solar+battery system.
+Daily import/export billing totals are separate, from Octopus. The
+HA entities are configured via substitutions in `mangalam-panel.yaml`:
 
 - `energy_grid_power`
-- `energy_solar_energy`
+- `energy_solar_power`
+- `energy_solar_energy` (today's kWh subtitle)
 - `energy_home_power`
-- `energy_export_energy`
+- `energy_battery_power`
+- `energy_battery_soc`
 - `energy_today_import`
 - `energy_today_export`
 
