@@ -373,6 +373,7 @@ script:
           style_header(id(tuya_header_bar));
           style_header(id(jf_header_bar));
           style_header(id(diag_hdr_bar));
+          style_header(id(ih_header_bar));
 
           lv_obj_set_style_bg_color(id(slideshow_page).obj, lv_color_hex(0x000000), 0);
           lv_obj_set_style_bg_color(id(settings_page).obj, lv_color_hex(t.page_bg), 0);

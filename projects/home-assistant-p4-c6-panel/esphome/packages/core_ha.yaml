@@ -30,6 +30,10 @@ i2c:
 api:
   encryption:
     key: !secret api_encryption_key
+  # Default reboots the panel after 15 min with no API client. The panel
+  # is fully usable standalone (Tuya/Jellyfin/iHost/slideshow), so a long
+  # HA outage must not power-cycle it.
+  reboot_timeout: 0s
   # ESPHome dashboard log-subscriber threads accumulate as zombie connections
   # (they stay alive in the container even after browser tabs close). With 12
   # slots they can easily fill up and lock HA out. 6 is enough for HA + a few
@@ -51,7 +55,6 @@ api:
               value: 'true'
           - script.execute: update_status_pill
           - lvgl.widget.hide: ha_disconnected_overlay
-          - lvgl.widget.show: tap_zone_btn
           - lvgl.label.update:
               id: dash_error_lbl
               text: ""
@@ -96,9 +99,11 @@ api:
               id: g_ha_connected
               value: 'false'
           - script.execute: update_status_pill
+          # Show the small offline pill (slideshow page) but do NOT force a
+          # page change or block navigation — local integrations keep
+          # working without HA; header status pills flag the state on
+          # every other page.
           - lvgl.widget.show: ha_disconnected_overlay
-          - lvgl.widget.hide: tap_zone_btn
-          - lvgl.page.show: slideshow_page
           - lvgl.label.update:
               id: dash_error_lbl
               text: "Home Assistant disconnected"
@@ -1191,8 +1196,23 @@ text_sensor:
       then:
         - lambda: |-
             if (!id(g_lvgl_ready)) return;
-            std::string v = x.empty() || x == "unknown" || x == "unavailable" ? "--" : x + " ${energy_grid_power_unit}";
-            lv_label_set_text(id(energy_grid_val), v.c_str());
+            if (x.empty() || x == "unknown" || x == "unavailable") {
+              lv_label_set_text(id(energy_grid_val), "--");
+              return;
+            }
+            // Bi-directional meter: negative = exporting to grid. Flip the
+            // card's title/colour so the direction is readable at a glance
+            // instead of a bare signed number.
+            float w = atof(x.c_str());
+            bool exporting = w < 0.0f;
+            char b[32];
+            snprintf(b, sizeof(b), "%.0f ${energy_grid_power_unit}", exporting ? -w : w);
+            lv_label_set_text(id(energy_grid_val), b);
+            lv_label_set_text(id(energy_grid_title), exporting ? "GRID EXPORT" : "GRID IMPORT");
+            uint32_t c = exporting ? 0x69F0AE : 0x44AAFF;
+            lv_obj_set_style_text_color(id(energy_grid_title), lv_color_hex(c), 0);
+            lv_obj_set_style_border_color(id(energy_grid_card), lv_color_hex(c), 0);
+            lv_obj_set_style_text_color(id(energy_arrow_grid), lv_color_hex(c), 0);
   - platform: homeassistant
     id: energy_solar_energy_s
     entity_id: "${energy_solar_energy}"

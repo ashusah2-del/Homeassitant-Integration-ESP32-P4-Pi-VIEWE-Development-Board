@@ -148,3 +148,12 @@ template:
     sensor:
       - name: esp32p4_panel_last_touch
         state: "{{ trigger.payload }}"
+
+# Daily solar production for the panel's Energy page. The Zigbee meter only
+# exposes a lifetime total (2500+ kWh), which is meaningless on a "today"
+# card — this utility_meter resets it at midnight.
+utility_meter:
+  panel_solar_today:
+    name: "Panel Solar Today"
+    source: sensor.zigbee_bi_smart_meter_total_energy_2
+    cycle: daily

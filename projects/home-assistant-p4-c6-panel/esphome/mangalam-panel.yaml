@@ -129,7 +129,10 @@ substitutions:
   # the Zigbee bi-directional smart meter.
   energy_grid_power: sensor.zigbee_bi_smart_meter_phase_a_power
   energy_grid_power_unit: "W"
-  energy_solar_energy: sensor.zigbee_bi_smart_meter_total_energy_2
+  # Daily solar (utility_meter in home_assistant/packages/esp32p4_panel.yaml,
+  # resets at midnight). The meter's own total_energy_2 is a lifetime counter
+  # (2500+ kWh) and belongs nowhere near a "today" card.
+  energy_solar_energy: sensor.panel_solar_today
   energy_solar_energy_unit: "kWh"
   energy_home_power: sensor.zigbee_bi_smart_meter_phase_a_power
   energy_home_power_unit: "W"
@@ -367,6 +370,11 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   use_address: !secret panel_use_address
+  # LIGHT power-save on the hosted C6 caused 300-1300ms RTT jitter and
+  # packet loss, making the HA API connection flap (which in turn kept
+  # stopping the wake word and showing the offline banner). Mains-powered
+  # panel — no reason to trade latency for power.
+  power_save_mode: none
   on_connect:
     - globals.set: { id: g_wifi_connected, value: 'true' }
     - script.execute: update_status_pill

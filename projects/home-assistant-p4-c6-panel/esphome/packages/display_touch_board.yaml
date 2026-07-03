@@ -988,6 +988,17 @@ interval:
               0
             );
           }
+      - lambda: |-
+          // Pulse the energy-flow arrows so the diagram reads as live
+          // movement rather than a static schematic. Style-only writes on
+          // three labels — negligible even when the page isn't visible.
+          if (!id(g_lvgl_ready)) return;
+          static bool flow_phase = false;
+          flow_phase = !flow_phase;
+          lv_opa_t o = flow_phase ? LV_OPA_COVER : LV_OPA_30;
+          lv_obj_set_style_opa(id(energy_arrow_grid), o, 0);
+          lv_obj_set_style_opa(id(energy_arrow_solar), o, 0);
+          lv_obj_set_style_opa(id(energy_arrow_export), o, 0);
       - lvgl.label.update:
           id: slideshow_clock
           text: !lambda |-
@@ -1640,41 +1651,45 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0xFFAAAA
 
-        # ── HA disconnected overlay (full screen, visible at boot) ──
+        # ── HA disconnected pill (top-centre, visible at boot) ──
+        # Was a full-screen overlay, but that blocked the whole panel while
+        # the Tuya/Jellyfin/iHost pages work fine without HA. Now a compact
+        # pill: everything local keeps working, HA-dependent actions just
+        # no-op until reconnect. Same widget ids kept so core_ha.yaml
+        # show/hide actions and the theme walker don't need changing.
         - obj:
             id: ha_disconnected_overlay
-            width: 1024
-            height: 600
-            align: TOP_LEFT
+            align: TOP_MID
+            y: 12
+            width: 320
+            height: 44
             bg_color: 0x0A0005
-            bg_opa: 82%
-            border_width: 0
+            bg_opa: 88%
+            radius: 22
+            border_width: 1
+            border_color: 0xFF5252
             pad_all: 0
             widgets:
-              - image:
-                  src: img_ha_offline
-                  align: CENTER
-                  y: -72
+              # Kept (hidden) so the theme walker's reference stays valid.
               - label:
                   id: ha_disc_title_lbl
-                  align: CENTER
-                  y: 28
+                  hidden: true
                   text: "Home Assistant"
-                  text_font: montserrat_36
+                  text_font: montserrat_18
                   text_color: 0xFFFFFF
               - label:
                   id: ha_disc_status_lbl
-                  align: CENTER
-                  y: 80
-                  text: "Not Connected"
-                  text_font: montserrat_28
+                  align: LEFT_MID
+                  x: 18
+                  text: "HA offline"
+                  text_font: montserrat_18
                   text_color: 0xFF5252
               - label:
                   id: ha_disc_hint_lbl
-                  align: CENTER
-                  y: 128
-                  text: "Reconnecting automatically..."
-                  text_font: montserrat_18
+                  align: LEFT_MID
+                  x: 126
+                  text: "reconnecting..."
+                  text_font: montserrat_16
                   text_color: 0x777777
 
         # ── Error bar (bottom of slideshow area only — does not cover calendar) ──
@@ -1697,7 +1712,10 @@ lvgl:
                   text_font: montserrat_16
                   text_color: 0xFFCDD2
 
-        # ── Tap zone (opens dashboard, hidden until HA connects) ──
+        # ── Tap zone (opens dashboard) ──
+        # Always active: the dashboard and the local pages behind it
+        # (Tuya/Jellyfin/iHost) work without HA, so gating navigation on
+        # the API connection just locked the user out of working features.
         - button:
             id: tap_zone_btn
             width: 1024
@@ -1706,7 +1724,6 @@ lvgl:
             bg_opa: TRANSP
             border_width: 0
             shadow_width: 0
-            hidden: true
             on_click:
               - lvgl.page.show: dashboard_page
 
@@ -3736,17 +3753,22 @@ lvgl:
             radius: 18
             pad_all: 0
             widgets:
-              # Flow lines
+              # Flow lines. The arrow glyphs are vertically centred ON the
+              # lines (glyph box ~26px against the 6px line at its middle) —
+              # the old ">" text labels floated ~20px above them.
               - obj: { x: 236, y: 82, width: 250, height: 6, bg_color: 0x44AAFF, border_width: 0, radius: 3 }
               - obj: { x: 236, y: 276, width: 250, height: 6, bg_color: 0xFFD54F, border_width: 0, radius: 3 }
               - obj: { x: 636, y: 184, width: 210, height: 6, bg_color: 0xFFB74D, border_width: 0, radius: 3 }
               - obj: { x: 484, y: 86, width: 6, height: 194, bg_color: 0x2D6F7B, border_width: 0, radius: 3 }
-              - label: { x: 360, y: 56, text: ">", text_font: montserrat_24, text_color: 0x44AAFF }
-              - label: { x: 360, y: 250, text: ">", text_font: montserrat_24, text_color: 0xFFD54F }
-              - label: { x: 742, y: 158, text: ">", text_font: montserrat_20, text_color: 0xFFB74D }
+              - label: { id: energy_arrow_grid,   x: 348, y: 72,  text: "", text_font: montserrat_22, text_color: 0x44AAFF }
+              - label: { id: energy_arrow_solar,  x: 348, y: 266, text: "", text_font: montserrat_22, text_color: 0xFFD54F }
+              - label: { id: energy_arrow_export, x: 728, y: 174, text: "", text_font: montserrat_22, text_color: 0xFFB74D }
 
-              # Grid source
+              # Grid — live signed power. Title + colours flip between
+              # IMPORT (blue) and EXPORT (green) from the sensor's sign in
+              # core_ha.yaml's energy_grid_power_s on_value lambda.
               - obj:
+                  id: energy_grid_card
                   x: 28
                   y: 40
                   width: 210
@@ -3758,10 +3780,10 @@ lvgl:
                   radius: 18
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "GRID IMPORT", text_font: montserrat_18, text_color: 0x44AAFF }
+                    - label: { id: energy_grid_title, align: TOP_MID, y: 12, text: "GRID IMPORT", text_font: montserrat_18, text_color: 0x44AAFF }
                     - label: { id: energy_grid_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
-              # Solar production total
+              # Solar production today (utility_meter, resets midnight)
               - obj:
                   x: 28
                   y: 236
@@ -3774,7 +3796,7 @@ lvgl:
                   radius: 18
                   pad_all: 0
                   widgets:
-                    - label: { align: TOP_MID, y: 12, text: "SOLAR", text_font: montserrat_18, text_color: 0xFFD54F }
+                    - label: { align: TOP_MID, y: 12, text: "SOLAR TODAY", text_font: montserrat_18, text_color: 0xFFD54F }
                     - label: { id: energy_solar_val, align: CENTER, y: 16, text: "--", text_font: montserrat_28, text_color: 0xFFFFFF }
 
               # Home load
