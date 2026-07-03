@@ -1,0 +1,6 @@
+# Live secrets and device config — never commit
+hub.env
+devices.json
+panel_config.json
+__pycache__/
+*.pyc
