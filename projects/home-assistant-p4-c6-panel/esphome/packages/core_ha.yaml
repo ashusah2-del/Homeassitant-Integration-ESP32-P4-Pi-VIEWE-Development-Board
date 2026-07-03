@@ -7,6 +7,11 @@ logger:
 
 json:
 
+# Runtime health metrics — free heap/PSRAM and loop time let the settings
+# diagnostics panel show memory pressure before it becomes a crash.
+debug:
+  update_interval: 30s
+
 http_request:
   # Tuya + Jellyfin pages use http_request; keep timeout short so a dead
   # bridge/proxy fails fast instead of freezing the LVGL loop for 15s per call.
@@ -44,6 +49,7 @@ api:
           - globals.set:
               id: g_ha_connected
               value: 'true'
+          - script.execute: update_status_pill
           - lvgl.widget.hide: ha_disconnected_overlay
           - lvgl.widget.show: tap_zone_btn
           - lvgl.label.update:
@@ -89,6 +95,7 @@ api:
           - globals.set:
               id: g_ha_connected
               value: 'false'
+          - script.execute: update_status_pill
           - lvgl.widget.show: ha_disconnected_overlay
           - lvgl.widget.hide: tap_zone_btn
           - lvgl.page.show: slideshow_page
@@ -239,6 +246,107 @@ script:
           }
           lv_obj_set_style_opa(id(weather_widget), LV_OPA_COVER, 0);
 
+  # Drives the header status_pill's dot colour + label from current
+  # connectivity/integration state. Deliberately uses the *current* ok
+  # flags (not staleness) so a page nobody has opened recently doesn't
+  # falsely show as degraded.
+  - id: update_status_pill
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          uint32_t color = 0x69F0AE;
+          const char *txt = "OK";
+          if (!id(g_wifi_connected)) {
+            color = 0xFF5252; txt = "WIFI";
+          } else if (!id(g_ha_connected)) {
+            color = 0xFF5252; txt = "HA";
+          } else if (!id(g_immich_ok) || !id(g_tuya_bridge_ok) ||
+                     !id(g_jf_bridge_ok) || !id(g_ih_bridge_ok)) {
+            color = 0xFFC107; txt = "WARN";
+          }
+          // One pill instance per carousel page header (no shared-widget
+          // mechanism in ESPHome LVGL, so each page carries its own copy).
+          lv_obj_t *dots[] = {
+            id(status_pill_dot), id(status_pill_dot_ihost),
+            id(status_pill_dot_tado), id(status_pill_dot_pres),
+            id(status_pill_dot_energy), id(status_pill_dot_cam),
+            id(status_pill_dot_tuya), id(status_pill_dot_jf),
+          };
+          lv_obj_t *lbls[] = {
+            id(status_pill_lbl), id(status_pill_lbl_ihost),
+            id(status_pill_lbl_tado), id(status_pill_lbl_pres),
+            id(status_pill_lbl_energy), id(status_pill_lbl_cam),
+            id(status_pill_lbl_tuya), id(status_pill_lbl_jf),
+          };
+          for (size_t i = 0; i < 8; i++) {
+            lv_obj_set_style_bg_color(dots[i], lv_color_hex(color), 0);
+            lv_label_set_text(lbls[i], txt);
+          }
+
+  # Populates the Diagnostics page (packages/display_touch_board.yaml,
+  # diagnostics_page). Runs on page load, on refresh-button tap, and on
+  # the 5s interval below — cheap enough to not bother gating further.
+  - id: refresh_diagnostics_labels
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          auto age_str = [](uint32_t last_ok) -> std::string {
+            if (last_ok == 0) return "never";
+            uint32_t age_s = (millis() - last_ok) / 1000;
+            char b[24];
+            if (age_s < 90) snprintf(b, sizeof(b), "%lus ago", (unsigned long) age_s);
+            else snprintf(b, sizeof(b), "%lum ago", (unsigned long) (age_s / 60));
+            return std::string(b);
+          };
+          char b[64];
+
+          lv_label_set_text(id(diag_wifi_lbl),
+            (std::string("WiFi: ") + (id(g_wifi_connected) ? "Connected" : "Disconnected")).c_str());
+          snprintf(b, sizeof(b), "Signal: %.0f dBm", id(panel_wifi_rssi).state);
+          lv_label_set_text(id(diag_rssi_lbl), b);
+          lv_label_set_text(id(diag_ip_lbl),
+            (std::string("IP: ") + (id(wifi_ip_addr).state.empty() ? "--" : id(wifi_ip_addr).state)).c_str());
+          snprintf(b, sizeof(b), "Home Assistant API: %s (%d client%s)",
+            id(g_ha_connected) ? "Connected" : "Disconnected",
+            id(g_ha_client_count), id(g_ha_client_count) == 1 ? "" : "s");
+          lv_label_set_text(id(diag_ha_lbl), b);
+
+          snprintf(b, sizeof(b), "Heap free: %.0f KB", id(panel_heap_free).state / 1024.0f);
+          lv_label_set_text(id(diag_heap_lbl), b);
+          snprintf(b, sizeof(b), "PSRAM free: %.0f KB", id(panel_psram_free).state / 1024.0f);
+          lv_label_set_text(id(diag_psram_lbl), b);
+          snprintf(b, sizeof(b), "Loop time: %.0f ms", id(panel_loop_time).state);
+          lv_label_set_text(id(diag_loop_lbl), b);
+          int s = (int) id(panel_uptime).state;
+          snprintf(b, sizeof(b), "Uptime: %dh %02dm", s / 3600, (s % 3600) / 60);
+          lv_label_set_text(id(diag_uptime_lbl), b);
+          lv_label_set_text(id(diag_reset_lbl),
+            (std::string("Last reset: ") + (id(panel_reset_reason).state.empty() ? "--" : id(panel_reset_reason).state)).c_str());
+
+          lv_label_set_text(id(diag_immich_lbl),
+            (std::string("Immich: ") + (id(g_immich_ok) ? "Online" : "Offline") +
+             " (" + age_str(id(g_immich_last_ok)) + ")").c_str());
+          lv_label_set_text(id(diag_tuya_lbl),
+            (std::string("Tuya bridge: ") + (id(g_tuya_bridge_ok) ? "Online" : "Offline") +
+             " (" + age_str(id(g_tuya_last_ok)) + ")").c_str());
+          lv_label_set_text(id(diag_jf_lbl),
+            (std::string("Jellyfin proxy: ") + (id(g_jf_bridge_ok) ? "Online" : "Offline") +
+             " (" + age_str(id(g_jf_last_ok)) + ")").c_str());
+          lv_label_set_text(id(diag_ih_lbl),
+            (std::string("iHost bridge: ") + (id(g_ih_bridge_ok) ? "Online" : "Offline") +
+             " (" + age_str(id(g_ih_last_ok)) + ")").c_str());
+      - script.execute: update_status_pill
+
+# Keeps the header status pill and (if open) the diagnostics page current
+# even when nothing else triggers an update — e.g. an integration flips
+# offline mid-poll with no user interaction to hook into.
+interval:
+  - interval: 5s
+    then:
+      - script.execute: refresh_diagnostics_labels
+
 text_sensor:
   - platform: wifi_info
     ip_address:
@@ -246,6 +354,10 @@ text_sensor:
       id: wifi_ip_addr
     ssid:
       name: "Panel Wi-Fi SSID"
+  - platform: debug
+    reset_reason:
+      name: "Panel Last Reset Reason"
+      id: panel_reset_reason
 
   # Displays proxy URL in settings; no auto-refresh on change to avoid
   # cascading download attempts every time HA pushes a state update.
@@ -1140,6 +1252,16 @@ sensor:
     name: "Panel Wi-Fi RSSI"
     id: panel_wifi_rssi
     update_interval: 30s
+  - platform: debug
+    free:
+      name: "Panel Heap Free"
+      id: panel_heap_free
+    psram:
+      name: "Panel PSRAM Free"
+      id: panel_psram_free
+    loop_time:
+      name: "Panel Loop Time"
+      id: panel_loop_time
 
 binary_sensor:
   - platform: status

@@ -368,10 +368,24 @@ wifi:
   password: !secret wifi_password
   use_address: !secret panel_use_address
   on_connect:
+    - globals.set: { id: g_wifi_connected, value: 'true' }
+    - script.execute: update_status_pill
     - script.execute: refresh_immich_slideshow
     - script.execute: tuya_poll_health
     - script.execute: jf_poll_health
     - script.execute: ih_poll_health
+  # No on_disconnect handler existed before — on a raw WiFi drop nothing
+  # reset the per-page busy locks or the wifi status flag, so an in-flight
+  # request that never got its callback could leave a page permanently
+  # gated. This clears every busy lock unconditionally: if a request was
+  # genuinely mid-flight when the link dropped, its own on_error/on_response
+  # will never fire now, so we can't wait for it to unlock itself.
+  on_disconnect:
+    - globals.set: { id: g_wifi_connected, value: 'false' }
+    - globals.set: { id: g_tuya_busy, value: 'false' }
+    - globals.set: { id: g_jf_busy, value: 'false' }
+    - globals.set: { id: g_ih_busy, value: 'false' }
+    - script.execute: update_status_pill
   ap:
     ssid: !secret fallback_ap_ssid
     password: !secret fallback_ap_password

@@ -123,6 +123,17 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  # Raw WiFi link state, distinct from g_ha_connected (which tracks the
+  # ESPHome API socket and lags a WiFi drop until the API times out).
+  # Set from wifi.on_connect/on_disconnect in mangalam-panel.yaml.
+  - { id: g_wifi_connected, type: bool, restore_value: no, initial_value: 'false' }
+  # millis() timestamp of the last successful health/data poll per
+  # integration. 0 = never succeeded since boot. Read by the status pill /
+  # diagnostics panel to flag an integration as stale.
+  - { id: g_immich_last_ok, type: uint32_t, restore_value: no, initial_value: '0' }
+  - { id: g_tuya_last_ok,   type: uint32_t, restore_value: no, initial_value: '0' }
+  - { id: g_jf_last_ok,     type: uint32_t, restore_value: no, initial_value: '0' }
+  - { id: g_ih_last_ok,     type: uint32_t, restore_value: no, initial_value: '0' }
   # true = currently displaying an embedded stock image, not Immich
   - id: g_using_fallback
     type: bool
@@ -334,6 +345,7 @@ online_image:
     on_download_finished:
       - globals.set: { id: g_using_fallback, value: 'false' }
       - globals.set: { id: g_immich_ok,      value: 'true'  }
+      - globals.set: { id: g_immich_last_ok, value: !lambda 'return millis();' }
       - globals.set: { id: g_immich_retry,   value: '0'     }
       - globals.set: { id: g_slideshow_slot, value: '0'     }
       - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo).get_lv_img_dsc());'
@@ -378,6 +390,7 @@ online_image:
     on_download_finished:
       - globals.set: { id: g_using_fallback, value: 'false' }
       - globals.set: { id: g_immich_ok,      value: 'true'  }
+      - globals.set: { id: g_immich_last_ok, value: !lambda 'return millis();' }
       - globals.set: { id: g_immich_retry,   value: '0'     }
       - globals.set: { id: g_slideshow_slot, value: '1'     }
       - lambda: 'lv_img_set_src(id(dash_bg_img), id(immich_photo_b).get_lv_img_dsc());'
@@ -1914,7 +1927,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: slideshow_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -1924,9 +1937,44 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: tado_page
+                    # Next page in the swipe ring is iHost, not Tado — the
+                    # old ">" target predated the iHost page insertion.
+                    - lvgl.page.show: ihost_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              # Health status pill — green/amber/red dot + short label, driven by
+              # update_status_pill (packages/core_ha.yaml interval). Tap opens the
+              # full diagnostics page. Built once here for Phase 2; the Phase 3
+              # redesign rolls the same widget out to every page header.
+              - button:
+                  id: status_pill
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: 0x113225
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: 0x69F0AE
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: 0xFFFFFF
 
         - obj:
             id: room1_card
@@ -2547,9 +2595,11 @@ lvgl:
                   radius: 9
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: dashboard_page
+                    # Previous page in the swipe ring is iHost, not Dashboard —
+                    # the old "<" target predated the iHost page insertion.
+                    - lvgl.page.show: ihost_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -2561,7 +2611,36 @@ lvgl:
                   on_click:
                     - lvgl.page.show: presence_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              - button:
+                  id: status_pill_tado
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: 0x113225
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot_tado
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: 0x69F0AE
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl_tado
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: 0xFFFFFF
 
         - obj:
             id: tado1_card
@@ -3184,7 +3263,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: tado_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -3196,7 +3275,36 @@ lvgl:
                   on_click:
                     - lvgl.page.show: energy_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              - button:
+                  id: status_pill_pres
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: 0x113225
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot_pres
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: 0x69F0AE
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl_pres
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: 0xFFFFFF
 
         - obj:
             id: pres1_card
@@ -3572,7 +3680,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: presence_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -3584,7 +3692,36 @@ lvgl:
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              - button:
+                  id: status_pill_energy
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: 0x113225
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot_energy
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: 0x69F0AE
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl_energy
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: 0xFFFFFF
 
         - obj:
             id: energy_flow_panel
@@ -3796,7 +3933,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: energy_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -3808,7 +3945,36 @@ lvgl:
                   on_click:
                     - lvgl.page.show: tuya_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              - button:
+                  id: status_pill_cam
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: 0x113225
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot_cam
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: 0x69F0AE
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl_cam
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: 0xFFFFFF
 
         - obj:
             id: cam1_tile
@@ -4027,7 +4193,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -4039,7 +4205,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
 
         - image:
             id: camera_live_widget
@@ -4146,7 +4312,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: dashboard_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -4212,11 +4378,57 @@ lvgl:
                         text_color: 0xFFFFFF
 
         - obj:
+            id: settings_diagnostics_banner
+            x: 32
+            y: 168
+            width: 960
+            height: 64
+            bg_color: 0x0D1624
+            bg_opa: 100%
+            border_width: 2
+            border_color: 0x2A4568
+            radius: 16
+            pad_all: 0
+            on_click:
+              - lvgl.page.show: diagnostics_page
+            widgets:
+              - label:
+                  x: 22
+                  y: 10
+                  text: "DIAGNOSTICS"
+                  text_font: montserrat_20
+                  text_color: 0x9FB3C8
+              - label:
+                  x: 22
+                  y: 38
+                  width: 720
+                  text: "WiFi/HA connection, memory, and per-integration health with last-successful-poll timestamps."
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 112
+                  height: 40
+                  radius: 10
+                  bg_color: 0x1A3552
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "Open"
+                        text_font: montserrat_16
+                        text_color: 0xFFFFFF
+
+        - obj:
             id: settings_left_panel
             x: 0
-            y: 172
+            y: 240
             width: 500
-            height: 384
+            height: 316
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x243B55
@@ -4638,9 +4850,9 @@ lvgl:
         - obj:
             id: settings_right_panel
             x: 512
-            y: 172
+            y: 240
             width: 500
-            height: 384
+            height: 316
             bg_color: 0x0D1624
             bg_opa: 96%
             border_color: 0x243B55
@@ -4912,7 +5124,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: settings_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -4924,7 +5136,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: slideshow_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
 
         - label:
             x: 32
@@ -5159,6 +5371,174 @@ lvgl:
                   align: LEFT_MID
                   x: 20
                   text: "Edit slideshow overlay visibility and placement."
+                  text_font: montserrat_16
+                  text_color: 0x9FB3C8
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 44
+                  height: 34
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_settings
+
+    # ═══════════════════════════════════════════════════════════
+    # PAGE 9 — DIAGNOSTICS
+    # WiFi/HA connection, memory, and per-integration health with
+    # last-successful-poll timestamps. Reached from the header status
+    # pill (any page, once rolled out in Phase 3) or the Settings page
+    # Diagnostics banner. Labels refreshed by refresh_diagnostics_labels
+    # (packages/core_ha.yaml, 5s interval).
+    # ═══════════════════════════════════════════════════════════
+    - id: diagnostics_page
+      bg_color: 0x071019
+      on_load:
+        - script.execute: refresh_diagnostics_labels
+      widgets:
+        - obj:
+            id: diag_hdr_bar
+            width: 1024
+            height: 58
+            align: TOP_LEFT
+            bg_color: 0x0B1624
+            bg_opa: 98%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - button:
+                  align: LEFT_MID
+                  x: 14
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Diagnostics"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: settings_page
+                  widgets:
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: 52
+                  height: 38
+                  bg_color: 0x1A3552
+                  radius: 9
+                  border_width: 0
+                  on_click:
+                    - script.execute: refresh_diagnostics_labels
+                  widgets:
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+
+        - obj:
+            id: diag_left_panel
+            x: 20
+            y: 78
+            width: 490
+            height: 460
+            bg_color: 0x0D1624
+            bg_opa: 96%
+            border_color: 0x243B55
+            border_width: 1
+            radius: 18
+            pad_left: 24
+            pad_top: 20
+            widgets:
+              - label:
+                  id: diag_sec_conn_lbl
+                  x: 0
+                  y: 0
+                  text: "CONNECTION"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label: { id: diag_wifi_lbl, x: 0, y: 34, width: 450, text: "WiFi: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_rssi_lbl, x: 0, y: 62, width: 450, text: "Signal: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_ip_lbl, x: 0, y: 90, width: 450, text: "IP: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_ha_lbl, x: 0, y: 118, width: 450, text: "Home Assistant API: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - obj: { x: 0, y: 154, width: 450, height: 2, bg_color: 0x1A3552, border_width: 0 }
+              - label:
+                  id: diag_sec_sys_lbl
+                  x: 0
+                  y: 166
+                  text: "SYSTEM"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label: { id: diag_heap_lbl, x: 0, y: 200, width: 450, text: "Heap free: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_psram_lbl, x: 0, y: 228, width: 450, text: "PSRAM free: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_loop_lbl, x: 0, y: 256, width: 450, text: "Loop time: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_uptime_lbl, x: 0, y: 284, width: 450, text: "Uptime: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_fw_lbl, x: 0, y: 312, width: 450, text: "Firmware: v${firmware_version}", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_reset_lbl, x: 0, y: 340, width: 450, text: "Last reset: --", text_font: montserrat_16, text_color: 0xEEEEEE, long_mode: WRAP }
+
+        - obj:
+            id: diag_right_panel
+            x: 514
+            y: 78
+            width: 490
+            height: 460
+            bg_color: 0x0D1624
+            bg_opa: 96%
+            border_color: 0x243B55
+            border_width: 1
+            radius: 18
+            pad_left: 24
+            pad_top: 20
+            widgets:
+              - label:
+                  id: diag_sec_int_lbl
+                  x: 0
+                  y: 0
+                  text: "INTEGRATIONS"
+                  text_font: montserrat_18
+                  text_color: 0x69F0AE
+              - label: { id: diag_immich_lbl, x: 0, y: 34, width: 450, text: "Immich: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_tuya_lbl, x: 0, y: 62, width: 450, text: "Tuya bridge: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_jf_lbl, x: 0, y: 90, width: 450, text: "Jellyfin proxy: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+              - label: { id: diag_ih_lbl, x: 0, y: 118, width: 450, text: "iHost bridge: --", text_font: montserrat_16, text_color: 0xEEEEEE }
+
+        - obj:
+            id: diag_footer
+            width: 1024
+            height: 44
+            align: BOTTOM_LEFT
+            bg_color: 0x08111D
+            bg_opa: 96%
+            border_width: 0
+            border_side: TOP
+            border_color: 0x263B55
+            pad_all: 0
+            widgets:
+              - label:
+                  align: LEFT_MID
+                  x: 20
+                  text: "Live panel health — refreshes automatically every few seconds."
                   text_font: montserrat_16
                   text_color: 0x9FB3C8
               - button:

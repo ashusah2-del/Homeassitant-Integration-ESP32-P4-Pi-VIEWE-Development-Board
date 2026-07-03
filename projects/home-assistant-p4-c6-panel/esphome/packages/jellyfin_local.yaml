@@ -198,7 +198,9 @@ script:
           capture_response: true
           on_response:
             then:
-              - lambda: 'id(g_jf_bridge_ok) = (response->status_code == 200);'
+              - lambda: |-
+                  id(g_jf_bridge_ok) = (response->status_code == 200);
+                  if (id(g_jf_bridge_ok)) id(g_jf_last_ok) = millis();
           on_error:
             then:
               - lambda: 'id(g_jf_bridge_ok) = false;'
@@ -601,7 +603,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: tuya_page
                   widgets:
-                    - label: { align: CENTER, text: "<", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -613,7 +615,36 @@ lvgl:
                   on_click:
                     - lvgl.page.show: slideshow_page
                   widgets:
-                    - label: { align: CENTER, text: ">", text_font: montserrat_24, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+              - button:
+                  id: status_pill_jf
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: 0x113225
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot_jf
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: 0x69F0AE
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl_jf
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: 0xFFFFFF
 
         - obj:
             id: jf_list_panel
@@ -626,7 +657,7 @@ lvgl:
             bg_opa: 95%
             border_color: 0x243B55
             border_width: 2
-            radius: 16
+            radius: 18
             pad_all: 8
             widgets:
               - label:
@@ -872,7 +903,7 @@ lvgl:
             bg_opa: 95%
             border_color: 0x243B55
             border_width: 2
-            radius: 16
+            radius: 18
             pad_all: 10
             widgets:
               - obj:

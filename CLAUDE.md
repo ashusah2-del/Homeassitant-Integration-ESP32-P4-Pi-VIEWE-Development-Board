@@ -77,9 +77,9 @@ All three run as systemd user services (`.service` files in each subdirectory).
 - **JPEGDEC crashes on SOF1 and full-size SOF0 under PSRAM XIP.** Always pass images through the proxy — never send raw Immich previews or full-size camera frames directly to the panel.
 - **LVGL 9 API names:** `lv_img_set_zoom` / `lv_img_set_pivot` are dead shims. Use `lv_image_set_scale` / `lv_image_set_pivot`. Centre images with `lv_image_set_inner_align(LV_IMAGE_ALIGN_CENTER)`.
 - **Font glyphs are subset at compile time.** Characters not literally present in the YAML are dropped. Avoid `−` (U+2212), `●`, `←`, `→` — use ASCII equivalents or load a full-font copy.
-- **API `max_connections`** is set to 12 in `core_ha.yaml` (default is 5). The ESPHome dashboard "Logs" tab leaks `esphome logs` subprocesses that hold API slots. If the panel stops responding to HA pushes after an OTA, run `docker restart esphome`.
-- **Tuya page:** don't fire parallel HTTP poll requests. All six device polls are sequential with a single UI update at the end; `g_tuya_busy` blocks taps during in-flight requests.
-- **safe_mode rollback:** ESPHome auto-rolls back to the previous image after two consecutive boot failures. After a crash loop, the panel may be running stale firmware — check the version on the Settings page before debugging the current code.
+- **API `max_connections`** is set to 6 in `core_ha.yaml` (default is 5), deliberately kept low. The ESPHome dashboard "Logs" tab leaks `esphome logs` subprocesses that hold API slots. If the panel stops responding to HA pushes after an OTA, run `docker restart esphome`.
+- **Tuya page:** don't fire parallel HTTP poll requests. All six device polls are sequential with a single UI update at the end; `g_tuya_busy` blocks taps during in-flight requests. The same busy-flag pattern (`g_jf_busy`, `g_ih_busy`) is used for Jellyfin and iHost polling too.
+- **safe_mode rollback:** `core_ha.yaml` sets `num_attempts: 5` with `boot_is_good_after: 60s` — ESPHome auto-rolls back to the previous image after 5 consecutive failed boots. After a crash loop, the panel may be running stale firmware — check the version on the Settings page before debugging the current code.
 
 ## Secrets
 

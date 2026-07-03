@@ -372,6 +372,7 @@ script:
           style_header(id(layout_hdr_bar));
           style_header(id(tuya_header_bar));
           style_header(id(jf_header_bar));
+          style_header(id(diag_hdr_bar));
 
           lv_obj_set_style_bg_color(id(slideshow_page).obj, lv_color_hex(0x000000), 0);
           lv_obj_set_style_bg_color(id(settings_page).obj, lv_color_hex(t.page_bg), 0);
@@ -384,6 +385,7 @@ script:
           lv_obj_set_style_bg_color(id(layout_settings_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(tuya_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(jellyfin_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(diagnostics_page).obj, lv_color_hex(t.page_bg), 0);
           style_card(id(jf_list_panel));
           style_card(id(jf_detail_panel));
           lv_obj_set_style_bg_color(id(jf_play_btn), lv_color_hex(t.success), 0);
@@ -399,6 +401,16 @@ script:
 
           style_card(id(settings_left_panel));
           style_card(id(settings_right_panel));
+
+          // Diagnostics page — cards, footer, then re-accent the section
+          // headings style_card just flattened to text_primary.
+          style_card(id(diag_left_panel));
+          style_card(id(diag_right_panel));
+          style_page_footer(id(diag_footer));
+          lv_obj_set_style_text_color(id(diag_sec_conn_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(diag_sec_sys_lbl), lv_color_hex(t.accent), 0);
+          lv_obj_set_style_text_color(id(diag_sec_int_lbl), lv_color_hex(t.accent), 0);
+          style_card(id(settings_diagnostics_banner));
 
           lv_obj_set_style_bg_color(id(settings_footer), lv_color_hex(t.footer_bg), 0);
           lv_obj_set_style_border_color(id(settings_footer), lv_color_hex(t.footer_border), 0);
