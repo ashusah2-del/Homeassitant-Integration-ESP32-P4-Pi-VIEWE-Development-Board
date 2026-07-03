@@ -125,14 +125,14 @@ substitutions:
   weather_location: "Home"
 
   # Energy page — mirrors Home Assistant's Energy dashboard sources.
-  # Grid import comes from Octopus; solar production and live load come from
-  # the Zigbee bi-directional smart meter.
+  # Grid import/home load come from the Zigbee bi-directional smart meter.
   energy_grid_power: sensor.zigbee_bi_smart_meter_phase_a_power
   energy_grid_power_unit: "W"
-  # Daily solar (utility_meter in home_assistant/packages/esp32p4_panel.yaml,
-  # resets at midnight). The meter's own total_energy_2 is a lifetime counter
-  # (2500+ kWh) and belongs nowhere near a "today" card.
-  energy_solar_energy: sensor.panel_solar_today
+  # Daily solar comes straight from the Hypontech Cloud integration (native
+  # HA core integration since 2026.3, added 2026-07-03) — it already resets
+  # at midnight on Hypontech's own servers, so no utility_meter workaround
+  # is needed like the old Zigbee-meter path required.
+  energy_solar_energy: sensor.overview_today_energy
   energy_solar_energy_unit: "kWh"
   energy_home_power: sensor.zigbee_bi_smart_meter_phase_a_power
   energy_home_power_unit: "W"
