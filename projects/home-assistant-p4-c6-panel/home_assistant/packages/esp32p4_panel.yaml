@@ -149,3 +149,107 @@ template:
       - name: esp32p4_panel_last_touch
         state: "{{ trigger.payload }}"
 
+# Hypontech Cloud — full data via hypon-proxy (see hypon-proxy/ in the repo).
+# HA's own "Hypontech Cloud" integration only exposes power/today/lifetime
+# energy from 2 of the API's 5 endpoints; this pulls everything else the
+# cloud reports (grid power, home load, battery, faults, CO2/trees, earnings)
+# from the account's single plant via a local proxy on the Docker host.
+rest:
+  - resource: http://192.168.55.59:8769/hypon/status
+    scan_interval: 60
+    sensor:
+      - name: "Hypon Capacity"
+        unique_id: hypon_capacity
+        value_template: "{{ value_json.overview.capacity_kw }}"
+        unit_of_measurement: "kW"
+        icon: mdi:solar-power-variant
+      - name: "Hypon Devices Normal"
+        unique_id: hypon_devices_normal
+        value_template: "{{ value_json.overview.devices_normal }}"
+        icon: mdi:check-circle
+      - name: "Hypon Devices Fault"
+        unique_id: hypon_devices_fault
+        value_template: "{{ value_json.overview.devices_fault }}"
+        icon: mdi:alert-circle
+      - name: "Hypon Devices Offline"
+        unique_id: hypon_devices_offline
+        value_template: "{{ value_json.overview.devices_offline }}"
+        icon: mdi:lan-disconnect
+      - name: "Hypon Total CO2 Saved"
+        unique_id: hypon_total_co2
+        value_template: "{{ value_json.overview.total_co2_kg }}"
+        unit_of_measurement: "kg"
+        icon: mdi:molecule-co2
+      - name: "Hypon Total Trees Equivalent"
+        unique_id: hypon_total_trees
+        value_template: "{{ value_json.overview.total_trees }}"
+        icon: mdi:tree
+      - name: "Hypon Earning Today"
+        unique_id: hypon_earning_today
+        value_template: "{{ value_json.overview.earning_today }}"
+        unit_of_measurement: "{{ value_json.overview.earning_currency }}"
+        icon: mdi:cash
+      - name: "Hypon Earning Total"
+        unique_id: hypon_earning_total
+        value_template: "{{ value_json.overview.earning_total }}"
+        unit_of_measurement: "{{ value_json.overview.earning_currency }}"
+        icon: mdi:cash-multiple
+      - name: "Hypon Grid Power"
+        unique_id: hypon_grid_power
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.grid_power_w }}"
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: "Hypon Home Load"
+        unique_id: hypon_home_load
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.home_load_w }}"
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: "Hypon PV Power"
+        unique_id: hypon_pv_power
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.pv_power_w }}"
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: "Hypon Battery Power"
+        unique_id: hypon_battery_power
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.battery_power_w }}"
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: "Hypon Battery SOC"
+        unique_id: hypon_battery_soc
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.battery_soc_pct }}"
+        unit_of_measurement: "%"
+        device_class: battery
+        state_class: measurement
+      - name: "Hypon Energy This Month"
+        unique_id: hypon_energy_month
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.e_month_kwh }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+      - name: "Hypon Energy This Year"
+        unique_id: hypon_energy_year
+        value_template: "{{ (value_json.plants.values() | list | first).monitor.e_year_kwh }}"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+      - name: "Hypon Inverter Status"
+        unique_id: hypon_inverter_status
+        value_template: "{{ (value_json.plants.values() | list | first).inverters[0].status }}"
+        icon: mdi:current-ac
+      - name: "Hypon Inverter Fault Count"
+        unique_id: hypon_inverter_fault_count
+        value_template: "{{ (value_json.plants.values() | list | first).fault_count }}"
+        icon: mdi:alert
+      - name: "Hypon Inverter Warning Count"
+        unique_id: hypon_inverter_warning_count
+        value_template: "{{ (value_json.plants.values() | list | first).warning_count }}"
+        icon: mdi:alert-outline
+      - name: "Hypon Gateway Status"
+        unique_id: hypon_gateway_status
+        value_template: "{{ (value_json.plants.values() | list | first).inverters[0].gateway_status }}"
+        icon: mdi:wifi
+

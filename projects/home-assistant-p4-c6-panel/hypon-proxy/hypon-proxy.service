@@ -1,0 +1,15 @@
+[Unit]
+Description=Hypontech Cloud proxy for ESP32-P4 panel / Home Assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/docker/hypon-proxy
+EnvironmentFile=%h/docker/hypon-proxy/proxy.env
+ExecStart=/usr/bin/python3 %h/docker/hypon-proxy/proxy.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
