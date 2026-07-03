@@ -2599,7 +2599,7 @@ lvgl:
                     # the old "<" target predated the iHost page insertion.
                     - lvgl.page.show: ihost_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -2611,7 +2611,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: presence_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   id: status_pill_tado
                   align: RIGHT_MID
@@ -3263,7 +3263,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: tado_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -3275,7 +3275,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: energy_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   id: status_pill_pres
                   align: RIGHT_MID
@@ -3680,7 +3680,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: presence_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -3692,7 +3692,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   id: status_pill_energy
                   align: RIGHT_MID
@@ -3933,7 +3933,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: energy_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -3945,7 +3945,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: tuya_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   id: status_pill_cam
                   align: RIGHT_MID
@@ -4193,7 +4193,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -4205,7 +4205,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
 
         - image:
             id: camera_live_widget
@@ -4312,7 +4312,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: dashboard_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -5124,7 +5124,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: settings_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -5136,7 +5136,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: slideshow_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
 
         - label:
             x: 32
@@ -5443,7 +5443,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: settings_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -5455,7 +5455,7 @@ lvgl:
                   on_click:
                     - script.execute: refresh_diagnostics_labels
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
 
         - obj:
             id: diag_left_panel

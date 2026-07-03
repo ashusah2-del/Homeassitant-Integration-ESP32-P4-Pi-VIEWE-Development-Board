@@ -603,7 +603,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: tuya_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   align: RIGHT_MID
                   x: -16
@@ -615,7 +615,7 @@ lvgl:
                   on_click:
                     - lvgl.page.show: slideshow_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
               - button:
                   id: status_pill_jf
                   align: RIGHT_MID
