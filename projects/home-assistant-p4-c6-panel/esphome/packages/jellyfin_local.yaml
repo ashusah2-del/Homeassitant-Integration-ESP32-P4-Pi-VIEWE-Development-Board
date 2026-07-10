@@ -199,11 +199,15 @@ script:
           on_response:
             then:
               - lambda: |-
+                  bool was_ok = id(g_jf_bridge_ok);
                   id(g_jf_bridge_ok) = (response->status_code == 200);
                   if (id(g_jf_bridge_ok)) id(g_jf_last_ok) = millis();
+                  else if (was_ok) id(panel_toast).execute("Jellyfin proxy offline");
           on_error:
             then:
-              - lambda: 'id(g_jf_bridge_ok) = false;'
+              - lambda: |-
+                  if (id(g_jf_bridge_ok)) id(panel_toast).execute("Jellyfin proxy offline");
+                  id(g_jf_bridge_ok) = false;
 
   - id: jf_apply_ui
     mode: single
@@ -547,7 +551,7 @@ interval:
 lvgl:
   pages:
     - id: jellyfin_page
-      bg_color: 0x071019
+      bg_color: "${c_page_bg}"
       on_load:
         - lambda: 'id(g_jf_page_active) = true;'
         - script.execute: jf_apply_cast_ui
@@ -563,23 +567,23 @@ lvgl:
       widgets:
         - obj:
             id: jf_header_bar
-            width: 1024
-            height: 58
+            width: 100%
+            height: ${header_h}
             align: TOP_LEFT
-            bg_color: 0x0B1624
+            bg_color: "${c_header_bg}"
             bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x263B55
+            border_color: "${c_header_border}"
             pad_all: 0
             widgets:
               - button:
                   align: LEFT_MID
                   x: 14
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: slideshow_page
@@ -591,31 +595,31 @@ lvgl:
                   align: CENTER
                   text: "Jellyfin Movies"
                   text_font: montserrat_28
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - button:
                   align: RIGHT_MID
                   x: -78
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: tuya_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               - button:
                   align: RIGHT_MID
                   x: -16
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: slideshow_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               - button:
                   id: status_pill_jf
                   align: RIGHT_MID
@@ -623,7 +627,7 @@ lvgl:
                   width: 84
                   height: 34
                   radius: 17
-                  bg_color: 0x113225
+                  bg_color: "${c_accent_bg}"
                   border_width: 0
                   on_click:
                     - lvgl.page.show: diagnostics_page
@@ -635,7 +639,7 @@ lvgl:
                         width: 10
                         height: 10
                         radius: 5
-                        bg_color: 0x69F0AE
+                        bg_color: "${c_accent}"
                         border_width: 0
                         pad_all: 0
                     - label:
@@ -644,7 +648,7 @@ lvgl:
                         y: 9
                         text: "OK"
                         text_font: montserrat_14
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
 
         - obj:
             id: jf_list_panel
@@ -653,11 +657,11 @@ lvgl:
             width: 500
             height: 470
             align: TOP_LEFT
-            bg_color: 0x0D1624
+            bg_color: "${c_card_bg_alt}"
             bg_opa: 95%
-            border_color: 0x243B55
+            border_color: "${c_card_border_dim}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 8
             widgets:
               - label:
@@ -666,7 +670,7 @@ lvgl:
                   y: 0
                   text: "Library"
                   text_font: montserrat_18
-                  text_color: 0x7EB8FF
+                  text_color: "${c_info_soft}"
               - button:
                   id: jf_row_0
                   align: TOP_LEFT
@@ -674,10 +678,10 @@ lvgl:
                   y: 28
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -694,7 +698,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_1
                   align: TOP_LEFT
@@ -702,10 +706,10 @@ lvgl:
                   y: 80
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -722,7 +726,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_2
                   align: TOP_LEFT
@@ -730,10 +734,10 @@ lvgl:
                   y: 132
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -750,7 +754,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_3
                   align: TOP_LEFT
@@ -758,10 +762,10 @@ lvgl:
                   y: 184
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -778,7 +782,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_4
                   align: TOP_LEFT
@@ -786,10 +790,10 @@ lvgl:
                   y: 236
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -806,7 +810,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_5
                   align: TOP_LEFT
@@ -814,10 +818,10 @@ lvgl:
                   y: 288
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -834,7 +838,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_6
                   align: TOP_LEFT
@@ -842,10 +846,10 @@ lvgl:
                   y: 340
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -862,7 +866,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
               - button:
                   id: jf_row_7
                   align: TOP_LEFT
@@ -870,10 +874,10 @@ lvgl:
                   y: 392
                   width: 476
                   height: 48
-                  bg_color: 0x122033
+                  bg_color: "${c_row_bg}"
                   radius: 10
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   on_click:
                     - script.execute:
                         id: jf_select_row
@@ -890,7 +894,7 @@ lvgl:
                         x: 46
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
 
         - obj:
             id: jf_detail_panel
@@ -899,11 +903,11 @@ lvgl:
             width: 480
             height: 470
             align: TOP_LEFT
-            bg_color: 0x0D1624
+            bg_color: "${c_card_bg_alt}"
             bg_opa: 95%
-            border_color: 0x243B55
+            border_color: "${c_card_border_dim}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 10
             widgets:
               - obj:
@@ -915,7 +919,7 @@ lvgl:
                   bg_color: 0x000000
                   radius: 12
                   border_width: 1
-                  border_color: 0x243B55
+                  border_color: "${c_card_border_dim}"
                   pad_all: 0
                   widgets:
                     - image:
@@ -929,7 +933,7 @@ lvgl:
                   width: 440
                   text: "Select a movie"
                   text_font: montserrat_18
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
                   long_mode: WRAP
                   text_align: CENTER
 
@@ -940,7 +944,7 @@ lvgl:
             y: -58
             text: "Cast: --"
             text_font: montserrat_16
-            text_color: 0x8FA6C3
+            text_color: "${c_footer_text}"
 
         - button:
             id: jf_cast_prev_btn
@@ -949,13 +953,13 @@ lvgl:
             y: -14
             width: 44
             height: 46
-            bg_color: 0x1A3552
+            bg_color: "${c_nav_btn}"
             radius: 12
             border_width: 0
             on_click:
               - script.execute: jf_cast_prev
             widgets:
-              - label: { align: CENTER, text: "<", text_font: montserrat_20, text_color: 0xFFFFFF }
+              - label: { align: CENTER, text: "<", text_font: montserrat_20, text_color: "${c_text}" }
 
         - button:
             id: jf_cast_next_btn
@@ -964,13 +968,13 @@ lvgl:
             y: -14
             width: 44
             height: 46
-            bg_color: 0x1A3552
+            bg_color: "${c_nav_btn}"
             radius: 12
             border_width: 0
             on_click:
               - script.execute: jf_cast_next
             widgets:
-              - label: { align: CENTER, text: ">", text_font: montserrat_20, text_color: 0xFFFFFF }
+              - label: { align: CENTER, text: ">", text_font: montserrat_20, text_color: "${c_text}" }
 
         - button:
             id: jf_play_btn
@@ -979,7 +983,7 @@ lvgl:
             y: -14
             width: 196
             height: 46
-            bg_color: 0x1E6B3A
+            bg_color: "${c_success_bg}"
             radius: 12
             border_width: 0
             on_click:
@@ -989,7 +993,7 @@ lvgl:
                   align: CENTER
                   text: "Cast Play"
                   text_font: montserrat_18
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
 
         - button:
             id: jf_refresh_btn
@@ -998,7 +1002,7 @@ lvgl:
             y: -14
             width: 100
             height: 46
-            bg_color: 0x1A3552
+            bg_color: "${c_nav_btn}"
             radius: 12
             border_width: 0
             on_click:
@@ -1011,7 +1015,7 @@ lvgl:
                   align: CENTER
                   text: "Refresh"
                   text_font: montserrat_16
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
 
         - button:
             id: jf_prev_btn
@@ -1020,7 +1024,7 @@ lvgl:
             y: -14
             width: 90
             height: 46
-            bg_color: 0x1A3552
+            bg_color: "${c_nav_btn}"
             radius: 12
             border_width: 0
             on_click:
@@ -1030,7 +1034,7 @@ lvgl:
                   align: CENTER
                   text: "<"
                   text_font: montserrat_20
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
 
         - button:
             id: jf_next_btn
@@ -1039,7 +1043,7 @@ lvgl:
             y: -14
             width: 90
             height: 46
-            bg_color: 0x1A3552
+            bg_color: "${c_nav_btn}"
             radius: 12
             border_width: 0
             on_click:
@@ -1049,7 +1053,7 @@ lvgl:
                   align: CENTER
                   text: ">"
                   text_font: montserrat_20
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
 
         - label:
             id: jf_page_lbl
@@ -1058,7 +1062,7 @@ lvgl:
             y: -8
             text: "--"
             text_font: montserrat_16
-            text_color: 0x8FA6C3
+            text_color: "${c_footer_text}"
 
         - label:
             id: jf_status_lbl
@@ -1067,4 +1071,4 @@ lvgl:
             y: -30
             text: "Loading..."
             text_font: montserrat_14
-            text_color: 0x8FA6C3
+            text_color: "${c_footer_text}"

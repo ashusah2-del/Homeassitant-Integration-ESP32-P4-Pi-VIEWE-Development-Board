@@ -55,9 +55,6 @@ api:
               value: 'true'
           - script.execute: update_status_pill
           - lvgl.widget.hide: ha_disconnected_overlay
-          - lvgl.label.update:
-              id: dash_error_lbl
-              text: ""
           - script.execute: refresh_immich_slideshow
           - script.execute: refresh_weather_widget
           - script.execute: ensure_wake_word_running
@@ -104,9 +101,6 @@ api:
           # working without HA; header status pills flag the state on
           # every other page.
           - lvgl.widget.show: ha_disconnected_overlay
-          - lvgl.label.update:
-              id: dash_error_lbl
-              text: "Home Assistant disconnected"
           - script.execute: va_ui_set_offline
           - micro_wake_word.stop:
               id: panel_mww

@@ -203,6 +203,38 @@ Themed surfaces include page backgrounds, header/footer bars, cards
 voice/wake pills, crash/HA-disconnect banners, and runtime status colours
 (lamps, presence dots, Tuya device states).
 
+### Design tokens (compile-time defaults)
+
+All YAML styling pulls from substitution tokens defined at the top of
+`mangalam-panel.yaml` instead of scattered hex literals:
+
+- **Layout metrics** — `screen_w/screen_h`, `header_h`, `footer_h`,
+  `content_h`, `card_radius`, `btn_radius`, `nav_btn_w/h`. Headers and
+  footers are `width: 100%`; the card grids on the dashboard, climate,
+  presence, and camera pages are LVGL flex containers with
+  percentage-sized cards, so the layout re-flows from the display's
+  actual resolution rather than assuming 1024×600. C++ lambdas
+  (slideshow transitions, drag bounds, layout defaults) read
+  `lv_disp_get_hor_res()` at runtime for the same reason.
+- **Colour tokens** — `c_page_bg`, `c_card_bg`, `c_accent`, `c_error`,
+  etc. These are the *boot defaults* (Midnight); `apply_panel_theme`
+  repaints every themed surface a couple of seconds after boot and on
+  every theme change.
+
+### Status toast + central error handling
+
+A single toast on the LVGL top layer (`error_bar`/`error_lbl`) is the
+error surface for the whole panel — it floats over any page, auto-hides
+after 8 s, and dismisses on tap. Integrations report failures through
+the parameterized `panel_toast` script; bridge health polls
+(Tuya/Jellyfin/iHost) only toast on an online→offline *transition* so a
+dead service doesn't nag every poll. The slideshow's download retry
+logic is shared between both double-buffer slots via
+`slideshow_loaded`/`slideshow_failed(slot)`, and camera thumbnails
+refresh through one `refresh_cam_slot(slot)` script. The crash banner,
+HA-offline pill, and voice-assistant pill also live on the top layer,
+so they're visible regardless of the active page.
+
 ---
 
 ## Supporting services

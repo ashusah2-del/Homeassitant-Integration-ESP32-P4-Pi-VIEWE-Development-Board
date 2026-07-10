@@ -484,11 +484,15 @@ script:
           on_response:
             then:
               - lambda: |-
+                  bool was_ok = id(g_tuya_bridge_ok);
                   id(g_tuya_bridge_ok) = (response->status_code == 200);
                   if (id(g_tuya_bridge_ok)) id(g_tuya_last_ok) = millis();
+                  else if (was_ok) id(panel_toast).execute("Tuya bridge offline");
           on_error:
             then:
-              - lambda: 'id(g_tuya_bridge_ok) = false;'
+              - lambda: |-
+                  if (id(g_tuya_bridge_ok)) id(panel_toast).execute("Tuya bridge offline");
+                  id(g_tuya_bridge_ok) = false;
 
   - id: tuya_toggle_g_strip_s1
     mode: single
@@ -1196,7 +1200,7 @@ interval:
 lvgl:
   pages:
     - id: tuya_page
-      bg_color: 0x071019
+      bg_color: "${c_page_bg}"
       on_load:
         - lambda: |-
             id(g_tuya_page_active) = true;
@@ -1218,23 +1222,23 @@ lvgl:
         # ── Top bar ─────────────────────────────────────────────────────────────
         - obj:
             id: tuya_header_bar
-            width: 1024
-            height: 58
+            width: 100%
+            height: ${header_h}
             align: TOP_LEFT
-            bg_color: 0x0B1624
+            bg_color: "${c_header_bg}"
             bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x263B55
+            border_color: "${c_header_border}"
             pad_all: 0
             widgets:
               - button:
                   align: LEFT_MID
                   x: 14
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: slideshow_page
@@ -1246,31 +1250,31 @@ lvgl:
                   align: CENTER
                   text: "Tuya Local"
                   text_font: montserrat_28
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - button:
                   align: RIGHT_MID
                   x: -78
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: camera_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               - button:
                   align: RIGHT_MID
                   x: -16
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: jellyfin_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               - button:
                   id: status_pill_tuya
                   align: RIGHT_MID
@@ -1278,7 +1282,7 @@ lvgl:
                   width: 84
                   height: 34
                   radius: 17
-                  bg_color: 0x113225
+                  bg_color: "${c_accent_bg}"
                   border_width: 0
                   on_click:
                     - lvgl.page.show: diagnostics_page
@@ -1290,7 +1294,7 @@ lvgl:
                         width: 10
                         height: 10
                         radius: 5
-                        bg_color: 0x69F0AE
+                        bg_color: "${c_accent}"
                         border_width: 0
                         pad_all: 0
                     - label:
@@ -1299,7 +1303,7 @@ lvgl:
                         y: 9
                         text: "OK"
                         text_font: montserrat_14
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
 
         - obj:
             id: tuya_strip_panel
@@ -1308,11 +1312,11 @@ lvgl:
             width: 984
             height: 162
             align: TOP_LEFT
-            bg_color: 0x0D1A16
+            bg_color: "${c_card_bg}"
             bg_opa: 95%
-            border_color: 0x245A40
+            border_color: "${c_card_border}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 0
             widgets:
 
@@ -1323,7 +1327,7 @@ lvgl:
                   y: 8
                   text: "Bedroom Strip"
                   text_font: montserrat_18
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - label:
                   id: strip_status_lbl
                   align: TOP_LEFT
@@ -1331,7 +1335,7 @@ lvgl:
                   y: 10
                   text: "OFFLINE"
                   text_font: montserrat_14
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
 
               # ─ Vertical divider ─────────────────────────────────────────────
               - obj:
@@ -1340,7 +1344,7 @@ lvgl:
                   y: 8
                   width: 2
                   height: 146
-                  bg_color: 0x245A40
+                  bg_color: "${c_success_bg}"
                   bg_opa: 80%
                   border_width: 0
                   pad_all: 0
@@ -1352,7 +1356,7 @@ lvgl:
                   y: 8
                   text: "Power Switch"
                   text_font: montserrat_18
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - label:
                   id: switch_status_lbl
                   align: TOP_LEFT
@@ -1360,7 +1364,7 @@ lvgl:
                   y: 10
                   text: "OFFLINE"
                   text_font: montserrat_14
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
 
               # ─ Strip 1 socket buttons (y=40, h=108, x: 14,106,198,290,382) ─
               # S1
@@ -1372,20 +1376,20 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_strip_s1
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
+                    - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: "${c_text_soft}" }
                     - label:
                         id: strip_s1_lbl
                         align: BOTTOM_MID
                         y: -10
                         text: "--"
                         text_font: montserrat_16
-                        text_color: 0x6B7280
+                        text_color: "${c_text_dim}"
               # S2
               - obj:
                   id: strip_s2_btn
@@ -1395,14 +1399,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_strip_s2
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: strip_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: strip_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # S3
               - obj:
                   id: strip_s3_btn
@@ -1412,14 +1416,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_strip_s3
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: strip_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: strip_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # S4
               - obj:
                   id: strip_s4_btn
@@ -1429,14 +1433,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_strip_s4
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: strip_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: strip_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # USB
               - obj:
                   id: strip_usb_btn
@@ -1446,14 +1450,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x234A68
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_strip_usb
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
-                    - label: { id: strip_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: "${c_info_soft}" }
+                    - label: { id: strip_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
 
               # ─ Strip 2 socket buttons (x: 506,598,690,782,874) ──────────────
               # S1
@@ -1465,14 +1469,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_switch_s1
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: switch_s1_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S1", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: switch_s1_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # S2
               - obj:
                   id: switch_s2_btn
@@ -1482,14 +1486,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_switch_s2
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: switch_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S2", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: switch_s2_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # S3
               - obj:
                   id: switch_s3_btn
@@ -1499,14 +1503,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_switch_s3
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: switch_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S3", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: switch_s3_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # S4
               - obj:
                   id: switch_s4_btn
@@ -1516,14 +1520,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x2E6A4A
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_switch_s4
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: 0xCCCCCC }
-                    - label: { id: switch_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "S4", text_font: montserrat_14, text_color: "${c_text_soft}" }
+                    - label: { id: switch_s4_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
               # USB
               - obj:
                   id: switch_usb_btn
@@ -1533,14 +1537,14 @@ lvgl:
                   width: 82
                   height: 108
                   radius: 10
-                  bg_color: 0x101820
+                  bg_color: "${c_card_bg_alt}"
                   border_width: 1
-                  border_color: 0x234A68
+                  border_color: "${c_card_border}"
                   on_click:
                     - script.execute: tuya_toggle_g_switch_usb
                   widgets:
-                    - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: 0xAAAAEE }
-                    - label: { id: switch_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: 0x6B7280 }
+                    - label: { align: TOP_MID, y: 10, text: "USB", text_font: montserrat_14, text_color: "${c_info_soft}" }
+                    - label: { id: switch_usb_lbl, align: BOTTOM_MID, y: -10, text: "--", text_font: montserrat_16, text_color: "${c_text_dim}" }
 
         # ══ Row 2 Left: Locks ════════════════════════════════════════════════════
         # Card: x=20, y=242, w=486, h=162
@@ -1553,11 +1557,11 @@ lvgl:
             width: 486
             height: 162
             align: TOP_LEFT
-            bg_color: 0x0D1A16
+            bg_color: "${c_card_bg}"
             bg_opa: 95%
-            border_color: 0x245A40
+            border_color: "${c_card_border}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 0
             widgets:
 
@@ -1568,7 +1572,7 @@ lvgl:
                   y: 8
                   width: 2
                   height: 146
-                  bg_color: 0x245A40
+                  bg_color: "${c_success_bg}"
                   bg_opa: 70%
                   border_width: 0
                   pad_all: 0
@@ -1580,7 +1584,7 @@ lvgl:
                   y: 8
                   text: "Mukta Lock"
                   text_font: montserrat_16
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - label:
                   id: mukta_lock_lbl
                   align: TOP_LEFT
@@ -1588,7 +1592,7 @@ lvgl:
                   y: 46
                   text: "---"
                   text_font: montserrat_20
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
               - button:
                   align: TOP_LEFT
                   x: 12
@@ -1596,7 +1600,7 @@ lvgl:
                   width: 100
                   height: 36
                   radius: 10
-                  bg_color: 0x172B45
+                  bg_color: "${c_btn_auto_bg}"
                   text: "UNLOCK"
                   text_font: montserrat_14
                   on_click:
@@ -1608,7 +1612,7 @@ lvgl:
                   width: 100
                   height: 36
                   radius: 10
-                  bg_color: 0x2B1720
+                  bg_color: "${c_btn_off_bg}"
                   text: "LOCK"
                   text_font: montserrat_14
                   on_click:
@@ -1621,14 +1625,14 @@ lvgl:
                   y: 8
                   text: "Bedroom"
                   text_font: montserrat_16
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - label:
                   align: TOP_LEFT
                   x: 255
                   y: 28
                   text: "Knob Lock"
                   text_font: montserrat_12
-                  text_color: 0x666666
+                  text_color: "${c_text_dim}"
               - label:
                   id: bedroom_lbl
                   align: TOP_LEFT
@@ -1636,7 +1640,7 @@ lvgl:
                   y: 56
                   text: "---"
                   text_font: montserrat_20
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
               - button:
                   align: TOP_LEFT
                   x: 255
@@ -1644,7 +1648,7 @@ lvgl:
                   width: 100
                   height: 36
                   radius: 10
-                  bg_color: 0x172B45
+                  bg_color: "${c_btn_auto_bg}"
                   text: "UNLOCK"
                   text_font: montserrat_14
                   on_click:
@@ -1656,7 +1660,7 @@ lvgl:
                   width: 100
                   height: 36
                   radius: 10
-                  bg_color: 0x2B1720
+                  bg_color: "${c_btn_off_bg}"
                   text: "LOCK"
                   text_font: montserrat_14
                   on_click:
@@ -1670,11 +1674,11 @@ lvgl:
             width: 486
             height: 162
             align: TOP_LEFT
-            bg_color: 0x0D1A16
+            bg_color: "${c_card_bg}"
             bg_opa: 95%
-            border_color: 0x245A40
+            border_color: "${c_card_border}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 0
             widgets:
               - label:
@@ -1683,7 +1687,7 @@ lvgl:
                   y: 8
                   text: "WiFi Plugs"
                   text_font: montserrat_18
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
 
               # Drawing Room plug
               - label:
@@ -1692,7 +1696,7 @@ lvgl:
                   y: 44
                   text: "Drawing Room"
                   text_font: montserrat_16
-                  text_color: 0xCCCCCC
+                  text_color: "${c_text_soft}"
               - label:
                   id: tuya_dr_lbl
                   align: TOP_LEFT
@@ -1700,7 +1704,7 @@ lvgl:
                   y: 64
                   text: "---"
                   text_font: montserrat_18
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
               - button:
                   align: TOP_LEFT
                   x: 350
@@ -1708,7 +1712,7 @@ lvgl:
                   width: 58
                   height: 34
                   radius: 8
-                  bg_color: 0x166534
+                  bg_color: "${c_success_bg}"
                   text: "ON"
                   text_font: montserrat_14
                   on_click:
@@ -1720,7 +1724,7 @@ lvgl:
                   width: 58
                   height: 34
                   radius: 8
-                  bg_color: 0x2B1720
+                  bg_color: "${c_btn_off_bg}"
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -1733,7 +1737,7 @@ lvgl:
                   y: 106
                   width: 466
                   height: 1
-                  bg_color: 0x2E6A4A
+                  bg_color: "${c_success_bg}"
                   bg_opa: 50%
                   border_width: 0
                   pad_all: 0
@@ -1745,7 +1749,7 @@ lvgl:
                   y: 114
                   text: "Garden"
                   text_font: montserrat_16
-                  text_color: 0xCCCCCC
+                  text_color: "${c_text_soft}"
               - label:
                   id: tuya_garden_lbl
                   align: TOP_LEFT
@@ -1753,7 +1757,7 @@ lvgl:
                   y: 134
                   text: "---"
                   text_font: montserrat_18
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
               - button:
                   align: TOP_LEFT
                   x: 350
@@ -1761,7 +1765,7 @@ lvgl:
                   width: 58
                   height: 34
                   radius: 8
-                  bg_color: 0x166534
+                  bg_color: "${c_success_bg}"
                   text: "ON"
                   text_font: montserrat_14
                   on_click:
@@ -1773,7 +1777,7 @@ lvgl:
                   width: 58
                   height: 34
                   radius: 8
-                  bg_color: 0x2B1720
+                  bg_color: "${c_btn_off_bg}"
                   text: "OFF"
                   text_font: montserrat_14
                   on_click:
@@ -1787,11 +1791,11 @@ lvgl:
             width: 486
             height: 162
             align: TOP_LEFT
-            bg_color: 0x0D1A16
+            bg_color: "${c_card_bg}"
             bg_opa: 95%
-            border_color: 0x245A40
+            border_color: "${c_card_border}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 0
             widgets:
               - label:
@@ -1800,7 +1804,7 @@ lvgl:
                   y: 8
                   text: "Safety Sensors"
                   text_font: montserrat_18
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - button:
                   align: TOP_RIGHT
                   x: -14
@@ -1808,7 +1812,7 @@ lvgl:
                   width: 90
                   height: 28
                   radius: 8
-                  bg_color: 0x1A3552
+                  bg_color: "${c_nav_btn}"
                   text: "REFRESH"
                   text_font: montserrat_12
                   on_click:
@@ -1821,7 +1825,7 @@ lvgl:
                   y: 52
                   text: "Smoke"
                   text_font: montserrat_18
-                  text_color: 0xCCCCCC
+                  text_color: "${c_text_soft}"
               - label:
                   id: smoke_state_lbl
                   align: TOP_RIGHT
@@ -1829,7 +1833,7 @@ lvgl:
                   y: 52
                   text: "?"
                   text_font: montserrat_18
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
 
               # CO
               - label:
@@ -1838,7 +1842,7 @@ lvgl:
                   y: 92
                   text: "CO"
                   text_font: montserrat_18
-                  text_color: 0xCCCCCC
+                  text_color: "${c_text_soft}"
               - label:
                   id: co_state_lbl
                   align: TOP_RIGHT
@@ -1846,7 +1850,7 @@ lvgl:
                   y: 92
                   text: "?"
                   text_font: montserrat_18
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
 
               # Water
               - label:
@@ -1855,7 +1859,7 @@ lvgl:
                   y: 132
                   text: "Water"
                   text_font: montserrat_18
-                  text_color: 0xCCCCCC
+                  text_color: "${c_text_soft}"
               - label:
                   id: water_state_lbl
                   align: TOP_RIGHT
@@ -1863,7 +1867,7 @@ lvgl:
                   y: 132
                   text: "?"
                   text_font: montserrat_18
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
 
         # ══ Row 3 Right: Alarm ════════════════════════════════════════════════════
         - obj:
@@ -1873,11 +1877,11 @@ lvgl:
             width: 486
             height: 162
             align: TOP_LEFT
-            bg_color: 0x0D1A16
+            bg_color: "${c_card_bg}"
             bg_opa: 95%
-            border_color: 0x245A40
+            border_color: "${c_card_border}"
             border_width: 2
-            radius: 18
+            radius: ${card_radius}
             pad_all: 0
             widgets:
               - label:
@@ -1886,28 +1890,28 @@ lvgl:
                   y: 8
                   text: "Alarm"
                   text_font: montserrat_20
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - label:
                   align: TOP_LEFT
                   x: 14
                   y: 32
                   text: "Multifunction"
                   text_font: montserrat_14
-                  text_color: 0x666666
+                  text_color: "${c_text_dim}"
               - label:
                   id: alarm_state_lbl
                   align: CENTER
                   y: 0
                   text: "?"
                   text_font: montserrat_28
-                  text_color: 0xFF8F00
+                  text_color: "${c_warn}"
               - button:
                   align: BOTTOM_MID
                   y: -14
                   width: 160
                   height: 36
                   radius: 10
-                  bg_color: 0x1A3552
+                  bg_color: "${c_nav_btn}"
                   text: "REFRESH"
                   text_font: montserrat_14
                   on_click:
@@ -1916,14 +1920,14 @@ lvgl:
 
         - obj:
             id: tuya_page_footer
-            width: 1024
-            height: 44
+            width: 100%
+            height: ${footer_h}
             align: BOTTOM_LEFT
-            bg_color: 0x08111D
+            bg_color: "${c_footer_bg}"
             bg_opa: 96%
             border_width: 0
             border_side: TOP
-            border_color: 0x263B55
+            border_color: "${c_header_border}"
             pad_all: 0
             widgets:
               - label:
@@ -1931,14 +1935,14 @@ lvgl:
                   x: 20
                   text: "Local LAN device control."
                   text_font: montserrat_16
-                  text_color: 0x9FB3C8
+                  text_color: "${c_footer_text}"
               - button:
                   align: RIGHT_MID
                   x: -16
                   width: 44
                   height: 34
-                  bg_color: 0x1A3552
-                  radius: 9
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: settings_page
@@ -1951,8 +1955,8 @@ lvgl:
         # controls and intercepts touches while Tuya work is in-flight.
         - obj:
             id: tuya_loading_overlay
-            width: 1024
-            height: 600
+            width: 100%
+            height: 100%
             align: TOP_LEFT
             bg_color: 0x000000
             bg_opa: 72%
@@ -1964,11 +1968,11 @@ lvgl:
                   align: CENTER
                   width: 520
                   height: 190
-                  bg_color: 0x0D1A16
+                  bg_color: "${c_card_bg}"
                   bg_opa: 96%
-                  border_color: 0x245A40
+                  border_color: "${c_card_border}"
                   border_width: 2
-                  radius: 18
+                  radius: ${card_radius}
                   pad_all: 0
                   widgets:
                     - label:
@@ -1976,14 +1980,14 @@ lvgl:
                         y: 26
                         text: "Tuya Local"
                         text_font: montserrat_20
-                        text_color: 0x69F0AE
+                        text_color: "${c_accent}"
                     - label:
                         id: tuya_loading_title
                         align: CENTER
                         y: -8
                         text: "Controls loading"
                         text_font: montserrat_24
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
                     - label:
                         id: tuya_loading_hint
                         align: CENTER
@@ -1991,5 +1995,5 @@ lvgl:
                         width: 460
                         text: "Waiting for Tuya request to complete..."
                         text_font: montserrat_16
-                        text_color: 0xAAAAAA
+                        text_color: "${c_text_muted}"
                         long_mode: WRAP

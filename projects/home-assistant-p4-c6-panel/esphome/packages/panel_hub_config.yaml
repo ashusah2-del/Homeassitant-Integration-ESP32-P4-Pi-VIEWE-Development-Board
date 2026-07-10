@@ -34,6 +34,15 @@ esphome:
                     return;
                   }
                   json::parse_json(body, [](JsonObject root) -> bool {
+                    // Optional proxy base-URL override — every runtime image
+                    // URL (slideshow, camera thumbs, live view) is built from
+                    // this global, so one firmware image can serve panels
+                    // pointing at different hubs.
+                    const char* proxy = root["proxy_url"] | "";
+                    if (proxy[0]) {
+                      id(immich_base_url) = proxy;
+                      ESP_LOGI("hub_config", "Proxy base URL overridden: %s", proxy);
+                    }
                     JsonArray cams = root["cameras"].as<JsonArray>();
                     for (JsonObject cam : cams) {
                       int slot = cam["slot"].as<int>();

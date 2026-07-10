@@ -118,12 +118,15 @@ script:
           on_response:
             then:
               - lambda: |-
+                  bool was_ok = id(g_ih_bridge_ok);
                   id(g_ih_bridge_ok) = (response->status_code == 200);
                   if (id(g_ih_bridge_ok)) id(g_ih_last_ok) = millis();
+                  else if (was_ok) id(panel_toast).execute("iHost bridge offline");
                   id(ih_apply_ui).execute();
           on_error:
             then:
               - lambda: |-
+                  if (id(g_ih_bridge_ok)) id(panel_toast).execute("iHost bridge offline");
                   id(g_ih_bridge_ok) = false;
                   id(ih_apply_ui).execute();
 
@@ -506,7 +509,7 @@ interval:
 lvgl:
   pages:
     - id: ihost_page
-      bg_color: 0x071019
+      bg_color: "${c_page_bg}"
       on_load:
         - lambda: |-
             id(g_ih_page_active) = true;
@@ -534,23 +537,23 @@ lvgl:
         # ── Top bar ───────────────────────────────────────────────────────────
         - obj:
             id: ih_header_bar
-            width: 1024
-            height: 58
+            width: 100%
+            height: ${header_h}
             align: TOP_LEFT
-            bg_color: 0x0B1624
+            bg_color: "${c_header_bg}"
             bg_opa: 98%
             border_width: 0
             border_side: BOTTOM
-            border_color: 0x263B55
+            border_color: "${c_header_border}"
             pad_all: 0
             widgets:
               - button:
                   align: LEFT_MID
                   x: 14
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: slideshow_page
@@ -561,52 +564,52 @@ lvgl:
                   x: -50
                   text: "iHost / Sonoff"
                   text_font: montserrat_28
-                  text_color: 0xFFFFFF
+                  text_color: "${c_text}"
               - label:
                   id: ih_status_lbl
                   align: CENTER
                   x: 108
                   text: "..."
                   text_font: montserrat_14
-                  text_color: 0xFFAA00
+                  text_color: "${c_warn}"
               - button:
                   align: RIGHT_MID
                   x: -140
-                  width: 52
-                  height: 38
-                  bg_color: 0x0D2540
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_row_bg}"
+                  radius: ${btn_radius}
                   border_width: 1
-                  border_color: 0x263B55
+                  border_color: "${c_header_border}"
                   on_click:
                     - script.execute: ih_poll_health
                     - script.execute: ih_refresh_all
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xAABBCC }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_footer_text}" }
               - button:
                   align: RIGHT_MID
                   x: -78
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: dashboard_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               - button:
                   align: RIGHT_MID
                   x: -16
-                  width: 52
-                  height: 38
-                  bg_color: 0x1A3552
-                  radius: 9
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
                   border_width: 0
                   on_click:
                     - lvgl.page.show: tado_page
                   widgets:
-                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: 0xFFFFFF }
+                    - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               # Health status pill — sits left of the refresh button (x -140).
               - button:
                   id: status_pill_ihost
@@ -615,7 +618,7 @@ lvgl:
                   width: 84
                   height: 34
                   radius: 17
-                  bg_color: 0x113225
+                  bg_color: "${c_accent_bg}"
                   border_width: 0
                   on_click:
                     - lvgl.page.show: diagnostics_page
@@ -627,7 +630,7 @@ lvgl:
                         width: 10
                         height: 10
                         radius: 5
-                        bg_color: 0x69F0AE
+                        bg_color: "${c_accent}"
                         border_width: 0
                         pad_all: 0
                     - label:
@@ -636,7 +639,7 @@ lvgl:
                         y: 9
                         text: "OK"
                         text_font: montserrat_14
-                        text_color: 0xFFFFFF
+                        text_color: "${c_text}"
 
         # ═══════════════════════════════════════════════════════════
         # ROW 1 — sensor cards 1-3 (y=70)
@@ -650,10 +653,10 @@ lvgl:
             width: 322
             height: 188
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             pad_all: 0
             widgets:
               - label:
@@ -662,7 +665,7 @@ lvgl:
                   y: 10
                   text: "${ih_sensor1_label}"
                   text_font: montserrat_18
-                  text_color: 0xAABBCC
+                  text_color: "${c_footer_text}"
                   long_mode: DOT
                   width: 294
               - label:
@@ -671,14 +674,14 @@ lvgl:
                   y: 0
                   text: "--°C"
                   text_font: montserrat_36
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
               - label:
                   id: ih_hum1
                   align: BOTTOM_MID
                   y: -12
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # Sensor card 2
         - obj:
@@ -688,10 +691,10 @@ lvgl:
             width: 322
             height: 188
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             pad_all: 0
             widgets:
               - label:
@@ -700,7 +703,7 @@ lvgl:
                   y: 10
                   text: "${ih_sensor2_label}"
                   text_font: montserrat_18
-                  text_color: 0xAABBCC
+                  text_color: "${c_footer_text}"
                   long_mode: DOT
                   width: 294
               - label:
@@ -709,14 +712,14 @@ lvgl:
                   y: 0
                   text: "--°C"
                   text_font: montserrat_36
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
               - label:
                   id: ih_hum2
                   align: BOTTOM_MID
                   y: -12
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # Sensor card 3
         - obj:
@@ -726,10 +729,10 @@ lvgl:
             width: 322
             height: 188
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             pad_all: 0
             widgets:
               - label:
@@ -738,7 +741,7 @@ lvgl:
                   y: 10
                   text: "${ih_sensor3_label}"
                   text_font: montserrat_18
-                  text_color: 0xAABBCC
+                  text_color: "${c_footer_text}"
                   long_mode: DOT
                   width: 294
               - label:
@@ -747,14 +750,14 @@ lvgl:
                   y: 0
                   text: "--°C"
                   text_font: montserrat_36
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
               - label:
                   id: ih_hum3
                   align: BOTTOM_MID
                   y: -12
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # ═══════════════════════════════════════════════════════════
         # ROW 2 — sensor cards 4-6 (y=268)
@@ -768,10 +771,10 @@ lvgl:
             width: 322
             height: 188
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             pad_all: 0
             widgets:
               - label:
@@ -780,7 +783,7 @@ lvgl:
                   y: 10
                   text: "${ih_sensor4_label}"
                   text_font: montserrat_18
-                  text_color: 0xAABBCC
+                  text_color: "${c_footer_text}"
                   long_mode: DOT
                   width: 294
               - label:
@@ -789,14 +792,14 @@ lvgl:
                   y: 0
                   text: "--°C"
                   text_font: montserrat_36
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
               - label:
                   id: ih_hum4
                   align: BOTTOM_MID
                   y: -12
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # Sensor card 5
         - obj:
@@ -806,10 +809,10 @@ lvgl:
             width: 322
             height: 188
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             pad_all: 0
             widgets:
               - label:
@@ -818,7 +821,7 @@ lvgl:
                   y: 10
                   text: "${ih_sensor5_label}"
                   text_font: montserrat_18
-                  text_color: 0xAABBCC
+                  text_color: "${c_footer_text}"
                   long_mode: DOT
                   width: 294
               - label:
@@ -827,14 +830,14 @@ lvgl:
                   y: 0
                   text: "--°C"
                   text_font: montserrat_36
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
               - label:
                   id: ih_hum5
                   align: BOTTOM_MID
                   y: -12
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # Sensor card 6
         - obj:
@@ -844,10 +847,10 @@ lvgl:
             width: 322
             height: 188
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             pad_all: 0
             widgets:
               - label:
@@ -856,7 +859,7 @@ lvgl:
                   y: 10
                   text: "${ih_sensor6_label}"
                   text_font: montserrat_18
-                  text_color: 0xAABBCC
+                  text_color: "${c_footer_text}"
                   long_mode: DOT
                   width: 294
               - label:
@@ -865,14 +868,14 @@ lvgl:
                   y: 0
                   text: "--°C"
                   text_font: montserrat_36
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
               - label:
                   id: ih_hum6
                   align: BOTTOM_MID
                   y: -12
                   text: "--%"
                   text_font: montserrat_18
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # ═══════════════════════════════════════════════════════════
         # SWITCH ROW (y=466) — up to 2 toggle switches
@@ -886,10 +889,10 @@ lvgl:
             width: 490
             height: 94
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             clickable: true
             on_click:
               - script.execute: ih_toggle_sw1
@@ -899,7 +902,7 @@ lvgl:
                   x: 18
                   text: "${ih_sw1_label}"
                   text_font: montserrat_20
-                  text_color: 0xCCDDEE
+                  text_color: "${c_text_soft}"
                   long_mode: DOT
                   width: 260
               - label:
@@ -908,7 +911,7 @@ lvgl:
                   x: -18
                   text: "---"
                   text_font: montserrat_28
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"
 
         # Switch card 2 (right half)
         - obj:
@@ -918,10 +921,10 @@ lvgl:
             width: 490
             height: 94
             align: TOP_LEFT
-            radius: 18
-            bg_color: 0x0D1A28
+            radius: ${card_radius}
+            bg_color: "${c_card_bg_alt}"
             border_width: 1
-            border_color: 0x1E3A5F
+            border_color: "${c_card_border_dim}"
             clickable: true
             on_click:
               - script.execute: ih_toggle_sw2
@@ -931,7 +934,7 @@ lvgl:
                   x: 18
                   text: "${ih_sw2_label}"
                   text_font: montserrat_20
-                  text_color: 0xCCDDEE
+                  text_color: "${c_text_soft}"
                   long_mode: DOT
                   width: 260
               - label:
@@ -940,4 +943,4 @@ lvgl:
                   x: -18
                   text: "---"
                   text_font: montserrat_28
-                  text_color: 0x4A5568
+                  text_color: "${c_text_dim}"

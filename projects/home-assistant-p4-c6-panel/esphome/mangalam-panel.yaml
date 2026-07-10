@@ -42,10 +42,84 @@ substitutions:
   jf_cast4_label: ""
   jf_cast4_entity: ""
   idle_timeout: 30s
-  firmware_version: "0.5.7"
+  firmware_version: "0.6.0"
   fallback_ap_ssid: !secret fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"
+
+  # ── UI design tokens ──────────────────────────────────────────────
+  # Layout metrics. Pages are built from these instead of raw pixel
+  # numbers so a future resolution / rotation change is a token edit,
+  # not a hunt through 5000 lines. content_h = screen_h - header_h -
+  # footer_h (substitutions can't do arithmetic — keep in sync).
+  screen_w: "1024"
+  screen_h: "600"
+  header_h: "58"
+  footer_h: "44"
+  content_h: "498"
+  gutter: "16"
+  card_radius: "16"
+  btn_radius: "10"
+  pill_radius: "18"
+  nav_btn_w: "52"
+  nav_btn_h: "38"
+
+  # Colour tokens — compile-time defaults matching palette 0 (Midnight).
+  # apply_panel_theme repaints every themed surface at runtime; these are
+  # only what the panel shows for the first ~2 s of boot and for any
+  # widget the walker does not cover. Single source of truth: change a
+  # colour here, every page follows.
+  c_page_bg: "0x071019"
+  c_scrim: "0x050A12"
+  c_header_bg: "0x0B1624"
+  c_header_border: "0x263B55"
+  c_nav_btn: "0x1A3552"
+  c_card_bg: "0x101B2D"
+  c_card_bg_alt: "0x0D1624"
+  c_card_border: "0x2A4568"
+  c_card_border_dim: "0x243B55"
+  c_row_bg: "0x111D2B"
+  c_footer_bg: "0x08111D"
+  c_footer_text: "0x9FB3C8"
+  c_text: "0xFFFFFF"
+  c_text_2: "0xEEEEEE"
+  c_text_soft: "0xCCCCCC"
+  c_text_muted: "0xAAAAAA"
+  c_text_dim: "0x666666"
+  c_accent: "0x69F0AE"
+  c_accent_bg: "0x113225"
+  c_success_bg: "0x15563B"
+  c_info: "0x66CCFF"
+  c_info_soft: "0xAACCFF"
+  c_info_btn: "0x142840"
+  c_warn: "0xF6C453"
+  c_temp: "0xFFB266"
+  c_humidity: "0x7DD3FC"
+  c_error: "0xFF5252"
+  c_error_bg: "0x7B0000"
+  c_error_text: "0xFFCDD2"
+  c_overlay_bg: "0x050510"
+  c_divider: "0x1A3552"
+  # Semantic accents used by specific pages (energy flow legs, climate
+  # mode buttons, voice pill, crash banner, danger actions).
+  c_grid_blue: "0x44AAFF"
+  c_solar_yellow: "0xFFD54F"
+  c_battery_purple: "0xB388FF"
+  c_card_blue: "0x0D2133"
+  c_card_yellow: "0x2A250A"
+  c_card_green: "0x102333"
+  c_card_purple: "0x1C1A2A"
+  c_card_blue2: "0x0F1A27"
+  c_card_green2: "0x0F1D16"
+  c_btn_off_bg: "0x2B1720"
+  c_btn_auto_bg: "0x172B45"
+  c_btn_heat_bg: "0x3A2116"
+  c_warn_bg: "0x342B12"
+  c_va_ready_bg: "0x071A10"
+  c_va_ready_border: "0x1B5E20"
+  c_crash_bg: "0x300505"
+  c_crash_title: "0xFF8888"
+  c_danger_btn: "0x701010"
 
   # Room dashboard — 5 rooms with light + climate, mapped to Mangalam Pro HA entities.
   # Drawing Room uses a switch (no brightness); others are dimmable light entities.
@@ -295,14 +369,24 @@ esphome:
           static LayoutDragCtx weather_drag;
           static LayoutDragCtx clock_drag;
           static LayoutDragCtx wake_drag;
+          // Drag bounds derive from the live display resolution and each
+          // widget's actual size — no hardcoded screen geometry.
+          const int W = lv_disp_get_hor_res(lv_disp_get_default());
+          const int H = lv_disp_get_ver_res(lv_disp_get_default());
+          auto max_x = [&](lv_obj_t *o) { int m = W - lv_obj_get_width(o);  return m < 0 ? 0 : m; };
+          auto max_y = [&](lv_obj_t *o) { int m = H - lv_obj_get_height(o); return m < 0 ? 0 : m; };
           calendar_drag = { &id(g_layout_edit_mode), &id(g_layout_calendar_x), &id(g_layout_calendar_y),
-            { id(calendar_panel), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1, 0, 684, 0, 0 };
+            { id(calendar_panel), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(calendar_panel)), 0, max_y(id(calendar_panel)) };
           weather_drag = { &id(g_layout_edit_mode), &id(g_layout_weather_x), &id(g_layout_weather_y),
-            { id(weather_widget), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1, 0, 814, 0, 376 };
+            { id(weather_widget), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(weather_widget)), 0, max_y(id(weather_widget)) };
           clock_drag = { &id(g_layout_edit_mode), &id(g_layout_clock_x), &id(g_layout_clock_y),
-            { id(clock_pill_obj), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1, 0, 804, 0, 490 };
+            { id(clock_pill_obj), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(clock_pill_obj)), 0, max_y(id(clock_pill_obj)) };
           wake_drag = { &id(g_layout_edit_mode), &id(g_layout_wake_x), &id(g_layout_wake_y),
-            { id(va_state_pill), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1, 0, 834, 0, 558 };
+            { id(va_state_pill), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(va_state_pill)), 0, max_y(id(va_state_pill)) };
 
           lv_obj_add_flag(id(calendar_panel), LV_OBJ_FLAG_CLICKABLE);
           lv_obj_add_flag(id(weather_widget), LV_OBJ_FLAG_CLICKABLE);
