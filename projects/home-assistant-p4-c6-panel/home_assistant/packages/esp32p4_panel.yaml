@@ -141,6 +141,26 @@ script:
               name: ESP32-P4 Panel
               message: "Invalid cast target: {{ media_player }}"
 
+  # Spoken feedback for panel actions (room-light toggles etc.). The panel
+  # firmware calls this as ${announce_script}. Originally a UI-created script
+  # (deleted 2026-07-03 during the token-leak cleanup, which silently broke
+  # all panel announcements) — now version-controlled here. Speaks through
+  # the panel's own speaker via Piper.
+  panel_announce:
+    alias: Panel Room Announcement
+    mode: queued
+    fields:
+      message:
+        description: Text to speak on the panel
+        example: "Drawing room lights on"
+    sequence:
+      - service: tts.speak
+        target:
+          entity_id: tts.piper
+        data:
+          media_player_entity_id: media_player.mangalam_guition_p4_7inch_ha_panel_speaker
+          message: "{{ message }}"
+
 template:
   - trigger:
       - platform: mqtt

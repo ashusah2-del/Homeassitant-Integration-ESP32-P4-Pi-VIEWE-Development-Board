@@ -37,6 +37,20 @@ media_player:
     announcement_pipeline:
       speaker: panel_spk
       format: FLAC
+    # Mic and speaker share one I2S bus behind an exclusive lock, so the
+    # speaker can NEVER start while micro_wake_word holds the mic open —
+    # it retries "Parent I2S bus not free" forever and wedges the voice
+    # assistant in STREAMING_RESPONSE (deaf until reboot). Hand the bus
+    # over: stop wake-word listening for the duration of any playback,
+    # rearm once the speaker goes idle.
+    on_announcement:
+      - micro_wake_word.stop:
+          id: panel_mww
+    on_play:
+      - micro_wake_word.stop:
+          id: panel_mww
+    on_idle:
+      - script.execute: ensure_wake_word_running
 
 # Start local Okay Nabu detection whenever HA API is up. Voice assistant
 # (use_wake_word: true) owns the wake→Assist handoff — do NOT call
@@ -95,14 +109,13 @@ voice_assistant:
     - script.execute: va_ui_set_listening
   on_stt_end:
     - script.execute: va_ui_set_thinking
+  # TTS responses play on the panel's own media player (configured above).
+  # The old ${announce_script} mirror to Alexa was removed: script.panel_announce
+  # was deleted from HA on 2026-07-03, so the call failed on every response.
+  # Recreate the HA script and restore the homeassistant.service call here if
+  # room-speaker mirroring is wanted again.
   on_tts_start:
     - script.execute: va_ui_set_speaking
-    - homeassistant.service:
-        service: "${announce_script}"
-        variables:
-          msg: "return x;"
-        data_template:
-          message: "{{ msg }}"
   on_end:
     - script.execute: va_ui_set_ready
     - script.execute: ensure_wake_word_running
