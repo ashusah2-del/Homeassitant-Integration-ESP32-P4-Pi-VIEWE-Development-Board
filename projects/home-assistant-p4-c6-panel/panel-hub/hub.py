@@ -356,10 +356,16 @@ def _make_device(kind: str, dev_cfg: dict, gw_cfg: dict | None):
             local_key=gw_cfg["local_key"],
             version=float(gw_cfg.get("version", "3.4")))
         gw.set_socketTimeout(3)
+        # The gateway addresses Zigbee sub-devices by their node id ("cid",
+        # e.g. a4c1387dddd2bba8), NOT the Tuya cloud device id. Without an
+        # explicit cid tinytuya falls back to dev_id and the gateway drops
+        # the request ("No response"). Get each cid from
+        # gw.subdev_query() or the Tuya IoT platform device page.
         d = tinytuya.Device(
             dev_id=dev_cfg["id"], address=gw_cfg["ip"],
             local_key=gw_cfg["local_key"],
             version=float(gw_cfg.get("version", "3.4")),
+            cid=dev_cfg.get("cid") or dev_cfg["id"],
             parent=gw)
     d.set_socketTimeout(3)
     d.set_sendWait(0.5)

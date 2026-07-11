@@ -26,10 +26,12 @@
       "ip": "192.168.x.x",
       "version": "3.4",
       "local_key": "REPLACE_ME",
+      "_comment": "Each sub-device needs its Zigbee node id as 'cid' (e.g. a4c1387dddd2bba8) — the gateway ignores polls addressed by cloud device id alone. List online node ids with tinytuya: Device(gw_id, ip, key, version=3.4).subdev_query()",
       "sub_devices": [
         {
           "name": "Power Strip (4+1)",
           "id": "SUB_DEVICE_ID_HERE",
+          "cid": "ZIGBEE_NODE_ID_HERE",
           "type": "strip",
           "dps_map": {"s1": 1, "s2": 2, "s3": 3, "s4": 4, "usb": 7}
         },
