@@ -32,6 +32,10 @@ microphone:
     i2s_audio_id: i2s_mic_bus
     i2s_din_pin: GPIO27
     pdm: true
+    # MSM261D drives PDM data on the LEFT half-cycle (vendor BSP reads the
+    # IDF default mono slot = left). ESPHome's default channel is RIGHT,
+    # which samples the floating half-cycle → pure zeros.
+    channel: left
     sample_rate: 16000
     bits_per_sample: 16bit
     adc_type: external
