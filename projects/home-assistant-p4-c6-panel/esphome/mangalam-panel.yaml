@@ -231,14 +231,18 @@ substitutions:
   cam4_name: "Garden"
   cam4_entity: garden
 
+# NOTE: micro_wake_word was removed 2026-07-12 — wake word detection now
+# runs HA-side (openwakeword) on the streamed mic audio; see
+# packages/audio_voice_board.yaml for the full story (the mic pins were
+# wrong for this board from day one, so no detector ever received audio).
 external_components:
-  # Patched micro_wake_word: 32KB inference task stack (P4 uses bytes not
-  # words, so the default 3072 was only 3KB), plus a 1ms vTaskDelay per
-  # inference loop to prevent TWDT starvation. Survives container restarts.
+  # Patched i2s_audio: allows pdm: true on ESP32-P4 (upstream allowlist
+  # predates the P4; the chip supports PDM RX and this board's MSM261D
+  # mic requires it).
   - source:
       type: local
       path: my_components
-    components: [micro_wake_word]
+    components: [i2s_audio]
 
 esphome:
   name: ${node_name}

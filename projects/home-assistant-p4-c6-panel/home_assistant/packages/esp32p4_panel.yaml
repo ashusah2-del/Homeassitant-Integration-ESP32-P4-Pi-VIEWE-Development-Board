@@ -144,8 +144,13 @@ script:
   # Spoken feedback for panel actions (room-light toggles etc.). The panel
   # firmware calls this as ${announce_script}. Originally a UI-created script
   # (deleted 2026-07-03 during the token-leak cleanup, which silently broke
-  # all panel announcements) — now version-controlled here. Speaks through
-  # the panel's own speaker via Piper.
+  # all panel announcements) — now version-controlled here.
+  #
+  # MUST go through assist_satellite.announce, not tts.speak: the panel
+  # streams its mic to HA continuously for wake word detection, and only the
+  # voice assistant's own announce path releases the shared I2S bus before
+  # playback. A direct tts.speak to the media_player deadlocks against the
+  # mic ("Parent I2S bus not free" retry loop).
   panel_announce:
     alias: Panel Room Announcement
     mode: queued
@@ -154,11 +159,10 @@ script:
         description: Text to speak on the panel
         example: "Drawing room lights on"
     sequence:
-      - service: tts.speak
+      - service: assist_satellite.announce
         target:
-          entity_id: tts.piper
+          entity_id: assist_satellite.guition_p4_7inch_ha_panel_assist_satellite
         data:
-          media_player_entity_id: media_player.mangalam_guition_p4_7inch_ha_panel_speaker
           message: "{{ message }}"
 
 template:
