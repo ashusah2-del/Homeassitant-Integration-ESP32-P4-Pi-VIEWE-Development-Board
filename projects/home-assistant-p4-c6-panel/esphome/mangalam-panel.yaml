@@ -67,6 +67,24 @@ substitutions:
   slideshow_img_h: "480"
   slideshow_img_fill: "0"
   slideshow_img_resize: 1024x600
+
+  # Settings page two-column layout — literal values already in production.
+  settings_col_w: "500"
+  settings_col2_x: "512"
+  settings_label_w: "460"
+  settings_label_w2: "476"
+
+  # Jellyfin page — literal values already in production.
+  jf_list_w: "500"
+  jf_row_w: "476"
+  jf_detail_x: "528"
+  jf_detail_w: "480"
+  jf_detail_title_w: "440"
+  jf_cast_next_x: "780"
+  jf_play_x: "578"
+  jf_play_w: "196"
+  jf_refresh_x: "830"
+  jf_refresh_w: "100"
   header_h: "58"
   footer_h: "44"
   content_h: "498"

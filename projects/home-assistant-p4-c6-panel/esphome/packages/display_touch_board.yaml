@@ -4462,7 +4462,7 @@ lvgl:
             id: settings_left_panel
             x: 0
             y: 240
-            width: 500
+            width: "${settings_col_w}"
             height: 316
             bg_color: "${c_card_bg_alt}"
             bg_opa: 96%
@@ -4483,7 +4483,7 @@ lvgl:
                   id: settings_ha_lbl
                   x: 0
                   y: 34
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Home Assistant: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4491,7 +4491,7 @@ lvgl:
                   id: settings_immich_lbl
                   x: 0
                   y: 62
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Immich: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4499,7 +4499,7 @@ lvgl:
                   id: settings_ip_lbl
                   x: 0
                   y: 90
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Device IP: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4507,7 +4507,7 @@ lvgl:
                   id: settings_rssi_lbl
                   x: 0
                   y: 118
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Signal: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4515,7 +4515,7 @@ lvgl:
                   id: settings_battery_lbl
                   x: 0
                   y: 146
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Battery: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4523,7 +4523,7 @@ lvgl:
                   id: settings_uptime_lbl
                   x: 0
                   y: 174
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Uptime: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4531,7 +4531,7 @@ lvgl:
                   id: settings_firmware_lbl
                   x: 0
                   y: 202
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Firmware: v${firmware_version}"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
@@ -4539,14 +4539,14 @@ lvgl:
                   id: settings_tuya_lbl
                   x: 0
                   y: 230
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Tuya bridge: --"
                   text_font: montserrat_16
                   text_color: "${c_text_2}"
               - obj:
                   x: 0
                   y: 266
-                  width: 460
+                  width: "${settings_label_w}"
                   height: 2
                   bg_color: "${c_nav_btn}"
                   border_width: 0
@@ -4561,7 +4561,7 @@ lvgl:
                   id: settings_immich_url_lbl
                   x: 0
                   y: 312
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "Immich URL:"
                   text_font: montserrat_16
                   text_color: "${c_text_muted}"
@@ -4570,7 +4570,7 @@ lvgl:
                   id: settings_immich_url_val
                   x: 0
                   y: 336
-                  width: 460
+                  width: "${settings_label_w}"
                   text: "--"
                   text_font: montserrat_16
                   text_color: "${c_text}"
@@ -4884,9 +4884,9 @@ lvgl:
         # ── Backlight + setup guide (right half) ─────────────────
         - obj:
             id: settings_right_panel
-            x: 512
+            x: "${settings_col2_x}"
             y: 240
-            width: 500
+            width: "${settings_col_w}"
             height: 316
             bg_color: "${c_card_bg_alt}"
             bg_opa: 96%
@@ -4907,7 +4907,7 @@ lvgl:
               - label:
                   x: 0
                   y: 34
-                  width: 476
+                  width: "${settings_label_w2}"
                   text: "Adjust panel brightness (10-100%):"
                   text_font: montserrat_16
                   text_color: "${c_text_soft}"
@@ -4967,7 +4967,7 @@ lvgl:
               - obj:
                   x: 0
                   y: 124
-                  width: 476
+                  width: "${settings_label_w2}"
                   height: 2
                   bg_color: "${c_nav_btn}"
                   border_width: 0
@@ -4981,7 +4981,7 @@ lvgl:
               - label:
                   x: 0
                   y: 170
-                  width: 476
+                  width: "${settings_label_w2}"
                   text: "Slideshow, opacity and transition settings\nsync to HA helpers automatically."
                   text_font: montserrat_16
                   text_color: "${c_text_soft}"
@@ -4989,7 +4989,7 @@ lvgl:
               - label:
                   x: 0
                   y: 216
-                  width: 476
+                  width: "${settings_label_w2}"
                   text: "Immich URL and calendar events can still\nbe edited in HA: Settings > Helpers"
                   text_font: montserrat_16
                   text_color: "${c_text}"
@@ -4997,7 +4997,7 @@ lvgl:
               - obj:
                   x: 0
                   y: 270
-                  width: 476
+                  width: "${settings_label_w2}"
                   height: 2
                   bg_color: "${c_nav_btn}"
                   border_width: 0
@@ -5011,7 +5011,7 @@ lvgl:
               - label:
                   x: 0
                   y: 316
-                  width: 476
+                  width: "${settings_label_w2}"
                   text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
                   text_font: montserrat_16
                   text_color: "${c_text_soft}"
@@ -5019,7 +5019,7 @@ lvgl:
               - label:
                   x: 0
                   y: 374
-                  width: 476
+                  width: "${settings_label_w2}"
                   text: "SSID: ${fallback_ap_ssid}"
                   text_font: montserrat_16
                   text_color: "${c_text}"
@@ -5027,7 +5027,7 @@ lvgl:
               - label:
                   x: 0
                   y: 402
-                  width: 476
+                  width: "${settings_label_w2}"
                   text: "Connect and open any webpage\nto configure WiFi."
                   text_font: montserrat_16
                   text_color: "${c_text_soft}"
@@ -5035,7 +5035,7 @@ lvgl:
               - obj:
                   x: 0
                   y: 460
-                  width: 476
+                  width: "${settings_label_w2}"
                   height: 2
                   bg_color: "${c_danger_btn}"
                   border_width: 0

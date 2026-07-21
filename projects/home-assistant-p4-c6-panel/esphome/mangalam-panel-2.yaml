@@ -82,6 +82,25 @@ substitutions:
   slideshow_img_h: "800"
   slideshow_img_fill: "1"
   slideshow_img_resize: 858x800
+
+  # Settings page two-column layout — scaled 1.25x (1280/1024) from panel1's
+  # literal values, preserving the same proportions/gaps.
+  settings_col_w: "625"
+  settings_col2_x: "640"
+  settings_label_w: "575"
+  settings_label_w2: "595"
+
+  # Jellyfin page — scaled 1.25x (1280/1024) from panel1's literal values.
+  jf_list_w: "625"
+  jf_row_w: "595"
+  jf_detail_x: "653"
+  jf_detail_w: "600"
+  jf_detail_title_w: "550"
+  jf_cast_next_x: "968"
+  jf_play_x: "716"
+  jf_play_w: "245"
+  jf_refresh_x: "1031"
+  jf_refresh_w: "125"
   header_h: "58"
   footer_h: "44"
   content_h: "698"

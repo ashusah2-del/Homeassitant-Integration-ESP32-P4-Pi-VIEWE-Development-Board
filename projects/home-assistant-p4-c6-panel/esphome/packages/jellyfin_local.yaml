@@ -654,7 +654,7 @@ lvgl:
             id: jf_list_panel
             x: 16
             y: 68
-            width: 500
+            width: "${jf_list_w}"
             height: 470
             align: TOP_LEFT
             bg_color: "${c_card_bg_alt}"
@@ -676,7 +676,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 28
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -704,7 +704,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 80
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -732,7 +732,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 132
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -760,7 +760,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 184
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -788,7 +788,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 236
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -816,7 +816,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 288
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -844,7 +844,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 340
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -872,7 +872,7 @@ lvgl:
                   align: TOP_LEFT
                   x: 0
                   y: 392
-                  width: 476
+                  width: "${jf_row_w}"
                   height: 48
                   bg_color: "${c_row_bg}"
                   radius: 10
@@ -898,9 +898,9 @@ lvgl:
 
         - obj:
             id: jf_detail_panel
-            x: 528
+            x: "${jf_detail_x}"
             y: 68
-            width: 480
+            width: "${jf_detail_w}"
             height: 470
             align: TOP_LEFT
             bg_color: "${c_card_bg_alt}"
@@ -930,7 +930,7 @@ lvgl:
                   id: jf_detail_title
                   align: TOP_MID
                   y: 408
-                  width: 440
+                  width: "${jf_detail_title_w}"
                   text: "Select a movie"
                   text_font: montserrat_18
                   text_color: "${c_text}"
@@ -940,7 +940,7 @@ lvgl:
         - label:
             id: jf_cast_lbl
             align: BOTTOM_LEFT
-            x: 528
+            x: "${jf_detail_x}"
             y: -58
             text: "Cast: --"
             text_font: montserrat_16
@@ -949,7 +949,7 @@ lvgl:
         - button:
             id: jf_cast_prev_btn
             align: BOTTOM_LEFT
-            x: 528
+            x: "${jf_detail_x}"
             y: -14
             width: 44
             height: 46
@@ -964,7 +964,7 @@ lvgl:
         - button:
             id: jf_cast_next_btn
             align: BOTTOM_LEFT
-            x: 780
+            x: "${jf_cast_next_x}"
             y: -14
             width: 44
             height: 46
@@ -979,9 +979,9 @@ lvgl:
         - button:
             id: jf_play_btn
             align: BOTTOM_LEFT
-            x: 578
+            x: "${jf_play_x}"
             y: -14
-            width: 196
+            width: "${jf_play_w}"
             height: 46
             bg_color: "${c_success_bg}"
             radius: 12
@@ -998,9 +998,9 @@ lvgl:
         - button:
             id: jf_refresh_btn
             align: BOTTOM_LEFT
-            x: 830
+            x: "${jf_refresh_x}"
             y: -14
-            width: 100
+            width: "${jf_refresh_w}"
             height: 46
             bg_color: "${c_nav_btn}"
             radius: 12
