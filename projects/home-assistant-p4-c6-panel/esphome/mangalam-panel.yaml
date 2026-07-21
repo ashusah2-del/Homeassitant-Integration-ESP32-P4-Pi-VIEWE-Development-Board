@@ -3,6 +3,12 @@ substitutions:
   friendly_name: Guition P4 7inch HA Panel
   board_type: esp32-p4-evboard
   rotate_display: "0"
+  lcd_model: JC1060P470
+  lcd_reset_pin: GPIO05
+  touch_platform: gt911
+  ts_swap_xy: "false"
+  ts_mirror_x: "false"
+  ts_mirror_y: "false"
   immich_url: !secret immich_server_url
   immich_api_key: !secret immich_api_key
   proxy_url: !secret immich_proxy_url
@@ -54,6 +60,7 @@ substitutions:
   # footer_h (substitutions can't do arithmetic — keep in sync).
   screen_w: "1024"
   screen_h: "600"
+  slideshow_photo_x: "340"
   header_h: "58"
   footer_h: "44"
   content_h: "498"

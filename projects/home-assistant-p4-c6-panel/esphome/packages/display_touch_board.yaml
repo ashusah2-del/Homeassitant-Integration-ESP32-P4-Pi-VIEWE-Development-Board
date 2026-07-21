@@ -1158,19 +1158,23 @@ interval:
 display:
   - platform: mipi_dsi
     id: main_display
-    model: JC1060P470
+    model: ${lcd_model}
     reset_pin:
-      number: GPIO05
+      number: ${lcd_reset_pin}
     hsync_pulse_width: 20
     rotation: "${rotate_display}"
 
 touchscreen:
-  - platform: gt911
+  - platform: ${touch_platform}
     id: main_touch
     display: main_display
     i2c_id: bus_a
     interrupt_pin: GPIO21
     reset_pin: GPIO22
+    transform:
+      swap_xy: ${ts_swap_xy}
+      mirror_x: ${ts_mirror_x}
+      mirror_y: ${ts_mirror_y}
     on_touch:
       then:
         - binary_sensor.template.publish:
@@ -1387,9 +1391,9 @@ lvgl:
   pages:
     # ═══════════════════════════════════════════════════════════
     # PAGE 1 — SLIDESHOW  (idle / lock screen)
-    # Layout: full 1024x600
-    #   Left  0-339px  : calendar panel (70% opaque dark bg)
-    #   Right 340-1023px: Immich photo, clock pill (top-right)
+    # Layout: full ${screen_w}x${screen_h}
+    #   Left  0 to (${slideshow_photo_x}-1)px  : calendar panel (70% opaque dark bg)
+    #   Right ${slideshow_photo_x}-${screen_w}px: Immich photo, clock pill (top-right)
     # ═══════════════════════════════════════════════════════════
     - id: slideshow_page
       bg_color: 0x000000
@@ -1403,7 +1407,7 @@ lvgl:
         - image:
             id: slideshow_img
             src: immich_photo
-            x: 340
+            x: ${slideshow_photo_x}
             y: 0
             hidden: true
         # Slot B of the double-buffered slideshow. Initially hidden — the
@@ -1414,7 +1418,7 @@ lvgl:
         - image:
             id: slideshow_img_b
             src: immich_photo_b
-            x: 340
+            x: ${slideshow_photo_x}
             y: 0
             hidden: true
 

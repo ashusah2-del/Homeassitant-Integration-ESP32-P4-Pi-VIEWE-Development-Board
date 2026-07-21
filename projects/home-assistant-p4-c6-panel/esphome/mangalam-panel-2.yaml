@@ -2,7 +2,22 @@ substitutions:
   node_name: guition-p4-7inch-ha-2
   friendly_name: Guition P4 7inch HA Panel 2
   board_type: esp32-p4-evboard
-  rotate_display: "0"
+  rotate_display: "90"
+  lcd_model: JC8012P4A1
+  lcd_reset_pin: GPIO05
+  # Matches JCZN's (manufacturer) own IDF BSP reference for this exact
+  # board's non-1024x600 panel variant (esp32_p4_function_ev_board.c):
+  # `.flags = { .swap_xy = 0, .mirror_x = 0, .mirror_y = 1 }` for the
+  # touch controller — independently confirmed by solving raw-vs-calculated
+  # coordinates for known taps (top-left/top-right/center) before finding
+  # the reference source. swap_xy:true seemed plausible in theory (native
+  # axes are transposed by the rotation) but broke touch bounds checking in
+  # the vendored driver and, once that was fixed, still produced the wrong
+  # corner — no swap is actually needed here, only mirror_y.
+  touch_platform: gsl3680
+  ts_swap_xy: "false"
+  ts_mirror_x: "false"
+  ts_mirror_y: "true"
   immich_url: !secret immich_server_url
   immich_api_key: !secret immich_api_key
   proxy_url: !secret immich_proxy_url
@@ -52,11 +67,12 @@ substitutions:
   # numbers so a future resolution / rotation change is a token edit,
   # not a hunt through 5000 lines. content_h = screen_h - header_h -
   # footer_h (substitutions can't do arithmetic — keep in sync).
-  screen_w: "1024"
-  screen_h: "600"
+  screen_w: "1280"
+  screen_h: "800"
+  slideshow_photo_x: "422"
   header_h: "58"
   footer_h: "44"
-  content_h: "498"
+  content_h: "698"
   gutter: "16"
   card_radius: "16"
   btn_radius: "10"
@@ -243,6 +259,20 @@ external_components:
       type: local
       path: my_components
     components: [i2s_audio]
+  # This panel's 10.1" JC8012P4A1 board uses a GSL3680 capacitive touch
+  # controller (I2C addr 0x40 — confirmed via bus scan), not GT911. ESPHome
+  # has no built-in gsl3680 platform. Vendored from jtenniswood/espcontrol
+  # (itself from kvj/esphome @ dca6f3e, commit be78cdb) with one additional
+  # local fix: update_touches()'s bounds check compared raw touch coordinates
+  # against x/y_raw_max_ that setup() had already swapped for swap_xy, so
+  # with swap_xy:true (required for a 90°-rotated non-square panel — see
+  # mangalam-panel-2.yaml's ts_swap_xy comment) it rejected nearly every
+  # real touch outside a shrunken corner of the panel. Fixed by applying the
+  # same swap to the bounds-check inputs.
+  - source:
+      type: local
+      path: my_components
+    components: [gsl3680]
 
 esphome:
   name: ${node_name}
