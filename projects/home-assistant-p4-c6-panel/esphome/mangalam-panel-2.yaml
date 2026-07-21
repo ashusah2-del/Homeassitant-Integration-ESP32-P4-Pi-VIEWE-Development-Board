@@ -1,0 +1,492 @@
+substitutions:
+  node_name: guition-p4-7inch-ha-2
+  friendly_name: Guition P4 7inch HA Panel 2
+  board_type: esp32-p4-evboard
+  rotate_display: "0"
+  immich_url: !secret immich_server_url
+  immich_api_key: !secret immich_api_key
+  proxy_url: !secret immich_proxy_url
+  tuya_bridge_url: !secret tuya_bridge_url
+  jellyfin_proxy_url: !secret jellyfin_proxy_url
+  jellyfin_url: !secret jellyfin_server_url
+  jellyfin_api_key: !secret jellyfin_api_key
+  jellyfin_play_script: "script.jellyfin_play_on_panel"
+  ihost_proxy_url: !secret ihost_proxy_url
+
+  # iHost / eWeLink page — 6 temp/humidity sensor cards (3×2) + 2 switch slots.
+  # Leave label empty to hide that slot. Serials from: curl http://192.168.55.59:8768/ihost/devices
+  ih_sensor1_label: "Office"
+  ih_sensor1_serial: "00124b00292aea32"
+  ih_sensor2_label: "Loft"
+  ih_sensor2_serial: "a4c138d8dc1ec8e7"
+  ih_sensor3_label: "Kitchen"
+  ih_sensor3_serial: "a4c138eaa5652d16"
+  ih_sensor4_label: "Advik"
+  ih_sensor4_serial: "a4c138a89a27a5d3"
+  ih_sensor5_label: "Mukta"
+  ih_sensor5_serial: "00124b00292ade95"
+  ih_sensor6_label: "Main Bedroom"
+  ih_sensor6_serial: "a4c13814e98b17af"
+  ih_sw1_label: "Drawing Room"
+  ih_sw1_serial: "00124b0024c30e72"
+  ih_sw2_label: ""
+  ih_sw2_serial: ""
+  # Jellyfin cast targets — map labels to HA media_player entities (Chromecast, Shield, TV…).
+  # Leave label empty to hide a slot. Cycle with < > on the Jellyfin page before Play.
+  jf_cast1_label: "Drawing Room"
+  jf_cast1_entity: media_player.lg_webos_tv_58b2
+  jf_cast2_label: "Fire TV"
+  jf_cast2_entity: media_player.fire_tv_192_168_55_77
+  jf_cast3_label: ""
+  jf_cast3_entity: ""
+  jf_cast4_label: ""
+  jf_cast4_entity: ""
+  idle_timeout: 30s
+  firmware_version: "0.6.0"
+  fallback_ap_ssid: !secret panel2_fallback_ap_ssid
+  # HA script that handles room-button announcements (Alexa device set there).
+  announce_script: "script.panel_announce"
+
+  # ── UI design tokens ──────────────────────────────────────────────
+  # Layout metrics. Pages are built from these instead of raw pixel
+  # numbers so a future resolution / rotation change is a token edit,
+  # not a hunt through 5000 lines. content_h = screen_h - header_h -
+  # footer_h (substitutions can't do arithmetic — keep in sync).
+  screen_w: "1024"
+  screen_h: "600"
+  header_h: "58"
+  footer_h: "44"
+  content_h: "498"
+  gutter: "16"
+  card_radius: "16"
+  btn_radius: "10"
+  pill_radius: "18"
+  nav_btn_w: "52"
+  nav_btn_h: "38"
+
+  # Colour tokens — compile-time defaults matching palette 0 (Midnight).
+  # apply_panel_theme repaints every themed surface at runtime; these are
+  # only what the panel shows for the first ~2 s of boot and for any
+  # widget the walker does not cover. Single source of truth: change a
+  # colour here, every page follows.
+  c_page_bg: "0x071019"
+  c_scrim: "0x050A12"
+  c_header_bg: "0x0B1624"
+  c_header_border: "0x263B55"
+  c_nav_btn: "0x1A3552"
+  c_card_bg: "0x101B2D"
+  c_card_bg_alt: "0x0D1624"
+  c_card_border: "0x2A4568"
+  c_card_border_dim: "0x243B55"
+  c_row_bg: "0x111D2B"
+  c_footer_bg: "0x08111D"
+  c_footer_text: "0x9FB3C8"
+  c_text: "0xFFFFFF"
+  c_text_2: "0xEEEEEE"
+  c_text_soft: "0xCCCCCC"
+  c_text_muted: "0xAAAAAA"
+  c_text_dim: "0x666666"
+  c_accent: "0x69F0AE"
+  c_accent_bg: "0x113225"
+  c_success_bg: "0x15563B"
+  c_info: "0x66CCFF"
+  c_info_soft: "0xAACCFF"
+  c_info_btn: "0x142840"
+  c_warn: "0xF6C453"
+  c_temp: "0xFFB266"
+  c_humidity: "0x7DD3FC"
+  c_error: "0xFF5252"
+  c_error_bg: "0x7B0000"
+  c_error_text: "0xFFCDD2"
+  c_overlay_bg: "0x050510"
+  c_divider: "0x1A3552"
+  # Semantic accents used by specific pages (energy flow legs, climate
+  # mode buttons, voice pill, crash banner, danger actions).
+  c_grid_blue: "0x44AAFF"
+  c_solar_yellow: "0xFFD54F"
+  c_battery_purple: "0xB388FF"
+  c_card_blue: "0x0D2133"
+  c_card_yellow: "0x2A250A"
+  c_card_green: "0x102333"
+  c_card_purple: "0x1C1A2A"
+  c_card_blue2: "0x0F1A27"
+  c_card_green2: "0x0F1D16"
+  c_btn_off_bg: "0x2B1720"
+  c_btn_auto_bg: "0x172B45"
+  c_btn_heat_bg: "0x3A2116"
+  c_warn_bg: "0x342B12"
+  c_va_ready_bg: "0x071A10"
+  c_va_ready_border: "0x1B5E20"
+  c_crash_bg: "0x300505"
+  c_crash_title: "0xFF8888"
+  c_danger_btn: "0x701010"
+
+  # Room dashboard — 5 rooms with light + climate, mapped to Mangalam Pro HA entities.
+  # Drawing Room uses a switch (no brightness); others are dimmable light entities.
+  room1_label: "Drawing Room"
+  room1_light: switch.drawinglights
+  room1_temp: sensor.drawing_room_weather_temperature
+  room1_humidity: sensor.drawing_room_weather_humidity
+
+  room2_label: "Office"
+  room2_light: light.office_lights
+  room2_temp: sensor.office_room_temperature
+  room2_humidity: sensor.office_room_humidity
+
+  room3_label: "Hallway"
+  room3_light: light.hallway
+
+  room4_label: "Stairs"
+  room4_light: light.stairs_light
+  room4_temp: sensor.stairs_weather_temperature
+  room4_humidity: sensor.stairs_weather_humidity
+
+  room5_label: "Bedroom"
+  room5_light: light.bedroom_lights
+  room5_temp: sensor.h5075_5b8d_temperature
+  room5_humidity: sensor.h5075_5b8d_humidity
+
+  room6_label: "Conservatory"
+  room6_light: switch.conservatory_switch
+
+  # Tado page — six climate zones. State on/off/heat is shared across all
+  # Tado zones (modes: off / auto / heat). The presets are auto/home/away
+  # but we don't expose those on the panel.
+  tado1_label: "Drawing"
+  tado1_entity: climate.drawing_room
+  tado2_label: "Office"
+  tado2_entity: climate.office_room
+  tado3_label: "Main Bed"
+  tado3_entity: climate.main_bedroom
+  tado4_label: "Mukta"
+  tado4_entity: climate.mukta_room
+  tado5_label: "Advik"
+  tado5_entity: climate.advik
+  tado6_label: "Heating"
+  tado6_entity: climate.heating
+
+  # Presence page — 12 motion/occupancy sensors across the house + outdoors,
+  # 4×3 grid. Active = green dot + ACTIVE; idle = grey + CLEAR.
+  pres1_label: "Hallway"
+  pres1_entity: binary_sensor.hallway_motion_sensor_motion
+  pres2_label: "Hallway PS"
+  pres2_entity: binary_sensor.hallway_ps_motion
+  pres3_label: "Stairs"
+  pres3_entity: binary_sensor.stairs_motion_sensor_motion
+  pres4_label: "Drawing"
+  pres4_entity: binary_sensor.dr_motion_sensor_motion_2
+  pres5_label: "Office"
+  pres5_entity: binary_sensor.office_presence_sensor_occupancy
+  pres6_label: "Toilet"
+  pres6_entity: binary_sensor.tze200_3towulqd_ts0601_motion_4
+  pres7_label: "Conservatory"
+  pres7_entity: binary_sensor.cps_motion
+  pres8_label: "Repeater"
+  pres8_entity: binary_sensor.repeater_motion
+  pres9_label: "Front Door"
+  pres9_entity: binary_sensor.front_door_motion_detected
+  pres10_label: "Front Bell"
+  pres10_entity: binary_sensor.front_door_bell_motion_detected
+  pres11_label: "Side Door"
+  pres11_entity: binary_sensor.side_door_motion_detected
+  pres12_label: "Garden"
+  pres12_entity: binary_sensor.garden_motion_detected
+
+  # Weather widget on slideshow page (top-right). Reads its state +
+  # attributes from HA's weather entity. weather_location prints below
+  # the location label; set it to whatever name suits you.
+  weather_entity: weather.forecast_home
+  weather_location: "Home"
+
+  # Energy page — live grid/home/solar/battery flow now comes from
+  # hypon-proxy (Hypontech Cloud's own inverter-tied meter, poll every
+  # 60s — see projects/home-assistant-p4-c6-panel/hypon-proxy/), which
+  # is steadier than the old Zigbee smart meter and actually knows about
+  # the home battery. Daily import/export billing totals still come from
+  # Octopus — that's a separate concern (utility billing, not live flow).
+  energy_grid_power: sensor.hypon_grid_power
+  energy_grid_power_unit: "W"
+  energy_solar_power: sensor.hypon_pv_power
+  energy_solar_power_unit: "W"
+  energy_solar_energy: sensor.overview_today_energy
+  energy_solar_energy_unit: "kWh"
+  energy_home_power: sensor.hypon_home_load
+  energy_home_power_unit: "W"
+  energy_battery_power: sensor.hypon_battery_power
+  energy_battery_power_unit: "W"
+  energy_battery_soc: sensor.hypon_battery_soc
+  energy_today_import: sensor.octopus_energy_electricity_24l3459421_2000011520182_current_accumulative_consumption
+  energy_today_export: sensor.octopus_energy_electricity_24l3459421_2000060811420_export_previous_accumulative_consumption
+  energy_energy_unit: "kWh"
+
+  # Camera page — four Eufy cameras. Thumbnails refresh every 60s on the
+  # grid page; tap a card to open camera_view_page. Live view refreshes
+  # on open and when the user taps Refresh (no auto-polling — avoids crashes).
+  cam1_name: "Front Door"
+  cam1_entity: front_door
+  cam2_name: "Front Bell"
+  cam2_entity: front_door_bell
+  cam3_name: "Side Door"
+  cam3_entity: side_door
+  cam4_name: "Garden"
+  cam4_entity: garden
+
+# NOTE: micro_wake_word was removed 2026-07-12 — wake word detection now
+# runs HA-side (openwakeword) on the streamed mic audio; see
+# packages/audio_voice_board.yaml for the full story (the mic pins were
+# wrong for this board from day one, so no detector ever received audio).
+external_components:
+  # Patched i2s_audio: allows pdm: true on ESP32-P4 (upstream allowlist
+  # predates the P4; the chip supports PDM RX and this board's MSM261D
+  # mic requires it).
+  - source:
+      type: local
+      path: my_components
+    components: [i2s_audio]
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  project:
+    name: local.home_assistant_p4_c6_panel
+    version: "${firmware_version}"
+  on_boot:
+    # Apply persistent UI tunings to LVGL widgets once everything is up.
+    # Priority -100 means this runs after all other boot work, so the
+    # widgets and their initial styles are fully set when we override.
+    priority: -100
+    then:
+      - delay: 2s
+      - lambda: |-
+          // LVGL is up by now; flip the gate so cascading lambdas can run.
+          id(g_lvgl_ready) = true;
+          // If the previous boot was a real fault (panic / watchdog /
+          // brownout), surface a full-screen banner to the user so they
+          // know the device recovered and how to reset if it keeps
+          // happening. Clean boots (poweron / clean OTA restart /
+          // deepsleep) silently skip the banner.
+          esp_reset_reason_t why = esp_reset_reason();
+          const char* reason = nullptr;
+          switch (why) {
+            case ESP_RST_PANIC:    reason = "Software fault (panic) - probably bad memory access"; break;
+            case ESP_RST_INT_WDT:  reason = "Interrupt watchdog - main loop was stuck too long"; break;
+            case ESP_RST_TASK_WDT: reason = "Task watchdog - a background task hung"; break;
+            case ESP_RST_WDT:      reason = "Hardware watchdog - the CPU stopped responding"; break;
+            case ESP_RST_BROWNOUT: reason = "Brownout - power supply dipped below 3.0V"; break;
+            default: break;  // ESP_RST_POWERON / SW / DEEPSLEEP / EXT — nothing to show
+          }
+          if (reason != nullptr) {
+            lv_label_set_text(id(crash_reason_lbl), (std::string("Reason: ") + reason).c_str());
+            lv_obj_clear_flag(id(crash_overlay), LV_OBJ_FLAG_HIDDEN);
+            // ha_disconnected_overlay is declared after crash_overlay in
+            // the YAML so by default it stacks on top. Force the crash
+            // banner to the front so it is readable before HA reconnects.
+            lv_obj_move_foreground(id(crash_overlay));
+            id(g_crash_report) = reason;
+          }
+          int pct = id(g_calendar_opa_pct);
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+          if (id(g_lvgl_ready)) {
+            uint32_t opa = (uint32_t)((pct * 255) / 100);
+            lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
+            lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
+            lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
+            lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+          }
+          char b[12];
+          snprintf(b, sizeof(b), "%d %%", pct);
+          lv_label_set_text(id(settings_calopa_val), b);
+          // Surface the persisted transition effect name on the settings
+          // page so the cycler label matches what's stored.
+          int eff = id(g_transition_effect);
+          if (eff < 0 || eff > 5) eff = 0;
+          static const char* eff_names[6] = {
+            "Crossfade", "Slide Left", "Slide Right",
+            "Slide Up", "Slide Down", "Zoom"
+          };
+          lv_label_set_text(id(settings_effect_val), eff_names[eff]);
+          // Sync backlight label with the restored light state.
+          float bl = id(panel_backlight).current_values.get_brightness();
+          if (bl >= 0.0f) {
+            int pct = (int)(bl * 100.0f + 0.5f);
+            if (pct < 10) pct = 10;
+            if (pct > 100) pct = 100;
+            id(g_backlight_pct) = pct;
+            char bb[8];
+            snprintf(bb, sizeof(bb), "%d%%", pct);
+            lv_label_set_text(id(settings_backlight_val), bb);
+          }
+      - script.execute: apply_slideshow_layout_positions
+      - script.execute: refresh_weather_widget
+      - script.execute: prepare_settings_page
+      - lambda: |-
+          struct LayoutDragCtx {
+            bool *edit;
+            int *saved_x;
+            int *saved_y;
+            lv_obj_t *objs[3];
+            int8_t off_x[3];
+            int8_t off_y[3];
+            uint8_t obj_count;
+            int min_x;
+            int max_x;
+            int min_y;
+            int max_y;
+          };
+          auto layout_press_cb = [](lv_event_t *e) {
+            auto *ctx = static_cast<LayoutDragCtx *>(lv_event_get_user_data(e));
+            if (ctx == nullptr || ctx->edit == nullptr || !*ctx->edit) return;
+            for (uint8_t i = 0; i < ctx->obj_count; i++) {
+              if (ctx->objs[i] != nullptr) {
+                lv_obj_move_foreground(ctx->objs[i]);
+              }
+            }
+            lv_obj_move_foreground(id(layout_edit_bar));
+          };
+          auto layout_drag_cb = [](lv_event_t *e) {
+            auto *ctx = static_cast<LayoutDragCtx *>(lv_event_get_user_data(e));
+            if (ctx == nullptr || ctx->edit == nullptr || !*ctx->edit) return;
+            lv_indev_t *indev = lv_indev_get_act();
+            if (indev == nullptr) return;
+            lv_point_t vect;
+            lv_indev_get_vect(indev, &vect);
+            if (vect.x == 0 && vect.y == 0) return;
+
+            int nx = *ctx->saved_x + vect.x;
+            int ny = *ctx->saved_y + vect.y;
+            if (nx < ctx->min_x) nx = ctx->min_x;
+            if (nx > ctx->max_x) nx = ctx->max_x;
+            if (ny < ctx->min_y) ny = ctx->min_y;
+            if (ny > ctx->max_y) ny = ctx->max_y;
+            if (nx == *ctx->saved_x && ny == *ctx->saved_y) return;
+
+            *ctx->saved_x = nx;
+            *ctx->saved_y = ny;
+            for (uint8_t i = 0; i < ctx->obj_count; i++) {
+              if (ctx->objs[i] != nullptr) {
+                lv_obj_set_pos(ctx->objs[i], nx + ctx->off_x[i], ny + ctx->off_y[i]);
+              }
+            }
+          };
+          static LayoutDragCtx calendar_drag;
+          static LayoutDragCtx weather_drag;
+          static LayoutDragCtx clock_drag;
+          static LayoutDragCtx wake_drag;
+          // Drag bounds derive from the live display resolution and each
+          // widget's actual size — no hardcoded screen geometry.
+          const int W = lv_disp_get_hor_res(lv_disp_get_default());
+          const int H = lv_disp_get_ver_res(lv_disp_get_default());
+          auto max_x = [&](lv_obj_t *o) { int m = W - lv_obj_get_width(o);  return m < 0 ? 0 : m; };
+          auto max_y = [&](lv_obj_t *o) { int m = H - lv_obj_get_height(o); return m < 0 ? 0 : m; };
+          calendar_drag = { &id(g_layout_edit_mode), &id(g_layout_calendar_x), &id(g_layout_calendar_y),
+            { id(calendar_panel), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(calendar_panel)), 0, max_y(id(calendar_panel)) };
+          weather_drag = { &id(g_layout_edit_mode), &id(g_layout_weather_x), &id(g_layout_weather_y),
+            { id(weather_widget), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(weather_widget)), 0, max_y(id(weather_widget)) };
+          clock_drag = { &id(g_layout_edit_mode), &id(g_layout_clock_x), &id(g_layout_clock_y),
+            { id(clock_pill_obj), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(clock_pill_obj)), 0, max_y(id(clock_pill_obj)) };
+          wake_drag = { &id(g_layout_edit_mode), &id(g_layout_wake_x), &id(g_layout_wake_y),
+            { id(va_state_pill), nullptr, nullptr }, {0, 0, 0}, {0, 0, 0}, 1,
+            0, max_x(id(va_state_pill)), 0, max_y(id(va_state_pill)) };
+
+          lv_obj_add_flag(id(calendar_panel), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(weather_widget), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(clock_pill_obj), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_flag(id(va_state_pill), LV_OBJ_FLAG_CLICKABLE);
+          lv_obj_add_event_cb(id(calendar_panel), layout_press_cb, LV_EVENT_PRESSED, &calendar_drag);
+          lv_obj_add_event_cb(id(weather_widget), layout_press_cb, LV_EVENT_PRESSED, &weather_drag);
+          lv_obj_add_event_cb(id(clock_pill_obj), layout_press_cb, LV_EVENT_PRESSED, &clock_drag);
+          lv_obj_add_event_cb(id(va_state_pill), layout_press_cb, LV_EVENT_PRESSED, &wake_drag);
+          lv_obj_add_event_cb(id(calendar_panel), layout_drag_cb, LV_EVENT_PRESSING, &calendar_drag);
+          lv_obj_add_event_cb(id(weather_widget), layout_drag_cb, LV_EVENT_PRESSING, &weather_drag);
+          lv_obj_add_event_cb(id(clock_pill_obj), layout_drag_cb, LV_EVENT_PRESSING, &clock_drag);
+          lv_obj_add_event_cb(id(va_state_pill), layout_drag_cb, LV_EVENT_PRESSING, &wake_drag);
+
+      - script.execute: apply_slideshow_layout_visibility
+      - script.execute: apply_panel_theme
+      # Auto-dismiss the crash banner after 20 s so the panel doesn't
+      # stay stuck behind it if nobody is around to tap.
+      - delay: 20s
+      - lvgl.widget.hide: crash_overlay
+
+esp32:
+  board: ${board_type}
+  flash_size: 16MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: yes
+      # 8KB default overflows with 300+ LVGL objects (tuya page adds 50). 32KB gives headroom.
+      loop_task_stack_size: 32768
+    sdkconfig_options:
+      CONFIG_SPIRAM_XIP_FROM_PSRAM: y
+      # Raise TWDT to 60s: slideshow (~2s) + up to 7 Tuya HTTP requests (~3s
+      # each) + 4 camera thumbnails can stack sequentially on the main loop.
+      # Worst case is ~30s; 60s gives headroom without hiding real hangs.
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "60"
+
+psram:
+  speed: 200MHz
+
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+
+esp32_hosted:
+  active_high: true
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+
+packages:
+  core: !include packages/core_ha.yaml
+  display_touch: !include packages/display_touch_board.yaml
+  theme: !include packages/theme_palettes.yaml
+  audio_voice: !include packages/audio_voice_board.yaml
+  tuya: !include packages/tuya_local.yaml
+  jellyfin: !include packages/jellyfin_local.yaml
+  ihost: !include packages/ihost_local.yaml
+  hub_config: !include packages/panel_hub_config.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  use_address: !secret panel2_use_address
+  # LIGHT power-save on the hosted C6 caused 300-1300ms RTT jitter and
+  # packet loss, making the HA API connection flap (which in turn kept
+  # stopping the wake word and showing the offline banner). Mains-powered
+  # panel — no reason to trade latency for power.
+  power_save_mode: none
+  on_connect:
+    - globals.set: { id: g_wifi_connected, value: 'true' }
+    - script.execute: update_status_pill
+    - script.execute: refresh_immich_slideshow
+    - script.execute: tuya_poll_health
+    - script.execute: jf_poll_health
+    - script.execute: ih_poll_health
+  # No on_disconnect handler existed before — on a raw WiFi drop nothing
+  # reset the per-page busy locks or the wifi status flag, so an in-flight
+  # request that never got its callback could leave a page permanently
+  # gated. This clears every busy lock unconditionally: if a request was
+  # genuinely mid-flight when the link dropped, its own on_error/on_response
+  # will never fire now, so we can't wait for it to unlock itself.
+  on_disconnect:
+    - globals.set: { id: g_wifi_connected, value: 'false' }
+    - globals.set: { id: g_tuya_busy, value: 'false' }
+    - globals.set: { id: g_jf_busy, value: 'false' }
+    - globals.set: { id: g_ih_busy, value: 'false' }
+    - script.execute: update_status_pill
+  ap:
+    ssid: !secret panel2_fallback_ap_ssid
+    password: !secret fallback_ap_password
+
+captive_portal:
