@@ -61,6 +61,12 @@ substitutions:
   screen_w: "1024"
   screen_h: "600"
   slideshow_photo_x: "340"
+  # Matches the immich-proxy's own defaults (MAX_W/MAX_H) exactly, so
+  # passing these explicitly changes nothing for this panel.
+  slideshow_img_w: "800"
+  slideshow_img_h: "480"
+  slideshow_img_fill: "0"
+  slideshow_img_resize: 1024x600
   header_h: "58"
   footer_h: "44"
   content_h: "498"

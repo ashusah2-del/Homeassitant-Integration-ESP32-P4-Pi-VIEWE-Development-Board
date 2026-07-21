@@ -5,19 +5,23 @@ substitutions:
   rotate_display: "90"
   lcd_model: JC8012P4A1
   lcd_reset_pin: GPIO05
-  # Matches JCZN's (manufacturer) own IDF BSP reference for this exact
-  # board's non-1024x600 panel variant (esp32_p4_function_ev_board.c):
-  # `.flags = { .swap_xy = 0, .mirror_x = 0, .mirror_y = 1 }` for the
-  # touch controller — independently confirmed by solving raw-vs-calculated
-  # coordinates for known taps (top-left/top-right/center) before finding
-  # the reference source. swap_xy:true seemed plausible in theory (native
-  # axes are transposed by the rotation) but broke touch bounds checking in
-  # the vendored driver and, once that was fixed, still produced the wrong
-  # corner — no swap is actually needed here, only mirror_y.
+  # JCZN's manufacturer reference (their own official IDF driver) uses
+  # swap_xy:0 for this panel, but that's a DIFFERENT gsl3680 driver
+  # implementation than the one we vendored (kvj/esphome via
+  # jtenniswood/espcontrol) — the vendored driver's update_touches() reads
+  # x1/y1 from different byte offsets in the I2C touch_data buffer than the
+  # official driver, so its "native x/y" channels are transposed relative
+  # to the manufacturer's. Confirmed directly: with swap_xy:false, tapping
+  # the physical far-left vs far-right edge of the screen barely moved
+  # cinfo.x (16→36) but swung cinfo.y hugely (32→1256) — i.e. this driver's
+  # y-channel is the one that actually tracks left/right position. Solving
+  # forward from that data: swap_xy:true with NO mirroring reproduces both
+  # edge taps correctly — confirmed behaviorally: dashboard header's home
+  # button and rightmost (iHost) button both navigate correctly.
   touch_platform: gsl3680
-  ts_swap_xy: "false"
+  ts_swap_xy: "true"
   ts_mirror_x: "false"
-  ts_mirror_y: "true"
+  ts_mirror_y: "false"
   immich_url: !secret immich_server_url
   immich_api_key: !secret immich_api_key
   proxy_url: !secret immich_proxy_url
@@ -70,6 +74,14 @@ substitutions:
   screen_w: "1280"
   screen_h: "800"
   slideshow_photo_x: "422"
+  # Photo area is screen_w(1280) - slideshow_photo_x(422) wide, full
+  # screen_h(800) tall — asks immich-proxy for a canvas that actually
+  # fills this panel's taller photo area instead of the shared 800x480
+  # default (which left a vertical gap, since 480 < 800).
+  slideshow_img_w: "858"
+  slideshow_img_h: "800"
+  slideshow_img_fill: "1"
+  slideshow_img_resize: 858x800
   header_h: "58"
   footer_h: "44"
   content_h: "698"

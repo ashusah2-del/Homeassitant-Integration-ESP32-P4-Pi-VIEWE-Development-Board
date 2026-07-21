@@ -17,6 +17,7 @@ import os
 import random
 import struct
 import urllib.request
+from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
@@ -40,6 +41,12 @@ HA_TOKEN     = os.environ.get("HA_TOKEN", "")
 # 800x480 is a safe 16-pixel-aligned canvas for JPEGDEC on the ESP32 panel.
 MAX_W           = int(os.environ.get("MAX_W", "800"))
 MAX_H           = int(os.environ.get("MAX_H", "480"))
+# /random-photo accepts optional ?w=&h= so different panels (different
+# screen sizes) can each get a canvas sized for their own slideshow area.
+# Clamped so a bogus request can't ask for a canvas too large for the
+# ESP32's PSRAM to decode (see MAX_W/MAX_H comment above).
+ABS_MAX_W       = int(os.environ.get("ABS_MAX_W", "1280"))
+ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "800"))
 # Fetch N candidates per request and prefer landscape (width >= height).
 # Falls back to any orientation when no landscape exists in the batch.
 LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
@@ -118,20 +125,30 @@ def _sof_type(data: bytes) -> int | None:
     return None
 
 
-def _to_baseline_jpeg(jpeg_raw: bytes) -> bytes:
+def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = False) -> bytes:
     """Return a fixed-size, baseline JPEG that is friendly to JPEGDEC.
 
     The panel decoder is most reliable with 4:2:0 JPEGs whose dimensions are
     exact MCU multiples. Portrait/odd-sized Immich thumbnails are letterboxed
-    into a fixed canvas instead of being served at their natural dimensions.
+    into a fixed canvas instead of being served at their natural dimensions —
+    unless fill=True, which instead scales the photo to cover the whole
+    canvas and center-crops the overflow (no black bars, some edge loss).
+    Default (fill=False) preserves the original letterbox behavior exactly.
     """
     img = Image.open(io.BytesIO(jpeg_raw))
     img = img.convert("RGB")
-    canvas_w = max(16, (MAX_W // 16) * 16)
-    canvas_h = max(16, (MAX_H // 16) * 16)
-    img.thumbnail((canvas_w, canvas_h), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
-    canvas.paste(img, ((canvas_w - img.width) // 2, (canvas_h - img.height) // 2))
+    canvas_w = max(16, (target_w // 16) * 16)
+    canvas_h = max(16, (target_h // 16) * 16)
+    if fill:
+        scale = max(canvas_w / img.width, canvas_h / img.height)
+        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.Resampling.LANCZOS)
+        left = (img.width - canvas_w) // 2
+        top = (img.height - canvas_h) // 2
+        canvas = img.crop((left, top, left + canvas_w, top + canvas_h))
+    else:
+        img.thumbnail((canvas_w, canvas_h), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
+        canvas.paste(img, ((canvas_w - img.width) // 2, (canvas_h - img.height) // 2))
     out = io.BytesIO()
     canvas.save(
         out,
@@ -152,7 +169,7 @@ def _pick_landscape_preferred(assets: list) -> dict:
     return (landscape or assets)[0]
 
 
-def fetch_safe_jpeg() -> bytes | None:
+def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = False) -> bytes | None:
     for attempt in range(RETRIES):
         try:
             batch = PORTRAIT_BATCH if LANDSCAPE_PREFER else 1
@@ -203,12 +220,12 @@ def fetch_safe_jpeg() -> bytes | None:
                 continue
             # ALWAYS resize+re-encode. Full-size JPEGs (1440x1920 ≈ 5.5MB RGB565)
             # exhaust ESP32 PSRAM during decode and crash the device.
-            result = _to_baseline_jpeg(jpeg_raw)
+            result = _to_baseline_jpeg(jpeg_raw, target_w, target_h, fill)
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
             orient_tag = "landscape" if is_landscape else "portrait-fallback"
             log.info(
                 "asset %s (%s, %s) SOF 0xFF%02X: %d → %d bytes (resized to <=%dx%d)",
-                asset_id, scope, orient_tag, sof, len(jpeg_raw), len(result), MAX_W, MAX_H,
+                asset_id, scope, orient_tag, sof, len(jpeg_raw), len(result), target_w, target_h,
             )
             return result
 
@@ -253,10 +270,21 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        parsed = urlparse(self.path)
+        path = parsed.path
         # Immich slideshow
         if path == "/random-photo":
-            jpeg = fetch_safe_jpeg()
+            query = parse_qs(parsed.query)
+            try:
+                target_w = min(ABS_MAX_W, max(16, int(query["w"][0])))
+            except (KeyError, ValueError):
+                target_w = MAX_W
+            try:
+                target_h = min(ABS_MAX_H, max(16, int(query["h"][0])))
+            except (KeyError, ValueError):
+                target_h = MAX_H
+            fill = query.get("fill", ["0"])[0].lower() in ("1", "true", "yes", "on")
+            jpeg = fetch_safe_jpeg(target_w, target_h, fill)
             if jpeg:
                 self.send_response(200)
                 self.send_header("Content-Type", "image/jpeg")

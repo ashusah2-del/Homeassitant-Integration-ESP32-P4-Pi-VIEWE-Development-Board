@@ -348,11 +348,11 @@ online_image:
   # slides out — so the previous image is always visible *during* the
   # transition. PSRAM cost: ~1.2 MB per slot (1024×600×RGB565).
   - id: immich_photo
-    url: "${proxy_url}/random-photo"
+    url: "${proxy_url}/random-photo?w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}"
     format: JPEG
     type: RGB565
     byte_order: LITTLE_ENDIAN
-    resize: 1024x600
+    resize: ${slideshow_img_resize}
     buffer_size: 65536
     update_interval: never
     request_headers:
@@ -365,11 +365,11 @@ online_image:
       - script.execute: { id: slideshow_failed, slot: 0 }
 
   - id: immich_photo_b
-    url: "${proxy_url}/random-photo"
+    url: "${proxy_url}/random-photo?w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}"
     format: JPEG
     type: RGB565
     byte_order: LITTLE_ENDIAN
-    resize: 1024x600
+    resize: ${slideshow_img_resize}
     buffer_size: 65536
     update_interval: never
     request_headers:
@@ -436,7 +436,8 @@ script:
                 id(g_immich_retry) += 1;
                 char t[16];
                 snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                std::string url = id(immich_base_url) + "/random-photo?t=" + t;
+                std::string url = id(immich_base_url) + "/random-photo?t=" + t +
+                    "&w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}";
                 auto *img = (slot == 0) ? id(immich_photo) : id(immich_photo_b);
                 img->set_url(url);
                 img->update();
@@ -783,7 +784,8 @@ script:
                 url: !lambda |-
                   char t[16];
                   snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  return id(immich_base_url) + "/random-photo?t=" + t;
+                  return id(immich_base_url) + "/random-photo?t=" + t +
+                      "&w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}";
                 update: true
           else:
             - online_image.set_url:
@@ -791,7 +793,8 @@ script:
                 url: !lambda |-
                   char t[16];
                   snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  return id(immich_base_url) + "/random-photo?t=" + t;
+                  return id(immich_base_url) + "/random-photo?t=" + t +
+                      "&w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}";
                 update: true
 
   # Crossfade the just-loaded slot in while the previously-visible slot

@@ -93,14 +93,29 @@ def _sof_type(data: bytes) -> int | None:
 
 
 def encode_sof0(raw: bytes, max_w: int, max_h: int,
-                quality: int = JPEG_QUALITY, subsampling: int = 2) -> bytes:
-    """Re-encode to SOF0 baseline JPEG on a 16-pixel-aligned canvas."""
+                quality: int = JPEG_QUALITY, subsampling: int = 2,
+                fill: bool = False) -> bytes:
+    """Re-encode to SOF0 baseline JPEG on a 16-pixel-aligned canvas.
+
+    fill=False (default) fits the photo within the canvas and letterboxes
+    the shortfall — original behavior, unchanged. fill=True instead scales
+    to cover the whole canvas and center-crops the overflow, so panels
+    whose slideshow area isn't close to the canvas's own aspect ratio
+    (e.g. a near-square area) don't end up with large black bars.
+    """
     img = Image.open(io.BytesIO(raw)).convert("RGB")
     cw = max(16, (max_w // 16) * 16)
     ch = max(16, (max_h // 16) * 16)
-    img.thumbnail((cw, ch), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGB", (cw, ch), (0, 0, 0))
-    canvas.paste(img, ((cw - img.width) // 2, (ch - img.height) // 2))
+    if fill:
+        scale = max(cw / img.width, ch / img.height)
+        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.Resampling.LANCZOS)
+        left = (img.width - cw) // 2
+        top = (img.height - ch) // 2
+        canvas = img.crop((left, top, left + cw, top + ch))
+    else:
+        img.thumbnail((cw, ch), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (cw, ch), (0, 0, 0))
+        canvas.paste(img, ((cw - img.width) // 2, (ch - img.height) // 2))
     buf = io.BytesIO()
     canvas.save(buf, format="JPEG", quality=quality,
                 optimize=False, progressive=False, subsampling=subsampling)
@@ -143,7 +158,8 @@ def _resolve_person_ids() -> list[tuple[str, str]]:
         return []
 
 
-async def fetch_random_photo() -> bytes | None:
+async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_MAX_H,
+                              fill: bool = False) -> bytes | None:
     loop = asyncio.get_event_loop()
     person_filter = await loop.run_in_executor(None, _resolve_person_ids)
 
@@ -199,12 +215,12 @@ async def fetch_random_photo() -> bytes | None:
                 continue
 
             jpeg = await loop.run_in_executor(
-                None, encode_sof0, raw, PHOTO_MAX_W, PHOTO_MAX_H, JPEG_QUALITY, 2)
+                None, encode_sof0, raw, target_w, target_h, JPEG_QUALITY, 2, fill)
 
             orient = "landscape" if (item.get("width", 0) >= item.get("height", 0)) else "portrait-fallback"
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
-            log.info("photo %s (%s, %s) SOF 0xFF%02X: %d→%d bytes",
-                     item["id"], scope, orient, sof, len(raw), len(jpeg))
+            log.info("photo %s (%s, %s) SOF 0xFF%02X: %d→%d bytes (<=%dx%d, fill=%s)",
+                     item["id"], scope, orient, sof, len(raw), len(jpeg), target_w, target_h, fill)
             return jpeg
 
         except Exception as e:
@@ -693,8 +709,12 @@ async def health():
 # ── Immich ────────────────────────────────────────────────────────────────────
 
 @app.get("/random-photo")
-async def random_photo():
-    jpeg = await fetch_random_photo()
+async def random_photo(
+    w: int = Query(PHOTO_MAX_W, ge=16, le=1280),
+    h: int = Query(PHOTO_MAX_H, ge=16, le=800),
+    fill: bool = Query(False),
+):
+    jpeg = await fetch_random_photo(w, h, fill)
     if not jpeg:
         raise HTTPException(503, "Immich unavailable")
     return Response(content=jpeg, media_type="image/jpeg",

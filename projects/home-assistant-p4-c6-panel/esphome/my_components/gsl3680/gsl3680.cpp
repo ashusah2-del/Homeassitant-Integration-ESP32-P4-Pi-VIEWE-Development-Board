@@ -14,11 +14,17 @@ void GSL3680::setup() {
 
     ESP_LOGD(TAG, "Setup start");
     // LVGL applies the final screen rotation after the touchscreen reports a
-    // display-space point, so calibrate against the native display dimensions.
-    this->x_raw_max_ =
-        this->swap_x_y_ ? this->get_display()->get_native_height() : this->get_display()->get_native_width();
-    this->y_raw_max_ =
-        this->swap_x_y_ ? this->get_display()->get_native_width() : this->get_display()->get_native_height();
+    // display-space point, so calibrate against the native display dimensions
+    // by default. If an explicit `calibration:` block was given in YAML, the
+    // base Touchscreen class already set x_raw_max_/y_raw_max_ (non-zero) via
+    // set_calibration() before this setup() runs — respect it instead of
+    // clobbering it, so per-unit touch-panel offsets can be tuned in YAML.
+    if (this->x_raw_max_ == 0 && this->y_raw_max_ == 0) {
+      this->x_raw_max_ =
+          this->swap_x_y_ ? this->get_display()->get_native_height() : this->get_display()->get_native_width();
+      this->y_raw_max_ =
+          this->swap_x_y_ ? this->get_display()->get_native_width() : this->get_display()->get_native_height();
+    }
 
     this->reset_pin_->pin_mode(esphome::gpio::FLAG_OUTPUT);
     this->reset_pin_->setup();
