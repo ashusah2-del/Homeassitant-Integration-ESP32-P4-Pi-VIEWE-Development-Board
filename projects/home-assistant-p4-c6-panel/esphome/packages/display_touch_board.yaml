@@ -468,6 +468,33 @@ script:
           lv_obj_add_flag(id(layout_settings_footer), LV_OBJ_FLAG_FLOATING);
           lv_obj_move_foreground(id(layout_settings_footer));
 
+  - id: clear_page_scrollable
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          // Every LVGL page is scrollable by default. A tap with a little
+          // finger jitter on a scrollable object can get read as the start
+          // of a scroll gesture instead of a click, which silently
+          // swallows the tap — no visible feedback, the button just
+          // doesn't fire. slideshow_page had its own dedicated fix
+          // (apply_slideshow_layout_positions, for a different visible
+          // symptom — the overlay pills dragging with the photo); every
+          // other page never had this cleared at all. Clear it everywhere
+          // once at boot.
+          lv_obj_clear_flag(id(dashboard_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(presence_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(energy_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(camera_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(camera_view_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(settings_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(layout_settings_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(diagnostics_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(jellyfin_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(ihost_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tuya_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+
   - id: apply_slideshow_layout_positions
     mode: restart
     then:

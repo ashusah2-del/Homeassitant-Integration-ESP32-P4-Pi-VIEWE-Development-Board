@@ -343,6 +343,7 @@ esphome:
             snprintf(bb, sizeof(bb), "%d%%", pct);
             lv_label_set_text(id(settings_backlight_val), bb);
           }
+      - script.execute: clear_page_scrollable
       - script.execute: apply_slideshow_layout_positions
       - script.execute: refresh_weather_widget
       - script.execute: prepare_settings_page
