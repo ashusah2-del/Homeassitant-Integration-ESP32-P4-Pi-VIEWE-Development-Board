@@ -4373,714 +4373,739 @@ lvgl:
                     - label: { align: CENTER, text: "Layout", text_font: montserrat_16, text_color: "${c_text}" }
 
         - obj:
-            id: settings_layout_banner
-            x: 32
-            y: 68
-            width: 960
-            height: 92
-            bg_color: "${c_accent_bg}"
-            bg_opa: 100%
-            border_width: 2
-            border_color: "${c_accent}"
-            radius: "${card_radius}"
-            pad_all: 0
-            on_click:
-              - script.execute: apply_slideshow_layout_visibility
-              - lvgl.page.show: layout_settings_page
-            widgets:
-              - label:
-                  id: settings_layout_banner_title
-                  x: 22
-                  y: 12
-                  text: "SLIDESHOW LAYOUT"
-                  text_font: montserrat_20
-                  text_color: "${c_accent}"
-              - label:
-                  x: 22
-                  y: 40
-                  width: 720
-                  text: "Show/hide overlays and the layout shortcut button. Drag placement opens from Settings if the button is hidden."
-                  text_font: montserrat_16
-                  text_color: "${c_text}"
-                  long_mode: WRAP
-              - button:
-                  align: RIGHT_MID
-                  x: -16
-                  width: 112
-                  height: 40
-                  radius: 10
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  on_click:
-                    - script.execute: apply_slideshow_layout_visibility
-                    - lvgl.page.show: layout_settings_page
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "Open"
-                        text_font: montserrat_16
-                        text_color: "${c_text}"
-
-        - obj:
-            id: settings_diagnostics_banner
-            x: 32
-            y: 168
-            width: 960
-            height: 64
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 100%
-            border_width: 2
-            border_color: "${c_card_border}"
-            radius: "${card_radius}"
-            pad_all: 0
-            on_click:
-              - lvgl.page.show: diagnostics_page
-            widgets:
-              - label:
-                  x: 22
-                  y: 10
-                  text: "DIAGNOSTICS"
-                  text_font: montserrat_20
-                  text_color: "${c_footer_text}"
-              - label:
-                  x: 22
-                  y: 38
-                  width: 720
-                  text: "WiFi/HA connection, memory, and per-integration health with last-successful-poll timestamps."
-                  text_font: montserrat_16
-                  text_color: "${c_text}"
-                  long_mode: WRAP
-              - button:
-                  align: RIGHT_MID
-                  x: -16
-                  width: 112
-                  height: 40
-                  radius: 10
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  on_click:
-                    - lvgl.page.show: diagnostics_page
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "Open"
-                        text_font: montserrat_16
-                        text_color: "${c_text}"
-
-        - obj:
-            id: settings_left_panel
+            id: settings_content
             x: 0
-            y: 240
-            width: "${settings_col_w}"
-            height: 316
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 96%
-            border_color: "${c_card_border_dim}"
-            border_width: 1
-            radius: "${card_radius}"
-            pad_left: 24
-            pad_top: 20
+            y: "${header_h}"
+            width: 100%
+            height: "${content_h}"
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 8
+            scrollbar_mode: "off"
+            scrollable: false
+            clickable: false
+            layout:
+              type: flex
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: STRETCH
+              pad_row: 10
             widgets:
-              - label:
-                  id: settings_sec_status_lbl
-                  x: 0
-                  y: 0
-                  text: "STATUS"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label:
-                  id: settings_ha_lbl
-                  x: 0
-                  y: 34
-                  width: "${settings_label_w}"
-                  text: "Home Assistant: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_immich_lbl
-                  x: 0
-                  y: 62
-                  width: "${settings_label_w}"
-                  text: "Immich: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_ip_lbl
-                  x: 0
-                  y: 90
-                  width: "${settings_label_w}"
-                  text: "Device IP: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_rssi_lbl
-                  x: 0
-                  y: 118
-                  width: "${settings_label_w}"
-                  text: "Signal: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_battery_lbl
-                  x: 0
-                  y: 146
-                  width: "${settings_label_w}"
-                  text: "Battery: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_uptime_lbl
-                  x: 0
-                  y: 174
-                  width: "${settings_label_w}"
-                  text: "Uptime: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_firmware_lbl
-                  x: 0
-                  y: 202
-                  width: "${settings_label_w}"
-                  text: "Firmware: v${firmware_version}"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - label:
-                  id: settings_tuya_lbl
-                  x: 0
-                  y: 230
-                  width: "${settings_label_w}"
-                  text: "Tuya bridge: --"
-                  text_font: montserrat_16
-                  text_color: "${c_text_2}"
-              - obj:
-                  x: 0
-                  y: 266
-                  width: "${settings_label_w}"
-                  height: 2
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-              - label:
-                  id: settings_sec_config_lbl
-                  x: 0
-                  y: 278
-                  text: "CONFIGURATION"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label:
-                  id: settings_immich_url_lbl
-                  x: 0
-                  y: 312
-                  width: "${settings_label_w}"
-                  text: "Immich URL:"
-                  text_font: montserrat_16
-                  text_color: "${c_text_muted}"
-                  long_mode: WRAP
-              - label:
-                  id: settings_immich_url_val
-                  x: 0
-                  y: 336
-                  width: "${settings_label_w}"
-                  text: "--"
-                  text_font: montserrat_16
-                  text_color: "${c_text}"
-                  long_mode: WRAP
+            - obj:
+                id: settings_layout_banner
+                width: 100%
+                height: "18%"
+                bg_color: "${c_accent_bg}"
+                bg_opa: 100%
+                border_width: 2
+                border_color: "${c_accent}"
+                radius: "${card_radius}"
+                pad_all: 0
+                on_click:
+                  - script.execute: apply_slideshow_layout_visibility
+                  - lvgl.page.show: layout_settings_page
+                widgets:
+                  - label:
+                      id: settings_layout_banner_title
+                      x: 22
+                      y: 12
+                      text: "SLIDESHOW LAYOUT"
+                      text_font: montserrat_20
+                      text_color: "${c_accent}"
+                  - label:
+                      x: 22
+                      y: 40
+                      width: 720
+                      text: "Show/hide overlays and the layout shortcut button. Drag placement opens from Settings if the button is hidden."
+                      text_font: montserrat_16
+                      text_color: "${c_text}"
+                      long_mode: WRAP
+                  - button:
+                      align: RIGHT_MID
+                      x: -16
+                      width: 112
+                      height: 40
+                      radius: 10
+                      bg_color: "${c_nav_btn}"
+                      border_width: 0
+                      on_click:
+                        - script.execute: apply_slideshow_layout_visibility
+                        - lvgl.page.show: layout_settings_page
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text: "Open"
+                            text_font: montserrat_16
+                            text_color: "${c_text}"
 
-              # ── Slideshow interval spinner ────────────────────
-              - label:
-                  x: 0
-                  y: 380
-                  text: "Slideshow interval (minutes):"
-                  text_font: montserrat_16
-                  text_color: "${c_text_muted}"
-              - button:
-                  x: 0
-                  y: 408
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "-"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_slideshow_interval_min) - 1;
-                        if (v < 1) v = 1;
-                        id(g_slideshow_interval_min) = v;
-                        id(g_slideshow_counter_min) = 0;
-                        char b[12];
-                        snprintf(b, sizeof(b), "%d min", v);
-                        lv_label_set_text(id(settings_interval_val), b);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_slideshow_interval
-                          value: !lambda 'return id(g_slideshow_interval_min);'
-              - label:
-                  id: settings_interval_val
-                  x: 70
-                  y: 416
-                  width: 120
-                  text: "10 min"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-              - button:
-                  x: 200
-                  y: 408
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "+"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_slideshow_interval_min) + 1;
-                        if (v > 1440) v = 1440;
-                        id(g_slideshow_interval_min) = v;
-                        id(g_slideshow_counter_min) = 0;
-                        char b[12];
-                        snprintf(b, sizeof(b), "%d min", v);
-                        lv_label_set_text(id(settings_interval_val), b);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_slideshow_interval
-                          value: !lambda 'return id(g_slideshow_interval_min);'
-              # +/- 10 wide jumps so the user can move quickly through the range
-              - button:
-                  x: 270
-                  y: 408
-                  width: 64
-                  height: 44
-                  radius: 8
-                  bg_color: "${c_info_btn}"
-                  border_width: 0
-                  text: "-10"
-                  text_font: montserrat_18
-                  text_color: "${c_info_soft}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_slideshow_interval_min) - 10;
-                        if (v < 1) v = 1;
-                        id(g_slideshow_interval_min) = v;
-                        id(g_slideshow_counter_min) = 0;
-                        char b[12];
-                        snprintf(b, sizeof(b), "%d min", v);
-                        lv_label_set_text(id(settings_interval_val), b);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_slideshow_interval
-                          value: !lambda 'return id(g_slideshow_interval_min);'
-              - button:
-                  x: 344
-                  y: 408
-                  width: 64
-                  height: 44
-                  radius: 8
-                  bg_color: "${c_info_btn}"
-                  border_width: 0
-                  text: "+10"
-                  text_font: montserrat_18
-                  text_color: "${c_info_soft}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_slideshow_interval_min) + 10;
-                        if (v > 1440) v = 1440;
-                        id(g_slideshow_interval_min) = v;
-                        id(g_slideshow_counter_min) = 0;
-                        char b[12];
-                        snprintf(b, sizeof(b), "%d min", v);
-                        lv_label_set_text(id(settings_interval_val), b);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_slideshow_interval
-                          value: !lambda 'return id(g_slideshow_interval_min);'
+            - obj:
+                id: settings_diagnostics_banner
+                width: 100%
+                height: "13%"
+                bg_color: "${c_card_bg_alt}"
+                bg_opa: 100%
+                border_width: 2
+                border_color: "${c_card_border}"
+                radius: "${card_radius}"
+                pad_all: 0
+                on_click:
+                  - lvgl.page.show: diagnostics_page
+                widgets:
+                  - label:
+                      x: 22
+                      y: 10
+                      text: "DIAGNOSTICS"
+                      text_font: montserrat_20
+                      text_color: "${c_footer_text}"
+                  - label:
+                      x: 22
+                      y: 38
+                      width: 720
+                      text: "WiFi/HA connection, memory, and per-integration health with last-successful-poll timestamps."
+                      text_font: montserrat_16
+                      text_color: "${c_text}"
+                      long_mode: WRAP
+                  - button:
+                      align: RIGHT_MID
+                      x: -16
+                      width: 112
+                      height: 40
+                      radius: 10
+                      bg_color: "${c_nav_btn}"
+                      border_width: 0
+                      on_click:
+                        - lvgl.page.show: diagnostics_page
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text: "Open"
+                            text_font: montserrat_16
+                            text_color: "${c_text}"
 
-              # ── Calendar opacity spinner ──────────────────────
-              - label:
-                  x: 0
-                  y: 466
-                  text: "Calendar overlay opacity:"
-                  text_font: montserrat_16
-                  text_color: "${c_text_muted}"
-              - button:
-                  x: 0
-                  y: 494
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "-"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_calendar_opa_pct) - 5;
-                        if (v < 0) v = 0;
-                        id(g_calendar_opa_pct) = v;
-                        if (id(g_lvgl_ready)) {
-                          uint32_t opa = (uint32_t)((v * 255) / 100);
-                          lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
-                          lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
-                          lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
-                          lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
-                        }
-                        char b[12];
-                        snprintf(b, sizeof(b), "%d %%", v);
-                        lv_label_set_text(id(settings_calopa_val), b);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_calendar_opacity
-                          value: !lambda 'return id(g_calendar_opa_pct);'
-              - label:
-                  id: settings_calopa_val
-                  x: 70
-                  y: 502
-                  width: 120
-                  text: "70 %"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-              - button:
-                  x: 200
-                  y: 494
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "+"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_calendar_opa_pct) + 5;
-                        if (v > 100) v = 100;
-                        id(g_calendar_opa_pct) = v;
-                        if (id(g_lvgl_ready)) {
-                          uint32_t opa = (uint32_t)((v * 255) / 100);
-                          lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
-                          lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
-                          lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
-                          lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
-                        }
-                        char b[12];
-                        snprintf(b, sizeof(b), "%d %%", v);
-                        lv_label_set_text(id(settings_calopa_val), b);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_calendar_opacity
-                          value: !lambda 'return id(g_calendar_opa_pct);'
+            - obj:
+                id: settings_columns_row
+                width: 100%
+                flex_grow: 1
+                bg_opa: TRANSP
+                border_width: 0
+                pad_all: 0
+                scrollable: false
+                clickable: false
+                layout:
+                  type: flex
+                  flex_flow: ROW
+                  pad_column: 12
+                widgets:
+                - obj:
+                    id: settings_left_panel
+                    width: 48%
+                    height: 100%
+                    bg_color: "${c_card_bg_alt}"
+                    bg_opa: 96%
+                    border_color: "${c_card_border_dim}"
+                    border_width: 1
+                    radius: "${card_radius}"
+                    pad_left: 24
+                    pad_top: 20
+                    widgets:
+                      - label:
+                          id: settings_sec_status_lbl
+                          x: 0
+                          y: 0
+                          text: "STATUS"
+                          text_font: montserrat_18
+                          text_color: "${c_accent}"
+                      - label:
+                          id: settings_ha_lbl
+                          x: 0
+                          y: 34
+                          width: "92%"
+                          text: "Home Assistant: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_immich_lbl
+                          x: 0
+                          y: 62
+                          width: "92%"
+                          text: "Immich: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_ip_lbl
+                          x: 0
+                          y: 90
+                          width: "92%"
+                          text: "Device IP: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_rssi_lbl
+                          x: 0
+                          y: 118
+                          width: "92%"
+                          text: "Signal: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_battery_lbl
+                          x: 0
+                          y: 146
+                          width: "92%"
+                          text: "Battery: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_uptime_lbl
+                          x: 0
+                          y: 174
+                          width: "92%"
+                          text: "Uptime: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_firmware_lbl
+                          x: 0
+                          y: 202
+                          width: "92%"
+                          text: "Firmware: v${firmware_version}"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - label:
+                          id: settings_tuya_lbl
+                          x: 0
+                          y: 230
+                          width: "92%"
+                          text: "Tuya bridge: --"
+                          text_font: montserrat_16
+                          text_color: "${c_text_2}"
+                      - obj:
+                          x: 0
+                          y: 266
+                          width: "92%"
+                          height: 2
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                      - label:
+                          id: settings_sec_config_lbl
+                          x: 0
+                          y: 278
+                          text: "CONFIGURATION"
+                          text_font: montserrat_18
+                          text_color: "${c_accent}"
+                      - label:
+                          id: settings_immich_url_lbl
+                          x: 0
+                          y: 312
+                          width: "92%"
+                          text: "Immich URL:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                          long_mode: WRAP
+                      - label:
+                          id: settings_immich_url_val
+                          x: 0
+                          y: 336
+                          width: "92%"
+                          text: "--"
+                          text_font: montserrat_16
+                          text_color: "${c_text}"
+                          long_mode: WRAP
 
-              # ── Slideshow transition effect cycler ────────────
-              - label:
-                  x: 0
-                  y: 552
-                  text: "Slide transition effect:"
-                  text_font: montserrat_16
-                  text_color: "${c_text_muted}"
-              - button:
-                  x: 0
-                  y: 580
-                  width: 56
-                  height: 40
-                  radius: 20
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "<"
-                  text_font: montserrat_18
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_transition_effect) - 1;
-                        if (v < 0) v = 5;
-                        id(g_transition_effect) = v;
-                        static const char* names[6] = {
-                          "Crossfade", "Slide Left", "Slide Right",
-                          "Slide Up", "Slide Down", "Zoom"
-                        };
-                        lv_label_set_text(id(settings_effect_val), names[v]);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_transition_effect
-                          value: !lambda 'return id(g_transition_effect);'
-              - label:
-                  id: settings_effect_val
-                  x: 70
-                  y: 586
-                  width: 220
-                  text: "Crossfade"
-                  text_font: montserrat_20
-                  text_color: "${c_text}"
-              - button:
-                  x: 296
-                  y: 580
-                  width: 56
-                  height: 40
-                  radius: 20
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: ">"
-                  text_font: montserrat_18
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_transition_effect) + 1;
-                        if (v > 5) v = 0;
-                        id(g_transition_effect) = v;
-                        static const char* names[6] = {
-                          "Crossfade", "Slide Left", "Slide Right",
-                          "Slide Up", "Slide Down", "Zoom"
-                        };
-                        lv_label_set_text(id(settings_effect_val), names[v]);
-                    - homeassistant.service:
-                        service: input_number.set_value
-                        data:
-                          entity_id: input_number.panel_transition_effect
-                          value: !lambda 'return id(g_transition_effect);'
+                      # ── Slideshow interval spinner ────────────────────
+                      - label:
+                          x: 0
+                          y: 380
+                          text: "Slideshow interval (minutes):"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 408
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "-"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_slideshow_interval_min) - 1;
+                                if (v < 1) v = 1;
+                                id(g_slideshow_interval_min) = v;
+                                id(g_slideshow_counter_min) = 0;
+                                char b[12];
+                                snprintf(b, sizeof(b), "%d min", v);
+                                lv_label_set_text(id(settings_interval_val), b);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_slideshow_interval
+                                  value: !lambda 'return id(g_slideshow_interval_min);'
+                      - label:
+                          id: settings_interval_val
+                          x: 70
+                          y: 416
+                          width: 120
+                          text: "10 min"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                      - button:
+                          x: 200
+                          y: 408
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "+"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_slideshow_interval_min) + 1;
+                                if (v > 1440) v = 1440;
+                                id(g_slideshow_interval_min) = v;
+                                id(g_slideshow_counter_min) = 0;
+                                char b[12];
+                                snprintf(b, sizeof(b), "%d min", v);
+                                lv_label_set_text(id(settings_interval_val), b);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_slideshow_interval
+                                  value: !lambda 'return id(g_slideshow_interval_min);'
+                      # +/- 10 wide jumps so the user can move quickly through the range
+                      - button:
+                          x: 270
+                          y: 408
+                          width: 64
+                          height: 44
+                          radius: 8
+                          bg_color: "${c_info_btn}"
+                          border_width: 0
+                          text: "-10"
+                          text_font: montserrat_18
+                          text_color: "${c_info_soft}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_slideshow_interval_min) - 10;
+                                if (v < 1) v = 1;
+                                id(g_slideshow_interval_min) = v;
+                                id(g_slideshow_counter_min) = 0;
+                                char b[12];
+                                snprintf(b, sizeof(b), "%d min", v);
+                                lv_label_set_text(id(settings_interval_val), b);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_slideshow_interval
+                                  value: !lambda 'return id(g_slideshow_interval_min);'
+                      - button:
+                          x: 344
+                          y: 408
+                          width: 64
+                          height: 44
+                          radius: 8
+                          bg_color: "${c_info_btn}"
+                          border_width: 0
+                          text: "+10"
+                          text_font: montserrat_18
+                          text_color: "${c_info_soft}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_slideshow_interval_min) + 10;
+                                if (v > 1440) v = 1440;
+                                id(g_slideshow_interval_min) = v;
+                                id(g_slideshow_counter_min) = 0;
+                                char b[12];
+                                snprintf(b, sizeof(b), "%d min", v);
+                                lv_label_set_text(id(settings_interval_val), b);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_slideshow_interval
+                                  value: !lambda 'return id(g_slideshow_interval_min);'
 
-              # ── Panel theme cycler ────────────────────────────
-              - label:
-                  x: 0
-                  y: 640
-                  text: "Panel colour theme:"
-                  text_font: montserrat_16
-                  text_color: "${c_text_muted}"
-              - button:
-                  x: 0
-                  y: 668
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "<"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - script.execute: panel_theme_prev
-              - label:
-                  id: settings_theme_val
-                  x: 70
-                  y: 676
-                  width: 180
-                  text: "Midnight"
-                  text_font: montserrat_20
-                  text_color: "${c_text}"
-              - button:
-                  x: 296
-                  y: 668
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: ">"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - script.execute: panel_theme_next
+                      # ── Calendar opacity spinner ──────────────────────
+                      - label:
+                          x: 0
+                          y: 466
+                          text: "Calendar overlay opacity:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 494
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "-"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_calendar_opa_pct) - 5;
+                                if (v < 0) v = 0;
+                                id(g_calendar_opa_pct) = v;
+                                if (id(g_lvgl_ready)) {
+                                  uint32_t opa = (uint32_t)((v * 255) / 100);
+                                  lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
+                                  lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
+                                  lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
+                                  lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+                                }
+                                char b[12];
+                                snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_calopa_val), b);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_calendar_opacity
+                                  value: !lambda 'return id(g_calendar_opa_pct);'
+                      - label:
+                          id: settings_calopa_val
+                          x: 70
+                          y: 502
+                          width: 120
+                          text: "70 %"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                      - button:
+                          x: 200
+                          y: 494
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "+"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_calendar_opa_pct) + 5;
+                                if (v > 100) v = 100;
+                                id(g_calendar_opa_pct) = v;
+                                if (id(g_lvgl_ready)) {
+                                  uint32_t opa = (uint32_t)((v * 255) / 100);
+                                  lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
+                                  lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
+                                  lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
+                                  lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+                                }
+                                char b[12];
+                                snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_calopa_val), b);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_calendar_opacity
+                                  value: !lambda 'return id(g_calendar_opa_pct);'
 
-        # ── Backlight + setup guide (right half) ─────────────────
-        - obj:
-            id: settings_right_panel
-            x: "${settings_col2_x}"
-            y: 240
-            width: "${settings_col_w}"
-            height: 316
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 96%
-            border_color: "${c_card_border_dim}"
-            border_width: 1
-            radius: "${card_radius}"
-            pad_left: 12
-            pad_top: 20
-            pad_right: 12
-            widgets:
-              - label:
-                  id: settings_sec_backlight_lbl
-                  x: 0
-                  y: 0
-                  text: "BACKLIGHT"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label:
-                  x: 0
-                  y: 34
-                  width: "${settings_label_w2}"
-                  text: "Adjust panel brightness (10-100%):"
-                  text_font: montserrat_16
-                  text_color: "${c_text_soft}"
-                  long_mode: WRAP
-              - button:
-                  x: 0
-                  y: 66
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "-"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_backlight_pct) - 10;
-                        if (v < 10) v = 10;
-                        id(g_backlight_pct) = v;
-                        char b[8];
-                        snprintf(b, sizeof(b), "%d%%", v);
-                        lv_label_set_text(id(settings_backlight_val), b);
-                    - light.turn_on:
-                        id: panel_backlight
-                        brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
-              - label:
-                  id: settings_backlight_val
-                  x: 70
-                  y: 74
-                  width: 120
-                  text: "80%"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-              - button:
-                  x: 200
-                  y: 66
-                  width: 56
-                  height: 44
-                  radius: 22
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-                  text: "+"
-                  text_font: montserrat_24
-                  text_color: "${c_text}"
-                  on_click:
-                    - lambda: |-
-                        int v = id(g_backlight_pct) + 10;
-                        if (v > 100) v = 100;
-                        id(g_backlight_pct) = v;
-                        char b[8];
-                        snprintf(b, sizeof(b), "%d%%", v);
-                        lv_label_set_text(id(settings_backlight_val), b);
-                    - light.turn_on:
-                        id: panel_backlight
-                        brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
-              - obj:
-                  x: 0
-                  y: 124
-                  width: "${settings_label_w2}"
-                  height: 2
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-              - label:
-                  id: settings_sec_helpers_lbl
-                  x: 0
-                  y: 136
-                  text: "HA HELPERS"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label:
-                  x: 0
-                  y: 170
-                  width: "${settings_label_w2}"
-                  text: "Slideshow, opacity and transition settings\nsync to HA helpers automatically."
-                  text_font: montserrat_16
-                  text_color: "${c_text_soft}"
-                  long_mode: WRAP
-              - label:
-                  x: 0
-                  y: 216
-                  width: "${settings_label_w2}"
-                  text: "Immich URL and calendar events can still\nbe edited in HA: Settings > Helpers"
-                  text_font: montserrat_16
-                  text_color: "${c_text}"
-                  long_mode: WRAP
-              - obj:
-                  x: 0
-                  y: 270
-                  width: "${settings_label_w2}"
-                  height: 2
-                  bg_color: "${c_nav_btn}"
-                  border_width: 0
-              - label:
-                  id: settings_sec_wifi_lbl
-                  x: 0
-                  y: 282
-                  text: "WIFI SETUP"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label:
-                  x: 0
-                  y: 316
-                  width: "${settings_label_w2}"
-                  text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
-                  text_font: montserrat_16
-                  text_color: "${c_text_soft}"
-                  long_mode: WRAP
-              - label:
-                  x: 0
-                  y: 374
-                  width: "${settings_label_w2}"
-                  text: "SSID: ${fallback_ap_ssid}"
-                  text_font: montserrat_16
-                  text_color: "${c_text}"
-                  long_mode: WRAP
-              - label:
-                  x: 0
-                  y: 402
-                  width: "${settings_label_w2}"
-                  text: "Connect and open any webpage\nto configure WiFi."
-                  text_font: montserrat_16
-                  text_color: "${c_text_soft}"
-                  long_mode: WRAP
-              - obj:
-                  x: 0
-                  y: 460
-                  width: "${settings_label_w2}"
-                  height: 2
-                  bg_color: "${c_danger_btn}"
-                  border_width: 0
-              - label:
-                  x: 0
-                  y: 472
-                  text: "DIAGNOSTICS"
-                  text_font: montserrat_18
-                  text_color: "${c_error}"
-              - button:
-                  id: test_crash_btn
-                  x: 0
-                  y: 502
-                  width: 280
-                  height: 44
-                  radius: 8
-                  bg_color: "${c_danger_btn}"
-                  border_width: 1
-                  border_color: "${c_error}"
-                  on_click:
-                    - lambda: |-
-                        static uint32_t last_tap_ms = 0;
-                        uint32_t now = millis();
-                        if (now - last_tap_ms < 5000) {
-                          ESP_LOGW("crashtest", "User-triggered crash via settings button");
-                          abort();
-                        }
-                        last_tap_ms = now;
-                        lv_label_set_text(id(test_crash_btn_lbl), "Tap again within 5s to crash");
-                  widgets:
-                    - label:
-                        id: test_crash_btn_lbl
-                        align: CENTER
-                        text: "Crash banner test"
-                        text_font: montserrat_16
-                        text_color: "${c_text}"
+                      # ── Slideshow transition effect cycler ────────────
+                      - label:
+                          x: 0
+                          y: 552
+                          text: "Slide transition effect:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 580
+                          width: 56
+                          height: 40
+                          radius: 20
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "<"
+                          text_font: montserrat_18
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_transition_effect) - 1;
+                                if (v < 0) v = 5;
+                                id(g_transition_effect) = v;
+                                static const char* names[6] = {
+                                  "Crossfade", "Slide Left", "Slide Right",
+                                  "Slide Up", "Slide Down", "Zoom"
+                                };
+                                lv_label_set_text(id(settings_effect_val), names[v]);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_transition_effect
+                                  value: !lambda 'return id(g_transition_effect);'
+                      - label:
+                          id: settings_effect_val
+                          x: 70
+                          y: 586
+                          width: 220
+                          text: "Crossfade"
+                          text_font: montserrat_20
+                          text_color: "${c_text}"
+                      - button:
+                          x: 296
+                          y: 580
+                          width: 56
+                          height: 40
+                          radius: 20
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: ">"
+                          text_font: montserrat_18
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_transition_effect) + 1;
+                                if (v > 5) v = 0;
+                                id(g_transition_effect) = v;
+                                static const char* names[6] = {
+                                  "Crossfade", "Slide Left", "Slide Right",
+                                  "Slide Up", "Slide Down", "Zoom"
+                                };
+                                lv_label_set_text(id(settings_effect_val), names[v]);
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_transition_effect
+                                  value: !lambda 'return id(g_transition_effect);'
+
+                      # ── Panel theme cycler ────────────────────────────
+                      - label:
+                          x: 0
+                          y: 640
+                          text: "Panel colour theme:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 668
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "<"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - script.execute: panel_theme_prev
+                      - label:
+                          id: settings_theme_val
+                          x: 70
+                          y: 676
+                          width: 180
+                          text: "Midnight"
+                          text_font: montserrat_20
+                          text_color: "${c_text}"
+                      - button:
+                          x: 296
+                          y: 668
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: ">"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - script.execute: panel_theme_next
+
+                # ── Backlight + setup guide (right half) ─────────────────
+                - obj:
+                    id: settings_right_panel
+                    width: 48%
+                    height: 100%
+                    bg_color: "${c_card_bg_alt}"
+                    bg_opa: 96%
+                    border_color: "${c_card_border_dim}"
+                    border_width: 1
+                    radius: "${card_radius}"
+                    pad_left: 12
+                    pad_top: 20
+                    pad_right: 12
+                    widgets:
+                      - label:
+                          id: settings_sec_backlight_lbl
+                          x: 0
+                          y: 0
+                          text: "BACKLIGHT"
+                          text_font: montserrat_18
+                          text_color: "${c_accent}"
+                      - label:
+                          x: 0
+                          y: 34
+                          width: "92%"
+                          text: "Adjust panel brightness (10-100%):"
+                          text_font: montserrat_16
+                          text_color: "${c_text_soft}"
+                          long_mode: WRAP
+                      - button:
+                          x: 0
+                          y: 66
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "-"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_backlight_pct) - 10;
+                                if (v < 10) v = 10;
+                                id(g_backlight_pct) = v;
+                                char b[8];
+                                snprintf(b, sizeof(b), "%d%%", v);
+                                lv_label_set_text(id(settings_backlight_val), b);
+                            - light.turn_on:
+                                id: panel_backlight
+                                brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
+                      - label:
+                          id: settings_backlight_val
+                          x: 70
+                          y: 74
+                          width: 120
+                          text: "80%"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                      - button:
+                          x: 200
+                          y: 66
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "+"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_backlight_pct) + 10;
+                                if (v > 100) v = 100;
+                                id(g_backlight_pct) = v;
+                                char b[8];
+                                snprintf(b, sizeof(b), "%d%%", v);
+                                lv_label_set_text(id(settings_backlight_val), b);
+                            - light.turn_on:
+                                id: panel_backlight
+                                brightness: !lambda 'return id(g_backlight_pct) / 100.0f;'
+                      - obj:
+                          x: 0
+                          y: 124
+                          width: "92%"
+                          height: 2
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                      - label:
+                          id: settings_sec_helpers_lbl
+                          x: 0
+                          y: 136
+                          text: "HA HELPERS"
+                          text_font: montserrat_18
+                          text_color: "${c_accent}"
+                      - label:
+                          x: 0
+                          y: 170
+                          width: "92%"
+                          text: "Slideshow, opacity and transition settings\nsync to HA helpers automatically."
+                          text_font: montserrat_16
+                          text_color: "${c_text_soft}"
+                          long_mode: WRAP
+                      - label:
+                          x: 0
+                          y: 216
+                          width: "92%"
+                          text: "Immich URL and calendar events can still\nbe edited in HA: Settings > Helpers"
+                          text_font: montserrat_16
+                          text_color: "${c_text}"
+                          long_mode: WRAP
+                      - obj:
+                          x: 0
+                          y: 270
+                          width: "92%"
+                          height: 2
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                      - label:
+                          id: settings_sec_wifi_lbl
+                          x: 0
+                          y: 282
+                          text: "WIFI SETUP"
+                          text_font: montserrat_18
+                          text_color: "${c_accent}"
+                      - label:
+                          x: 0
+                          y: 316
+                          width: "92%"
+                          text: "If this panel can't connect to WiFi,\nit creates a fallback access point:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_soft}"
+                          long_mode: WRAP
+                      - label:
+                          x: 0
+                          y: 374
+                          width: "92%"
+                          text: "SSID: ${fallback_ap_ssid}"
+                          text_font: montserrat_16
+                          text_color: "${c_text}"
+                          long_mode: WRAP
+                      - label:
+                          x: 0
+                          y: 402
+                          width: "92%"
+                          text: "Connect and open any webpage\nto configure WiFi."
+                          text_font: montserrat_16
+                          text_color: "${c_text_soft}"
+                          long_mode: WRAP
+                      - obj:
+                          x: 0
+                          y: 460
+                          width: "92%"
+                          height: 2
+                          bg_color: "${c_danger_btn}"
+                          border_width: 0
+                      - label:
+                          x: 0
+                          y: 472
+                          text: "DIAGNOSTICS"
+                          text_font: montserrat_18
+                          text_color: "${c_error}"
+                      - button:
+                          id: test_crash_btn
+                          x: 0
+                          y: 502
+                          width: 280
+                          height: 44
+                          radius: 8
+                          bg_color: "${c_danger_btn}"
+                          border_width: 1
+                          border_color: "${c_error}"
+                          on_click:
+                            - lambda: |-
+                                static uint32_t last_tap_ms = 0;
+                                uint32_t now = millis();
+                                if (now - last_tap_ms < 5000) {
+                                  ESP_LOGW("crashtest", "User-triggered crash via settings button");
+                                  abort();
+                                }
+                                last_tap_ms = now;
+                                lv_label_set_text(id(test_crash_btn_lbl), "Tap again within 5s to crash");
+                          widgets:
+                            - label:
+                                id: test_crash_btn_lbl
+                                align: CENTER
+                                text: "Crash banner test"
+                                text_font: montserrat_16
+                                text_color: "${c_text}"
 
 
         - obj:

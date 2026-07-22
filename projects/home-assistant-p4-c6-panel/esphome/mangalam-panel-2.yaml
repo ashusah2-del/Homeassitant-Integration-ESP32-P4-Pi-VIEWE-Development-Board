@@ -61,7 +61,7 @@ substitutions:
   jf_cast4_label: ""
   jf_cast4_entity: ""
   idle_timeout: 30s
-  firmware_version: "0.6.0"
+  firmware_version: "0.7.0"
   fallback_ap_ssid: !secret panel2_fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"
@@ -83,13 +83,6 @@ substitutions:
   slideshow_img_fill: "1"
   slideshow_img_resize: 858x800
 
-  # Settings page two-column layout — scaled 1.25x (1280/1024) from panel1's
-  # literal values, preserving the same proportions/gaps.
-  settings_col_w: "625"
-  settings_col2_x: "640"
-  settings_label_w: "575"
-  settings_label_w2: "595"
-
   # Jellyfin page — scaled 1.25x (1280/1024) from panel1's literal values.
   jf_list_w: "625"
   jf_row_w: "595"
@@ -101,6 +94,7 @@ substitutions:
   jf_play_w: "245"
   jf_refresh_x: "1031"
   jf_refresh_w: "125"
+  jf_panel_h: "672"
   header_h: "58"
   footer_h: "44"
   content_h: "698"

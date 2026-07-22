@@ -655,7 +655,7 @@ lvgl:
             x: 16
             y: 68
             width: "${jf_list_w}"
-            height: 470
+            height: "${jf_panel_h}"
             align: TOP_LEFT
             bg_color: "${c_card_bg_alt}"
             bg_opa: 95%
@@ -901,7 +901,7 @@ lvgl:
             x: "${jf_detail_x}"
             y: 68
             width: "${jf_detail_w}"
-            height: 470
+            height: "${jf_panel_h}"
             align: TOP_LEFT
             bg_color: "${c_card_bg_alt}"
             bg_opa: 95%
