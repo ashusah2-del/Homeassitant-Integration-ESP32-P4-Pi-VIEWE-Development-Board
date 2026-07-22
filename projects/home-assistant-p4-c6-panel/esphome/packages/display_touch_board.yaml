@@ -473,6 +473,15 @@ script:
     then:
       - lambda: |-
           if (!id(g_lvgl_ready)) return;
+          // slideshow_page is scrollable by default (LVGL obj default) and
+          // was only ever cleared inside enter_layout_edit_mode — so during
+          // normal viewing, a swipe/drag anywhere on the page scrolled the
+          // whole page as one group, dragging the calendar/weather/clock/
+          // wake pills along with the photo instead of leaving them fixed
+          // at their configured positions. Clear it here so it's off by
+          // default; enter_layout_edit_mode's own clear_flag call is now
+          // redundant but harmless.
+          lv_obj_clear_flag(id(slideshow_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           const int W = lv_disp_get_hor_res(lv_disp_get_default());
           const int H = lv_disp_get_ver_res(lv_disp_get_default());
           if (!id(g_layout_use_absolute)) {
