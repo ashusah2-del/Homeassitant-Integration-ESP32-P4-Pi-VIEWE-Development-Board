@@ -48,7 +48,7 @@ substitutions:
   jf_cast4_label: ""
   jf_cast4_entity: ""
   idle_timeout: 30s
-  firmware_version: "0.7.0"
+  firmware_version: "0.7.1"
   fallback_ap_ssid: !secret fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"

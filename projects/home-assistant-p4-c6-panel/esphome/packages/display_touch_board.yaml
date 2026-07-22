@@ -468,6 +468,14 @@ script:
           lv_obj_add_flag(id(layout_settings_footer), LV_OBJ_FLAG_FLOATING);
           lv_obj_move_foreground(id(layout_settings_footer));
 
+  - id: prepare_diagnostics_page
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          lv_obj_add_flag(id(diag_left_panel), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_add_flag(id(diag_right_panel), LV_OBJ_FLAG_SCROLLABLE);
+
   - id: clear_page_scrollable
     mode: restart
     then:
@@ -1219,6 +1227,15 @@ touchscreen:
         - binary_sensor.template.publish:
             id: panel_touch_input
             state: ON
+        # TEMPORARY: visual touch-position debug marker (see top_layer).
+        - lambda: |-
+            if (!id(g_lvgl_ready)) return;
+            lv_obj_clear_flag(id(touch_debug_marker), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(id(touch_debug_marker), touch.x - 14, touch.y - 14);
+            lv_obj_move_foreground(id(touch_debug_marker));
+            char b[16];
+            snprintf(b, sizeof(b), "%d,%d", touch.x, touch.y);
+            lv_label_set_text(id(touch_debug_lbl), b);
     on_release:
       then:
         - binary_sensor.template.publish:
@@ -1275,6 +1292,32 @@ lvgl:
   # ── Top layer — overlays that must float above every page ──────
   top_layer:
     widgets:
+      # ── TEMPORARY touch debug marker — shows exactly where each tap is
+      # calculated to land, with its pixel coordinates. Remove once the
+      # room1_card on_click investigation is done.
+      - obj:
+          id: touch_debug_marker
+          x: 0
+          y: 0
+          width: 28
+          height: 28
+          radius: 14
+          bg_color: 0xFF00FF
+          bg_opa: 80%
+          border_width: 2
+          border_color: 0xFFFFFF
+          clickable: false
+          hidden: true
+          widgets:
+            - label:
+                id: touch_debug_lbl
+                align: BOTTOM_MID
+                y: 30
+                text: "0,0"
+                text_font: montserrat_14
+                text_color: 0xFFFFFF
+                bg_color: 0x000000
+                bg_opa: 80%
       # ── Status toast — single error/status surface for the whole panel.
       # Shown via the panel_toast script (auto-hides after 8 s, tap to
       # dismiss). Lives on the LVGL top layer so it floats over any page.
@@ -2123,6 +2166,9 @@ lvgl:
                 radius: "${card_radius}"
                 pad_all: 0
                 on_click:
+                  # TEMPORARY diagnostic — remove once the tap issue is confirmed fixed.
+                  - lambda: |-
+                      ESP_LOGE("room1_tap", "room1_card on_click FIRED, toggling %s", "${room1_light}");
                   - homeassistant.service:
                       service: homeassistant.toggle
                       data:
@@ -5234,222 +5280,247 @@ lvgl:
                   widgets:
                     - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
 
-        - label:
-            x: 32
-            y: 82
-            width: 900
-            text: "Choose which slideshow overlays are visible. Hide the layout button for a clean photo frame; open Layout from Settings anytime."
-            text_font: montserrat_18
-            text_color: "${c_text_soft}"
-            long_mode: WRAP
-
         - obj:
-            x: 32
-            y: 138
-            width: 960
-            height: 300
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 96%
-            border_color: "${c_header_border}"
-            border_width: 2
-            radius: "${card_radius}"
-            pad_all: 0
+            id: layout_content
+            x: 0
+            y: "${header_h}"
+            width: 100%
+            height: "${content_h}"
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 8
+            scrollbar_mode: "off"
+            scrollable: false
+            clickable: false
+            layout:
+              type: flex
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: STRETCH
+              pad_row: 10
             widgets:
-              - label:
-                  x: 22
-                  y: 18
-                  text: "VISIBILITY"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - obj:
-                  x: 22
-                  y: 58
-                  width: 916
-                  height: 46
-                  bg_color: "${c_row_bg}"
-                  bg_opa: 100%
-                  border_width: 0
-                  radius: 10
-                  widgets:
-                    - label: { align: LEFT_MID, x: 16, text: "Calendar", text_font: montserrat_18, text_color: "${c_text}" }
-                    - label: { align: CENTER, text: "Upcoming events panel", text_font: montserrat_16, text_color: "${c_text_muted}" }
-                    - button:
-                        align: RIGHT_MID
-                        x: -14
-                        width: 100
-                        height: 32
-                        radius: 8
-                        bg_color: "${c_nav_btn}"
-                        on_click:
-                          - lambda: 'id(g_layout_calendar_visible) = !id(g_layout_calendar_visible);'
-                          - script.execute: apply_slideshow_layout_visibility
-                        widgets:
-                          - label: { id: layout_calendar_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
-              - obj:
-                  x: 22
-                  y: 106
-                  width: 916
-                  height: 46
-                  bg_color: "${c_row_bg}"
-                  bg_opa: 100%
-                  border_width: 0
-                  radius: 10
-                  widgets:
-                    - label: { align: LEFT_MID, x: 16, text: "Weather", text_font: montserrat_18, text_color: "${c_text}" }
-                    - label: { align: CENTER, text: "Forecast icon, temperature, humidity", text_font: montserrat_16, text_color: "${c_text_muted}" }
-                    - button:
-                        align: RIGHT_MID
-                        x: -14
-                        width: 100
-                        height: 32
-                        radius: 8
-                        bg_color: "${c_nav_btn}"
-                        on_click:
-                          - lambda: 'id(g_layout_weather_visible) = !id(g_layout_weather_visible);'
-                          - script.execute: apply_slideshow_layout_visibility
-                        widgets:
-                          - label: { id: layout_weather_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
-              - obj:
-                  x: 22
-                  y: 154
-                  width: 916
-                  height: 46
-                  bg_color: "${c_row_bg}"
-                  bg_opa: 100%
-                  border_width: 0
-                  radius: 10
-                  widgets:
-                    - label: { align: LEFT_MID, x: 16, text: "Time", text_font: montserrat_18, text_color: "${c_text}" }
-                    - label: { align: CENTER, text: "Clock, date, and readability pill", text_font: montserrat_16, text_color: "${c_text_muted}" }
-                    - button:
-                        align: RIGHT_MID
-                        x: -14
-                        width: 100
-                        height: 32
-                        radius: 8
-                        bg_color: "${c_nav_btn}"
-                        on_click:
-                          - lambda: 'id(g_layout_clock_visible) = !id(g_layout_clock_visible);'
-                          - script.execute: apply_slideshow_layout_visibility
-                        widgets:
-                          - label: { id: layout_clock_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
-              - obj:
-                  x: 22
-                  y: 202
-                  width: 916
-                  height: 46
-                  bg_color: "${c_row_bg}"
-                  bg_opa: 100%
-                  border_width: 0
-                  radius: 10
-                  widgets:
-                    - label: { align: LEFT_MID, x: 16, text: "Wake Word", text_font: montserrat_18, text_color: "${c_text}" }
-                    - label: { align: CENTER, text: "Okay Nabu status pill", text_font: montserrat_16, text_color: "${c_text_muted}" }
-                    - button:
-                        align: RIGHT_MID
-                        x: -14
-                        width: 100
-                        height: 32
-                        radius: 8
-                        bg_color: "${c_nav_btn}"
-                        on_click:
-                          - lambda: 'id(g_layout_wake_visible) = !id(g_layout_wake_visible);'
-                          - script.execute: apply_slideshow_layout_visibility
-                        widgets:
-                          - label: { id: layout_wake_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
-              - obj:
-                  x: 22
-                  y: 250
-                  width: 916
-                  height: 46
-                  bg_color: "${c_row_bg}"
-                  bg_opa: 100%
-                  border_width: 0
-                  radius: 10
-                  widgets:
-                    - label: { align: LEFT_MID, x: 16, text: "Layout button", text_font: montserrat_18, text_color: "${c_text}" }
-                    - label: { align: CENTER, text: "Layout v… shortcut (bottom-left)", text_font: montserrat_16, text_color: "${c_text_muted}" }
-                    - button:
-                        align: RIGHT_MID
-                        x: -14
-                        width: 100
-                        height: 32
-                        radius: 8
-                        bg_color: "${c_nav_btn}"
-                        on_click:
-                          - lambda: 'id(g_layout_bubble_visible) = !id(g_layout_bubble_visible);'
-                          - script.execute: apply_slideshow_layout_visibility
-                        widgets:
-                          - label: { id: layout_bubble_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
+            - label:
+                width: "96%"
+                text: "Choose which slideshow overlays are visible. Hide the layout button for a clean photo frame; open Layout from Settings anytime."
+                text_font: montserrat_18
+                text_color: "${c_text_soft}"
+                long_mode: WRAP
 
-        - obj:
-            x: 32
-            y: 448
-            width: 960
-            height: 108
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 96%
-            border_color: "${c_header_border}"
-            border_width: 2
-            radius: "${card_radius}"
-            pad_all: 0
-            widgets:
-              - label:
-                  x: 22
-                  y: 18
-                  text: "POSITIONING"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - button:
-                  x: 22
-                  y: 58
-                  width: 230
-                  height: 44
-                  radius: 10
-                  bg_color: "${c_accent_bg}"
-                  border_width: 1
-                  border_color: "${c_accent}"
-                  on_click:
-                    - lvgl.page.show: slideshow_page
-                    - script.execute: enter_layout_edit_mode
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "Edit Positions"
-                        text_font: montserrat_16
-                        text_color: "${c_text}"
-              - button:
-                  x: 276
-                  y: 58
-                  width: 190
-                  height: 44
-                  radius: 10
-                  bg_color: "${c_info_btn}"
-                  border_width: 1
-                  border_color: "${c_info}"
-                  on_click:
-                    - lambda: |-
-                        id(g_layout_calendar_visible) = true;
-                        id(g_layout_weather_visible) = true;
-                        id(g_layout_clock_visible) = true;
-                        id(g_layout_wake_visible) = true;
-                        id(g_layout_bubble_visible) = true;
-                    - script.execute: reset_layout_defaults
-                    - script.execute: apply_slideshow_layout_visibility
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text: "Reset Defaults"
-                        text_font: montserrat_16
-                        text_color: "${c_info_soft}"
-              - label:
-                  x: 500
-                  y: 60
-                  width: 420
-                  text: "Hidden controls are still shown while editing positions so they can be moved before being hidden again."
-                  text_font: montserrat_16
-                  text_color: "${c_text_soft}"
-                  long_mode: WRAP
+            - obj:
+                id: layout_visibility_card
+                width: 100%
+                flex_grow: 1
+                bg_color: "${c_card_bg_alt}"
+                bg_opa: 96%
+                border_color: "${c_header_border}"
+                border_width: 2
+                radius: "${card_radius}"
+                pad_all: 0
+                widgets:
+                  - label:
+                      x: 22
+                      y: 18
+                      text: "VISIBILITY"
+                      text_font: montserrat_18
+                      text_color: "${c_accent}"
+                  - obj:
+                      x: 22
+                      y: 58
+                      width: "96%"
+                      height: 46
+                      bg_color: "${c_row_bg}"
+                      bg_opa: 100%
+                      border_width: 0
+                      radius: 10
+                      widgets:
+                        - label: { align: LEFT_MID, x: 16, text: "Calendar", text_font: montserrat_18, text_color: "${c_text}" }
+                        - label: { align: CENTER, text: "Upcoming events panel", text_font: montserrat_16, text_color: "${c_text_muted}" }
+                        - button:
+                            align: RIGHT_MID
+                            x: -14
+                            width: 100
+                            height: 32
+                            radius: 8
+                            bg_color: "${c_nav_btn}"
+                            on_click:
+                              - lambda: 'id(g_layout_calendar_visible) = !id(g_layout_calendar_visible);'
+                              - script.execute: apply_slideshow_layout_visibility
+                            widgets:
+                              - label: { id: layout_calendar_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
+                  - obj:
+                      x: 22
+                      y: 106
+                      width: "96%"
+                      height: 46
+                      bg_color: "${c_row_bg}"
+                      bg_opa: 100%
+                      border_width: 0
+                      radius: 10
+                      widgets:
+                        - label: { align: LEFT_MID, x: 16, text: "Weather", text_font: montserrat_18, text_color: "${c_text}" }
+                        - label: { align: CENTER, text: "Forecast icon, temperature, humidity", text_font: montserrat_16, text_color: "${c_text_muted}" }
+                        - button:
+                            align: RIGHT_MID
+                            x: -14
+                            width: 100
+                            height: 32
+                            radius: 8
+                            bg_color: "${c_nav_btn}"
+                            on_click:
+                              - lambda: 'id(g_layout_weather_visible) = !id(g_layout_weather_visible);'
+                              - script.execute: apply_slideshow_layout_visibility
+                            widgets:
+                              - label: { id: layout_weather_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
+                  - obj:
+                      x: 22
+                      y: 154
+                      width: "96%"
+                      height: 46
+                      bg_color: "${c_row_bg}"
+                      bg_opa: 100%
+                      border_width: 0
+                      radius: 10
+                      widgets:
+                        - label: { align: LEFT_MID, x: 16, text: "Time", text_font: montserrat_18, text_color: "${c_text}" }
+                        - label: { align: CENTER, text: "Clock, date, and readability pill", text_font: montserrat_16, text_color: "${c_text_muted}" }
+                        - button:
+                            align: RIGHT_MID
+                            x: -14
+                            width: 100
+                            height: 32
+                            radius: 8
+                            bg_color: "${c_nav_btn}"
+                            on_click:
+                              - lambda: 'id(g_layout_clock_visible) = !id(g_layout_clock_visible);'
+                              - script.execute: apply_slideshow_layout_visibility
+                            widgets:
+                              - label: { id: layout_clock_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
+                  - obj:
+                      x: 22
+                      y: 202
+                      width: "96%"
+                      height: 46
+                      bg_color: "${c_row_bg}"
+                      bg_opa: 100%
+                      border_width: 0
+                      radius: 10
+                      widgets:
+                        - label: { align: LEFT_MID, x: 16, text: "Wake Word", text_font: montserrat_18, text_color: "${c_text}" }
+                        - label: { align: CENTER, text: "Okay Nabu status pill", text_font: montserrat_16, text_color: "${c_text_muted}" }
+                        - button:
+                            align: RIGHT_MID
+                            x: -14
+                            width: 100
+                            height: 32
+                            radius: 8
+                            bg_color: "${c_nav_btn}"
+                            on_click:
+                              - lambda: 'id(g_layout_wake_visible) = !id(g_layout_wake_visible);'
+                              - script.execute: apply_slideshow_layout_visibility
+                            widgets:
+                              - label: { id: layout_wake_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
+                  - obj:
+                      x: 22
+                      y: 250
+                      width: "96%"
+                      height: 46
+                      bg_color: "${c_row_bg}"
+                      bg_opa: 100%
+                      border_width: 0
+                      radius: 10
+                      widgets:
+                        - label: { align: LEFT_MID, x: 16, text: "Layout button", text_font: montserrat_18, text_color: "${c_text}" }
+                        - label: { align: CENTER, text: "Layout v… shortcut (bottom-left)", text_font: montserrat_16, text_color: "${c_text_muted}" }
+                        - button:
+                            align: RIGHT_MID
+                            x: -14
+                            width: 100
+                            height: 32
+                            radius: 8
+                            bg_color: "${c_nav_btn}"
+                            on_click:
+                              - lambda: 'id(g_layout_bubble_visible) = !id(g_layout_bubble_visible);'
+                              - script.execute: apply_slideshow_layout_visibility
+                            widgets:
+                              - label: { id: layout_bubble_toggle_lbl, align: CENTER, text: "Hide", text_font: montserrat_16, text_color: "${c_text}" }
+
+            - obj:
+                id: layout_positioning_card
+                width: 100%
+                height: "16%"
+                bg_color: "${c_card_bg_alt}"
+                bg_opa: 96%
+                border_color: "${c_header_border}"
+                border_width: 2
+                radius: "${card_radius}"
+                pad_all: 0
+                widgets:
+                  - label:
+                      x: 22
+                      y: 18
+                      text: "POSITIONING"
+                      text_font: montserrat_18
+                      text_color: "${c_accent}"
+                  - obj:
+                      x: 22
+                      y: 58
+                      width: "96%"
+                      height: 44
+                      bg_opa: TRANSP
+                      border_width: 0
+                      pad_all: 0
+                      scrollable: false
+                      clickable: false
+                      layout:
+                        type: flex
+                        flex_flow: ROW
+                        flex_align_cross: CENTER
+                        pad_column: 20
+                      widgets:
+                        - button:
+                            width: 230
+                            height: 44
+                            radius: 10
+                            bg_color: "${c_accent_bg}"
+                            border_width: 1
+                            border_color: "${c_accent}"
+                            on_click:
+                              - lvgl.page.show: slideshow_page
+                              - script.execute: enter_layout_edit_mode
+                            widgets:
+                              - label:
+                                  align: CENTER
+                                  text: "Edit Positions"
+                                  text_font: montserrat_16
+                                  text_color: "${c_text}"
+                        - button:
+                            width: 190
+                            height: 44
+                            radius: 10
+                            bg_color: "${c_info_btn}"
+                            border_width: 1
+                            border_color: "${c_info}"
+                            on_click:
+                              - lambda: |-
+                                  id(g_layout_calendar_visible) = true;
+                                  id(g_layout_weather_visible) = true;
+                                  id(g_layout_clock_visible) = true;
+                                  id(g_layout_wake_visible) = true;
+                                  id(g_layout_bubble_visible) = true;
+                              - script.execute: reset_layout_defaults
+                              - script.execute: apply_slideshow_layout_visibility
+                            widgets:
+                              - label:
+                                  align: CENTER
+                                  text: "Reset Defaults"
+                                  text_font: montserrat_16
+                                  text_color: "${c_info_soft}"
+                        - label:
+                            flex_grow: 1
+                            text: "Hidden controls are still shown while editing positions so they can be moved before being hidden again."
+                            text_font: montserrat_16
+                            text_color: "${c_text_soft}"
+                            long_mode: WRAP
 
         - obj:
             id: layout_settings_footer
@@ -5496,6 +5567,7 @@ lvgl:
       bg_color: "${c_page_bg}"
       on_load:
         - script.execute: refresh_diagnostics_labels
+        - script.execute: prepare_diagnostics_page
       widgets:
         - obj:
             id: diag_hdr_bar
@@ -5554,70 +5626,83 @@ lvgl:
                     - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
 
         - obj:
-            id: diag_left_panel
-            x: 20
-            y: 78
-            width: 490
-            height: 460
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 96%
-            border_color: "${c_card_border_dim}"
-            border_width: 1
-            radius: "${card_radius}"
-            pad_left: 24
-            pad_top: 20
+            id: diag_content
+            x: 0
+            y: "${header_h}"
+            width: 100%
+            height: "${content_h}"
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 8
+            scrollbar_mode: "off"
+            scrollable: false
+            clickable: false
+            layout:
+              type: flex
+              flex_flow: ROW
+              pad_column: 12
             widgets:
-              - label:
-                  id: diag_sec_conn_lbl
-                  x: 0
-                  y: 0
-                  text: "CONNECTION"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label: { id: diag_wifi_lbl, x: 0, y: 34, width: 450, text: "WiFi: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_rssi_lbl, x: 0, y: 62, width: 450, text: "Signal: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_ip_lbl, x: 0, y: 90, width: 450, text: "IP: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_ha_lbl, x: 0, y: 118, width: 450, text: "Home Assistant API: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - obj: { x: 0, y: 154, width: 450, height: 2, bg_color: "${c_nav_btn}", border_width: 0 }
-              - label:
-                  id: diag_sec_sys_lbl
-                  x: 0
-                  y: 166
-                  text: "SYSTEM"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label: { id: diag_heap_lbl, x: 0, y: 200, width: 450, text: "Heap free: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_psram_lbl, x: 0, y: 228, width: 450, text: "PSRAM free: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_loop_lbl, x: 0, y: 256, width: 450, text: "Loop time: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_uptime_lbl, x: 0, y: 284, width: 450, text: "Uptime: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_fw_lbl, x: 0, y: 312, width: 450, text: "Firmware: v${firmware_version}", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_reset_lbl, x: 0, y: 340, width: 450, text: "Last reset: --", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: WRAP }
+            - obj:
+                id: diag_left_panel
+                width: 48%
+                height: 100%
+                bg_color: "${c_card_bg_alt}"
+                bg_opa: 96%
+                border_color: "${c_card_border_dim}"
+                border_width: 1
+                radius: "${card_radius}"
+                pad_left: 24
+                pad_top: 20
+                widgets:
+                  - label:
+                      id: diag_sec_conn_lbl
+                      x: 0
+                      y: 0
+                      text: "CONNECTION"
+                      text_font: montserrat_18
+                      text_color: "${c_accent}"
+                  - label: { id: diag_wifi_lbl, x: 0, y: 34, width: "92%", text: "WiFi: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_rssi_lbl, x: 0, y: 62, width: "92%", text: "Signal: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_ip_lbl, x: 0, y: 90, width: "92%", text: "IP: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_ha_lbl, x: 0, y: 118, width: "92%", text: "Home Assistant API: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - obj: { x: 0, y: 154, width: "92%", height: 2, bg_color: "${c_nav_btn}", border_width: 0 }
+                  - label:
+                      id: diag_sec_sys_lbl
+                      x: 0
+                      y: 166
+                      text: "SYSTEM"
+                      text_font: montserrat_18
+                      text_color: "${c_accent}"
+                  - label: { id: diag_heap_lbl, x: 0, y: 200, width: "92%", text: "Heap free: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_psram_lbl, x: 0, y: 228, width: "92%", text: "PSRAM free: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_loop_lbl, x: 0, y: 256, width: "92%", text: "Loop time: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_uptime_lbl, x: 0, y: 284, width: "92%", text: "Uptime: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_fw_lbl, x: 0, y: 312, width: "92%", text: "Firmware: v${firmware_version}", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_reset_lbl, x: 0, y: 340, width: "92%", text: "Last reset: --", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: WRAP }
 
-        - obj:
-            id: diag_right_panel
-            x: 514
-            y: 78
-            width: 490
-            height: 460
-            bg_color: "${c_card_bg_alt}"
-            bg_opa: 96%
-            border_color: "${c_card_border_dim}"
-            border_width: 1
-            radius: "${card_radius}"
-            pad_left: 24
-            pad_top: 20
-            widgets:
-              - label:
-                  id: diag_sec_int_lbl
-                  x: 0
-                  y: 0
-                  text: "INTEGRATIONS"
-                  text_font: montserrat_18
-                  text_color: "${c_accent}"
-              - label: { id: diag_immich_lbl, x: 0, y: 34, width: 450, text: "Immich: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_tuya_lbl, x: 0, y: 62, width: 450, text: "Tuya bridge: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_jf_lbl, x: 0, y: 90, width: 450, text: "Jellyfin proxy: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-              - label: { id: diag_ih_lbl, x: 0, y: 118, width: 450, text: "iHost bridge: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+            - obj:
+                id: diag_right_panel
+                width: 48%
+                height: 100%
+                bg_color: "${c_card_bg_alt}"
+                bg_opa: 96%
+                border_color: "${c_card_border_dim}"
+                border_width: 1
+                radius: "${card_radius}"
+                pad_left: 24
+                pad_top: 20
+                widgets:
+                  - label:
+                      id: diag_sec_int_lbl
+                      x: 0
+                      y: 0
+                      text: "INTEGRATIONS"
+                      text_font: montserrat_18
+                      text_color: "${c_accent}"
+                  - label: { id: diag_immich_lbl, x: 0, y: 34, width: "92%", text: "Immich: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_tuya_lbl, x: 0, y: 62, width: "92%", text: "Tuya bridge: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_jf_lbl, x: 0, y: 90, width: "92%", text: "Jellyfin proxy: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_ih_lbl, x: 0, y: 118, width: "92%", text: "iHost bridge: --", text_font: montserrat_16, text_color: "${c_text_2}" }
 
         - obj:
             id: diag_footer

@@ -34,7 +34,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
-from PIL import Image
+from PIL import Image, ImageOps
 
 try:
     import tinytuya
@@ -103,7 +103,9 @@ def encode_sof0(raw: bytes, max_w: int, max_h: int,
     whose slideshow area isn't close to the canvas's own aspect ratio
     (e.g. a near-square area) don't end up with large black bars.
     """
-    img = Image.open(io.BytesIO(raw)).convert("RGB")
+    img = Image.open(io.BytesIO(raw))
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGB")
     cw = max(16, (max_w // 16) * 16)
     ch = max(16, (max_h // 16) * 16)
     if fill:

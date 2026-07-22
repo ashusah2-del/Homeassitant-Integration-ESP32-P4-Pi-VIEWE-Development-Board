@@ -32,6 +32,24 @@ packages; per-panel differences are substitution-driven.
   mode, so swiping the photo dragged the calendar/weather/clock/wake pills
   along with it instead of leaving them at their configured positions.
 
+## [0.7.1] - 2026-07-22
+
+Resolution-fill follow-up for the second panel, plus a proxy bug fix
+affecting both panels.
+
+- `diagnostics_page`, `layout_settings_page`, `ihost_page`, and `tuya_page`
+  converted from hand-placed 1024×600-sized absolute pixel layouts to
+  flex/percentage containers (matching the pattern already proven on
+  `dashboard_page`/`settings_page`), so they properly fill the screen on
+  the 10.1" panel instead of leaving blank margins. `tuya_page`'s two
+  5-socket button rows also converted to flex rows instead of per-button
+  fixed x-offsets.
+- Fixed: `panel-hub`'s `encode_sof0()` (and the deprecated `immich-proxy`'s
+  equivalent) opened source JPEGs without applying `ImageOps.exif_transpose`,
+  so photos carrying an EXIF `Orientation` tag (common on phone photos)
+  were re-encoded with their raw sensor pixel data, appearing rotated
+  90°/270° in the slideshow regardless of which panel displayed them.
+
 ## [0.6.0] - 2026-07-10
 
 Design-token system, flex layouts, top-layer toast, central error handling

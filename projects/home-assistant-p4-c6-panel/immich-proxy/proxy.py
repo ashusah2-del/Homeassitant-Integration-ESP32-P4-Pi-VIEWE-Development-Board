@@ -21,7 +21,7 @@ from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("immich-proxy")
@@ -136,6 +136,7 @@ def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MA
     Default (fill=False) preserves the original letterbox behavior exactly.
     """
     img = Image.open(io.BytesIO(jpeg_raw))
+    img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
     canvas_w = max(16, (target_w // 16) * 16)
     canvas_h = max(16, (target_h // 16) * 16)
@@ -245,6 +246,7 @@ def fetch_camera_snapshot(entity_name: str, size_w: int, size_h: int) -> bytes |
     try:
         raw = _get(url, {"Authorization": f"Bearer {HA_TOKEN}"}, timeout=5)
         img = Image.open(io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img)
         img = img.convert("RGB")
         img.thumbnail((size_w, size_h), Image.Resampling.LANCZOS)
         out = io.BytesIO()

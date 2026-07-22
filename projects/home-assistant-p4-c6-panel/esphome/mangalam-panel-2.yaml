@@ -61,7 +61,7 @@ substitutions:
   jf_cast4_label: ""
   jf_cast4_entity: ""
   idle_timeout: 30s
-  firmware_version: "0.7.0"
+  firmware_version: "0.7.1"
   fallback_ap_ssid: !secret panel2_fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"
@@ -502,6 +502,17 @@ esp32_hosted:
   d1_pin: GPIO15
   d2_pin: GPIO16
   d3_pin: GPIO17
+
+# Temporary: verbose raw-vs-calculated touch coordinates to diagnose why
+# room1_card's on_click isn't firing on the dashboard. Remove once fixed.
+logger:
+  level: VERBOSE
+  logs:
+    touchscreen: VERBOSE
+    touchscreen.gsl3680: VERBOSE
+    wifi: DEBUG
+    api: DEBUG
+    api.service: DEBUG
 
 packages:
   core: !include packages/core_ha.yaml
