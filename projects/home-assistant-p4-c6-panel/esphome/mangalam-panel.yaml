@@ -83,6 +83,14 @@ substitutions:
   header_h: "58"
   footer_h: "44"
   content_h: "498"
+  # Dashboard/tado 3x2 card grid — fixed pixel size instead of flex
+  # percentage sizing. LVGL's flex ROW_WRAP click hit-testing appears to
+  # break for percentage-sized children on panel 2 specifically (on_click
+  # never fires despite confirmed correct touch coordinates); switching to
+  # explicit pixel sizes per panel is the workaround. 32%/48% of dash_grid's
+  # content box (${screen_w}-8, ${content_h}-8 for the pad_all:4 gutter).
+  dash_card_w: "325"
+  dash_card_h: "235"
   gutter: "16"
   card_radius: "16"
   btn_radius: "10"

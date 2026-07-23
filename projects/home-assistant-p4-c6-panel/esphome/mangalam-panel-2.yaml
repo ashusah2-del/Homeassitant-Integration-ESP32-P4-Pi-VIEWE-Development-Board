@@ -98,6 +98,14 @@ substitutions:
   header_h: "58"
   footer_h: "44"
   content_h: "698"
+  # Dashboard/tado 3x2 card grid — fixed pixel size instead of flex
+  # percentage sizing. LVGL's flex ROW_WRAP click hit-testing appears to
+  # break for percentage-sized children on panel 2 specifically (on_click
+  # never fires despite confirmed correct touch coordinates); switching to
+  # explicit pixel sizes per panel is the workaround. 32%/48% of dash_grid's
+  # content box (${screen_w}-8, ${content_h}-8 for the pad_all:4 gutter).
+  dash_card_w: "407"
+  dash_card_h: "331"
   gutter: "16"
   card_radius: "16"
   btn_radius: "10"
@@ -502,17 +510,6 @@ esp32_hosted:
   d1_pin: GPIO15
   d2_pin: GPIO16
   d3_pin: GPIO17
-
-# Temporary: verbose raw-vs-calculated touch coordinates to diagnose why
-# room1_card's on_click isn't firing on the dashboard. Remove once fixed.
-logger:
-  level: VERBOSE
-  logs:
-    touchscreen: VERBOSE
-    touchscreen.gsl3680: VERBOSE
-    wifi: DEBUG
-    api: DEBUG
-    api.service: DEBUG
 
 packages:
   core: !include packages/core_ha.yaml

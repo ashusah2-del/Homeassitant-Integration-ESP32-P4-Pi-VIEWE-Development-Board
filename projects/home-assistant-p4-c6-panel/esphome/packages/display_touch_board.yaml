@@ -258,6 +258,17 @@ globals:
   # 8-event pages that cycle every 30 s.
   - { id: g_calendar_events_full, type: std::string, restore_value: no, initial_value: '""' }
   - { id: g_calendar_page,         type: int, restore_value: no, initial_value: '0' }
+  # TEMPORARY — touch-jitter diagnostic. Tracks how far the reported touch
+  # coordinate drifts between the first sample of a press and every
+  # subsequent sample of the same gesture, to check whether panel 2's
+  # GSL3680 driver is noisy enough while a finger is held still that LVGL
+  # mistakes it for the start of a drag and cancels the click. Remove once
+  # the tap-doesn't-click investigation is resolved.
+  - { id: g_touch_active,     type: bool,   restore_value: no, initial_value: 'false' }
+  - { id: g_touch_start_x,    type: int,    restore_value: no, initial_value: '0' }
+  - { id: g_touch_start_y,    type: int,    restore_value: no, initial_value: '0' }
+  - { id: g_touch_max_delta,  type: int,    restore_value: no, initial_value: '0' }
+  - { id: g_touch_samples,    type: int,    restore_value: no, initial_value: '0' }
 
 # Shared online_image component used for both Immich photos and stock fallback images.
 # URL points to the local baseline-JPEG proxy (re-encodes Immich previews as guaranteed SOF0).
@@ -502,6 +513,28 @@ script:
           lv_obj_clear_flag(id(jellyfin_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_clear_flag(id(ihost_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_clear_flag(id(tuya_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          // Same bug, one level deeper: the individual dashboard/tado room
+          // cards are themselves plain lv_obj widgets with on_click, and
+          // never had SCROLLABLE cleared either — only their parent grid
+          // container did. A page-level fix doesn't help a card-level
+          // scrollable flag. This is what was actually eating the Drawing
+          // Room tile's tap: touch coordinates land correctly on the card
+          // (confirmed via the touch-position debug marker) but the
+          // GSL3680 touch driver's slightly noisier coordinate stream
+          // makes LVGL mistake the tap for the start of a scroll on the
+          // card, so the click never fires.
+          lv_obj_clear_flag(id(room1_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(room2_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(room3_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(room4_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(room5_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(room6_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado1_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado2_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado3_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado4_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado5_card), LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(tado6_card), LV_OBJ_FLAG_SCROLLABLE);
 
   - id: apply_slideshow_layout_positions
     mode: restart
@@ -1227,20 +1260,46 @@ touchscreen:
         - binary_sensor.template.publish:
             id: panel_touch_input
             state: ON
-        # TEMPORARY: visual touch-position debug marker (see top_layer).
+        # TEMPORARY touch-jitter diagnostic — see globals block above.
         - lambda: |-
-            if (!id(g_lvgl_ready)) return;
-            lv_obj_clear_flag(id(touch_debug_marker), LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_pos(id(touch_debug_marker), touch.x - 14, touch.y - 14);
-            lv_obj_move_foreground(id(touch_debug_marker));
-            char b[16];
-            snprintf(b, sizeof(b), "%d,%d", touch.x, touch.y);
-            lv_label_set_text(id(touch_debug_lbl), b);
+            if (!id(g_touch_active)) {
+              id(g_touch_active) = true;
+              id(g_touch_start_x) = touch.x;
+              id(g_touch_start_y) = touch.y;
+              id(g_touch_max_delta) = 0;
+              id(g_touch_samples) = 0;
+            }
+            id(g_touch_samples) += 1;
+            int dx = touch.x - id(g_touch_start_x);
+            int dy = touch.y - id(g_touch_start_y);
+            int dist2 = dx * dx + dy * dy;
+            if (dist2 > id(g_touch_max_delta)) id(g_touch_max_delta) = dist2;
+            ESP_LOGW("touch_jitter", "sample=%d x=%d y=%d dx=%d dy=%d",
+                     id(g_touch_samples), touch.x, touch.y, dx, dy);
+    on_update:
+      then:
+        # TEMPORARY touch-jitter diagnostic — on_touch only fires once, at the
+        # start of a gesture. on_update fires on every real coordinate change
+        # while held, AND once more at the moment of release — this is the
+        # only way to see the actual release-time coordinate and detect any
+        # movement between press and release.
+        - lambda: |-
+            if (touches.empty()) return;
+            auto &tp = touches[0];
+            int dx = tp.x - id(g_touch_start_x);
+            int dy = tp.y - id(g_touch_start_y);
+            ESP_LOGW("touch_jitter", "UPDATE state=%d x=%d y=%d dx=%d dy=%d",
+                     tp.state, tp.x, tp.y, dx, dy);
     on_release:
       then:
         - binary_sensor.template.publish:
             id: panel_touch_input
             state: OFF
+        # TEMPORARY touch-jitter diagnostic — see globals block above.
+        - lambda: |-
+            ESP_LOGW("touch_jitter", "RELEASE samples=%d max_dist=%.1fpx",
+                     id(g_touch_samples), sqrt((double) id(g_touch_max_delta)));
+            id(g_touch_active) = false;
 
 binary_sensor:
   - platform: template
@@ -1292,32 +1351,6 @@ lvgl:
   # ── Top layer — overlays that must float above every page ──────
   top_layer:
     widgets:
-      # ── TEMPORARY touch debug marker — shows exactly where each tap is
-      # calculated to land, with its pixel coordinates. Remove once the
-      # room1_card on_click investigation is done.
-      - obj:
-          id: touch_debug_marker
-          x: 0
-          y: 0
-          width: 28
-          height: 28
-          radius: 14
-          bg_color: 0xFF00FF
-          bg_opa: 80%
-          border_width: 2
-          border_color: 0xFFFFFF
-          clickable: false
-          hidden: true
-          widgets:
-            - label:
-                id: touch_debug_lbl
-                align: BOTTOM_MID
-                y: 30
-                text: "0,0"
-                text_font: montserrat_14
-                text_color: 0xFFFFFF
-                bg_color: 0x000000
-                bg_opa: 80%
       # ── Status toast — single error/status surface for the whole panel.
       # Shown via the panel_toast script (auto-hides after 8 s, tap to
       # dismiss). Lives on the LVGL top layer so it floats over any page.
@@ -2157,8 +2190,8 @@ lvgl:
             widgets:
             - obj:
                 id: room1_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2166,9 +2199,9 @@ lvgl:
                 radius: "${card_radius}"
                 pad_all: 0
                 on_click:
-                  # TEMPORARY diagnostic — remove once the tap issue is confirmed fixed.
+                  # TEMPORARY diagnostic — remove once resolved.
                   - lambda: |-
-                      ESP_LOGE("room1_tap", "room1_card on_click FIRED, toggling %s", "${room1_light}");
+                      ESP_LOGE("room1_tap", "room1_card on_click FIRED");
                   - homeassistant.service:
                       service: homeassistant.toggle
                       data:
@@ -2229,8 +2262,8 @@ lvgl:
             # Card 2 — Office (dimmable)
             - obj:
                 id: room2_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2311,8 +2344,8 @@ lvgl:
             # Card 3 — Hallway (dimmable, no temp sensors)
             - obj:
                 id: room3_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2377,8 +2410,8 @@ lvgl:
             # Card 4 — Stairs (dimmable, no temp sensors)
             - obj:
                 id: room4_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2459,8 +2492,8 @@ lvgl:
             # Card 5 — Bedroom (dimmable)
             - obj:
                 id: room5_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2541,8 +2574,8 @@ lvgl:
             # Card 6 — Conservatory (switch entity)
             - obj:
                 id: room6_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2821,8 +2854,8 @@ lvgl:
             widgets:
             - obj:
                 id: tado1_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -2951,8 +2984,8 @@ lvgl:
             # ── Card 2 — Office ────────────────────────────────────
             - obj:
                 id: tado2_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -3028,8 +3061,8 @@ lvgl:
             # ── Card 3 — Main Bedroom ──────────────────────────────
             - obj:
                 id: tado3_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -3105,8 +3138,8 @@ lvgl:
             # ── Card 4 — Mukta Room ────────────────────────────────
             - obj:
                 id: tado4_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -3182,8 +3215,8 @@ lvgl:
             # ── Card 5 — Advik ─────────────────────────────────────
             - obj:
                 id: tado5_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: "${c_card_bg}"
                 bg_opa: 95%
                 border_color: "${c_card_border}"
@@ -3259,8 +3292,8 @@ lvgl:
             # ── Card 6 — Heating (whole-house) ─────────────────────
             - obj:
                 id: tado6_card
-                width: 32%
-                height: 48%
+                width: "${dash_card_w}"
+                height: "${dash_card_h}"
                 bg_color: 0x171B24
                 bg_opa: 95%
                 border_color: 0x6B3E2E
