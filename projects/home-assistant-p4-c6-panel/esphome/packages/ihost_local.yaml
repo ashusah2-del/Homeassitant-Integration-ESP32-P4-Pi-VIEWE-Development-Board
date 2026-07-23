@@ -898,8 +898,8 @@ lvgl:
                 widgets:
                 - obj:
                     id: ih_sw1_card
-                    width: 48%
-                    height: 100%
+                    width: "${ih_sw_card_w}"
+                    height: "${ih_sw_card_h}"
                     radius: ${card_radius}
                     bg_color: "${c_card_bg_alt}"
                     border_width: 1
@@ -926,8 +926,8 @@ lvgl:
 
                 - obj:
                     id: ih_sw2_card
-                    width: 48%
-                    height: 100%
+                    width: "${ih_sw_card_w}"
+                    height: "${ih_sw_card_h}"
                     radius: ${card_radius}
                     bg_color: "${c_card_bg_alt}"
                     border_width: 1

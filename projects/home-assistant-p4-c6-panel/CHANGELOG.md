@@ -6,6 +6,20 @@ and the slideshow's "Layout vX.Y.Z" pill. Bump it whenever a change is
 user-visible enough to matter for support/debugging — not required for every
 commit.
 
+## [0.7.2] - 2026-07-23
+
+Fixed: tapping dashboard room tiles, tado thermostat cards, or dragging
+the brightness slider's release did nothing on panel 2 — confirmed
+touch input was accurate, but the LVGL `on_click`/`on_release` event
+itself never fired. Root cause: LVGL 8.4.0's flex `ROW_WRAP` layout
+doesn't reliably hit-test percentage-sized (`32%`/`48%`) children for
+click purposes. Fixed by switching `room1-6_card`, `tado1-6_card`
+(`display_touch_board.yaml`) and `ih_sw1_card`/`ih_sw2_card`
+(`ihost_local.yaml`) from percentage sizing to fixed pixel sizing per
+panel (new `dash_card_w`/`dash_card_h`/`ih_sw_card_w`/`ih_sw_card_h`
+substitutions), while keeping the flex layout itself. Verified live via
+a temporary diagnostic log that confirmed the click now fires reliably.
+
 ## [0.7.0] - 2026-07-22
 
 Second physical panel (`mangalam-panel-2.yaml`) — a 10.1" Guition JC8012P4A1

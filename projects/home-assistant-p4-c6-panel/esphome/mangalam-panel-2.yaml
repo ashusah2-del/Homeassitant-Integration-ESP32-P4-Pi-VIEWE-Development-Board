@@ -61,7 +61,7 @@ substitutions:
   jf_cast4_label: ""
   jf_cast4_entity: ""
   idle_timeout: 30s
-  firmware_version: "0.7.1"
+  firmware_version: "0.7.2"
   fallback_ap_ssid: !secret panel2_fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"
@@ -99,13 +99,21 @@ substitutions:
   footer_h: "44"
   content_h: "698"
   # Dashboard/tado 3x2 card grid — fixed pixel size instead of flex
-  # percentage sizing. LVGL's flex ROW_WRAP click hit-testing appears to
-  # break for percentage-sized children on panel 2 specifically (on_click
-  # never fires despite confirmed correct touch coordinates); switching to
-  # explicit pixel sizes per panel is the workaround. 32%/48% of dash_grid's
-  # content box (${screen_w}-8, ${content_h}-8 for the pad_all:4 gutter).
+  # percentage sizing. CONFIRMED FIX (2026-07-23): LVGL's flex ROW_WRAP
+  # click hit-testing breaks for percentage-sized children on panel 2 —
+  # on_click never fired despite confirmed correct touch coordinates.
+  # Switching to explicit pixel sizes per panel (still inside the same
+  # flex ROW_WRAP layout) restored clicks; verified live via a temporary
+  # ESP_LOGE on room1_card firing reliably after this change.
+  # 32%/48% of dash_grid's content box (${screen_w}-8, ${content_h}-8 for
+  # the pad_all:4 gutter).
   dash_card_w: "407"
   dash_card_h: "331"
+  # ihost_page's two switch cards — same flex+percentage+click pattern,
+  # fixed proactively once dash_grid's cause was confirmed. 48% width /
+  # 100% height of ih_switch_row's content box.
+  ih_sw_card_w: "607"
+  ih_sw_card_h: "119"
   gutter: "16"
   card_radius: "16"
   btn_radius: "10"

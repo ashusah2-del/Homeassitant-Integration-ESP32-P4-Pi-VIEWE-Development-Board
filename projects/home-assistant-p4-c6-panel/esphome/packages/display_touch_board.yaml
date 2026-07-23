@@ -2199,9 +2199,6 @@ lvgl:
                 radius: "${card_radius}"
                 pad_all: 0
                 on_click:
-                  # TEMPORARY diagnostic — remove once resolved.
-                  - lambda: |-
-                      ESP_LOGE("room1_tap", "room1_card on_click FIRED");
                   - homeassistant.service:
                       service: homeassistant.toggle
                       data:
