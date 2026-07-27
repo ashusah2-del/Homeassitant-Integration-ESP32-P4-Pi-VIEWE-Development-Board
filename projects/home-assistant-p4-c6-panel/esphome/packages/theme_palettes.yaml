@@ -131,7 +131,7 @@ script:
       - lambda: |-
           if (!id(g_lvgl_ready)) return;
 
-          static const int PANEL_THEME_COUNT = 5;
+          static const int PANEL_THEME_COUNT = 6;
 
           struct PanelTheme {
             const char *name;
@@ -249,6 +249,21 @@ script:
              0x000033, 0x00FFFF, 0xFFFFFF,
              0x330000, 0xFF0000, 0xFFFFFF,
              0x00FF00, 0xFFFF00, 0x00FFFF, 0xFFFF00, 0xCCCCCC},
+            // 5 Home Assistant — matches HA's own default dark frontend theme
+            // (near-black surfaces, signature #03A9F4 blue, Material state
+            // colors for success/warning/error).
+            {"Home Assistant", 0x111111, 0x0A0A0A, 0x1C1C1C, 0x333333, 0x2C2C2C,
+             0xE1E1E1, 0xC8C8C8, 0x9B9B9B, 0x03A9F4, 0x0D3A52, 0x03A9F4,
+             0x1C1C1C, 0x333333, 0x1C1C1C, 0x333333, 0xA1A1A1, 0x333333,
+             0x1C1C1C, 0x000000, 0x1C1C1C, 0x03A9F4,
+             0x2C0000, 0xFF8A80, 0xE1E1E1, 0xFFAB91,
+             0x111111, 0xFFFFFF, 0xF44336, 0x9E9E9E,
+             0xB71C1C, 0xFFFFFF,
+             0x0D3A20, 0x4CAF50,
+             0x332B00, 0xFF9800,
+             0x0D2A3D, 0x03A9F4, 0xB3E5FC,
+             0x2C0F0F, 0xF44336, 0xFFCDD2,
+             0x4CAF50, 0xFF9800, 0x03A9F4, 0xFFD54F, 0x757575},
           };
 
           int ti = id(g_panel_theme);
@@ -766,11 +781,12 @@ script:
             entity_id: input_select.panel_theme
             option: !lambda |-
               static const char *names[] = {
-                "Midnight", "Graphite", "Warm Home", "Nord", "High Contrast"
+                "Midnight", "Graphite", "Warm Home", "Nord", "High Contrast",
+                "Home Assistant"
               };
               int i = id(g_panel_theme);
               if (i < 0) i = 0;
-              if (i > 4) i = 4;
+              if (i > 5) i = 5;
               return std::string(names[i]);
       - lambda: 'id(g_theme_push_to_ha) = false;'
 
@@ -781,10 +797,11 @@ script:
           if (!id(ha_panel_theme).has_state()) return;
           std::string x = id(ha_panel_theme).get_state();
           static const char *names[] = {
-            "Midnight", "Graphite", "Warm Home", "Nord", "High Contrast"
+            "Midnight", "Graphite", "Warm Home", "Nord", "High Contrast",
+            "Home Assistant"
           };
           int idx = 0;
-          for (int i = 0; i < 5; i++) {
+          for (int i = 0; i < 6; i++) {
             if (x == names[i]) { idx = i; break; }
           }
           id(g_panel_theme) = idx;
@@ -795,7 +812,7 @@ script:
     then:
       - lambda: |-
           int v = id(g_panel_theme) - 1;
-          if (v < 0) v = 4;
+          if (v < 0) v = 5;
           id(g_panel_theme) = v;
       - script.execute: apply_panel_theme
       - script.execute: sync_panel_theme_to_ha
@@ -805,7 +822,7 @@ script:
     then:
       - lambda: |-
           int v = id(g_panel_theme) + 1;
-          if (v > 4) v = 0;
+          if (v > 5) v = 0;
           id(g_panel_theme) = v;
       - script.execute: apply_panel_theme
       - script.execute: sync_panel_theme_to_ha
