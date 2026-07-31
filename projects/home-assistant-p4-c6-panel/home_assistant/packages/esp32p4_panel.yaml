@@ -71,10 +71,10 @@ automation:
                   {% set day = dt.strftime('%a') %}
                   {% set line = day ~ ' All Day: ' ~ event.summary %}
                 {% endif %}
-                {% set ns.out = ns.out + [line[:40]] %}
+                {% set ns.out = ns.out + [{'dt': dt, 'line': line[:40]}] %}
               {% endfor %}
             {% endfor %}
-            {{ ns.out | sort | join('\n') }}
+            {{ (ns.out | sort(attribute='dt') | map(attribute='line') | list) | join('\n') }}
       - service: input_text.set_value
         target:
           entity_id: input_text.panel_calendar_events
