@@ -36,14 +36,19 @@ slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presen
 
 ## Build + flash
 
-Builds run inside the ESPHome dashboard Docker container. The dashboard symlinks to `esphome/mangalam-panel.yaml`.
+Builds run inside the ESPHome dashboard Docker container (`esphome`, compose file at `~/docker/esphome/docker-compose.yml`). **Its `/config` is a real bind mount to `~/docker/esphome/config/` — a separate, unsynced copy of this repo's `esphome/` tree, NOT a symlink.** Editing files in this repo has no effect on what gets compiled until you manually `cp` the changed file(s) across first. Forgetting this step silently compiles/flashes stale code with no warning. Sync before every compile:
+
+```bash
+cp esphome/mangalam-panel.yaml esphome/mangalam-panel-2.yaml ~/docker/esphome/config/
+cp esphome/packages/*.yaml ~/docker/esphome/config/packages/
+```
 
 ```bash
 # Compile
-esphome compile esphome/mangalam-panel.yaml
+docker exec esphome esphome compile /config/mangalam-panel.yaml
 
 # OTA upload
-esphome upload esphome/mangalam-panel.yaml --device <panel-ip>
+docker exec esphome esphome upload /config/mangalam-panel.yaml --device <panel-ip>
 ```
 
 Fresh builds: 10–12 min (TFLite-micro). Incremental with warm ccache: 25–70 s.
