@@ -534,6 +534,28 @@ text_sensor:
             snprintf(b, sizeof(b), "%d %%", v);
             lv_label_set_text(id(settings_calopa_val), b);
 
+  # Calendar rendering style, paired with HA helper
+  # input_number.panel_calendar_style (recommended range 0–3 step 1
+  # mode=Box). Values: 0=Ribbon, 1=Agenda, 2=Compact, 3=Timeline.
+  - platform: homeassistant
+    id: ha_calendar_style
+    entity_id: input_number.panel_calendar_style
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            int v = (int)atof(x.c_str());
+            if (v < 0) v = 0;
+            if (v > 3) v = 3;
+            id(g_calendar_style) = v;
+            if (id(g_lvgl_ready)) {
+              static const char* names[4] = {
+                "Ribbon", "Agenda", "Compact", "Timeline"
+              };
+              lv_label_set_text(id(settings_calstyle_val), names[v]);
+            }
+        - script.execute: render_calendar
+
   # Calendar events pushed from HA automation into input_text.panel_calendar_events.
   # The string is cached into g_calendar_events_full; the render_calendar
   # script does the splitting and paginates onto 8-event pages that cycle

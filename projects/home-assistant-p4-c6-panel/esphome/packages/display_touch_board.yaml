@@ -205,6 +205,10 @@ globals:
   # input_number.panel_calendar_opacity and is editable on the settings
   # page. restore_value: yes so a tuning sticks across reboots.
   - { id: g_calendar_opa_pct, type: int, restore_value: yes, initial_value: '70' }
+  # Calendar rendering style: 0=Ribbon 1=Agenda 2=Compact 3=Timeline. Mirrors
+  # HA's input_number.panel_calendar_style helper and is editable on the
+  # settings page. restore_value: yes so the choice sticks across reboots.
+  - { id: g_calendar_style, type: int, restore_value: yes, initial_value: '0' }
   # Slideshow transition effect: 0=Fade 1=SlideLeft 2=SlideRight
   # 3=SlideUp 4=SlideDown 5=Zoom. Mirrors HA's
   # input_number.panel_transition_effect helper (if it exists; setting
@@ -364,11 +368,14 @@ online_image:
     type: RGB565
     byte_order: LITTLE_ENDIAN
     resize: ${slideshow_img_resize}
-    # 256 KB: fill=1 crop-to-fill canvases (e.g. panel2's 848x800) return
-    # JPEGs of 110-150 KB from the proxy at JPEG_QUALITY=78, which blew the
-    # old 64 KB buffer on every fetch and silently fell back to the stock
-    # image (looked like "immich proxy unreachable" from panel2).
-    buffer_size: 262144
+    # 65536 is ESPHome's hard cap for online_image (cv.int_range(256, 65536)
+    # in the component schema) — it cannot go higher. The proxy's
+    # encode_sof0() must guarantee its JPEG output stays under this, since
+    # fill=1 crop-to-fill canvases (e.g. panel2's 848x800) can otherwise
+    # return 110-150 KB JPEGs that blow this buffer on every fetch and
+    # silently fall back to the stock image (looked like "immich proxy
+    # unreachable" from panel2). See panel-hub/hub.py's size-ceiling retry.
+    buffer_size: 65536
     update_interval: never
     request_headers:
       Accept: image/jpeg
@@ -385,7 +392,7 @@ online_image:
     type: RGB565
     byte_order: LITTLE_ENDIAN
     resize: ${slideshow_img_resize}
-    buffer_size: 262144
+    buffer_size: 65536
     update_interval: never
     request_headers:
       Accept: image/jpeg
@@ -697,8 +704,10 @@ script:
           lv_label_set_text(id(layout_wake_toggle_lbl), id(g_layout_wake_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_bubble_toggle_lbl), id(g_layout_bubble_visible) ? "Hide" : "Show");
 
-  # Renders the current "page" of calendar events into the 8 cal_row_N
-  # slots. The HA on_value handler caches the full string in
+  # Renders the current "page" of calendar events into whichever of the 4
+  # style subtrees (cal_rows_box/cal_agenda_box/cal_compact_box/
+  # cal_timeline_box) is selected by g_calendar_style — the other 3 are
+  # hidden. The HA on_value handler caches the full string in
   # g_calendar_events_full and zeroes the page; the 30-second cycle
   # interval increments g_calendar_page and re-calls this script so the
   # user sees later events without having to interact with the panel.
@@ -707,39 +716,28 @@ script:
     then:
       - lambda: |-
           if (!id(g_lvgl_ready)) return;
-          lv_obj_t* labels[8] = {
-            id(cal_evt_0), id(cal_evt_1), id(cal_evt_2), id(cal_evt_3),
-            id(cal_evt_4), id(cal_evt_5), id(cal_evt_6), id(cal_evt_7)
-          };
-          lv_obj_t* rows[8] = {
-            id(cal_row_0), id(cal_row_1), id(cal_row_2), id(cal_row_3),
-            id(cal_row_4), id(cal_row_5), id(cal_row_6), id(cal_row_7)
-          };
-          // Split the cached events string into a vector of non-empty lines.
+
+          lv_obj_add_flag(id(cal_rows_box),     LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(cal_agenda_box),   LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(cal_compact_box),  LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(cal_timeline_box), LV_OBJ_FLAG_HIDDEN);
+
+          int style = id(g_calendar_style);
+          if (style < 0 || style > 3) style = 0;
+
+          // Split the cached events string into a vector of non-empty,
+          // dash-cleaned lines. Every event line's first whitespace token is
+          // always a 3-letter weekday abbreviation (Mon..Sun); everything
+          // after it is an opaque display string whose exact shape differs
+          // slightly between the two upstream producers.
           std::vector<std::string> events;
           const std::string& full = id(g_calendar_events_full);
           size_t pos = 0;
           while (pos < full.size()) {
             size_t nl = full.find('\n', pos);
             size_t end = (nl == std::string::npos) ? full.size() : nl;
-            if (end > pos) events.emplace_back(full.substr(pos, end - pos));
-            pos = (nl == std::string::npos) ? full.size() : nl + 1;
-          }
-          int total = (int)events.size();
-          int pages = (total + 7) / 8;
-          if (pages <= 0) pages = 1;
-          // Clamp / wrap the page index.
-          if (id(g_calendar_page) >= pages) id(g_calendar_page) = 0;
-          if (id(g_calendar_page) < 0)      id(g_calendar_page) = 0;
-          int page = id(g_calendar_page);
-          // Render the slice of 8 events for this page.
-          for (int i = 0; i < 8; i++) {
-            int idx = page * 8 + i;
-            if (total == 0 && i == 0) {
-              lv_label_set_text(labels[i], "No events this week");
-              lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
-            } else if (idx < total) {
-              std::string ev = events[idx];
+            if (end > pos) {
+              std::string ev = full.substr(pos, end - pos);
               // Replace en-dash (U+2013, UTF-8: E2 80 93) and em-dash (U+2014, UTF-8: E2 80 94)
               // with ASCII hyphen — LVGL built-in fonts don't include these glyphs.
               for (size_t p = 0; p + 2 < ev.size(); ) {
@@ -748,18 +746,185 @@ script:
                   ev.replace(p, 3, "-");
                 } else { p++; }
               }
-              lv_label_set_text(labels[i], ev.c_str());
-              lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
-            } else {
-              lv_label_set_text(labels[i], "");
-              lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+              events.push_back(ev);
             }
+            pos = (nl == std::string::npos) ? full.size() : nl + 1;
           }
-          // Page indicator at the bottom of the panel.
-          char b[16];
-          if (pages > 1) snprintf(b, sizeof(b), "%d/%d", page + 1, pages);
-          else b[0] = '\0';
-          lv_label_set_text(id(cal_page_lbl), b);
+          int total = (int)events.size();
+
+          auto split_wd = [](const std::string& line, std::string& wd, std::string& rest) {
+            size_t sp = line.find(' ');
+            if (sp == std::string::npos) { wd = line; rest = ""; }
+            else { wd = line.substr(0, sp); rest = line.substr(sp + 1); }
+          };
+          auto upper = [](std::string s) {
+            for (auto& c : s) c = (char) toupper((unsigned char) c);
+            return s;
+          };
+
+          char pagebuf[16] = "";
+
+          if (style == 0 || style == 2) {
+            // Ribbon (N=8) and Compact (N=12) — identical flat-list logic,
+            // 1 slot = 1 event.
+            const int N = (style == 0) ? 8 : 12;
+            lv_obj_t* ribbon_labels[8] = {
+              id(cal_evt_0), id(cal_evt_1), id(cal_evt_2), id(cal_evt_3),
+              id(cal_evt_4), id(cal_evt_5), id(cal_evt_6), id(cal_evt_7)
+            };
+            lv_obj_t* ribbon_rows[8] = {
+              id(cal_row_0), id(cal_row_1), id(cal_row_2), id(cal_row_3),
+              id(cal_row_4), id(cal_row_5), id(cal_row_6), id(cal_row_7)
+            };
+            lv_obj_t* compact_labels[12] = {
+              id(cal_cm_lbl_0), id(cal_cm_lbl_1), id(cal_cm_lbl_2), id(cal_cm_lbl_3),
+              id(cal_cm_lbl_4), id(cal_cm_lbl_5), id(cal_cm_lbl_6), id(cal_cm_lbl_7),
+              id(cal_cm_lbl_8), id(cal_cm_lbl_9), id(cal_cm_lbl_10), id(cal_cm_lbl_11)
+            };
+            lv_obj_t* compact_rows[12] = {
+              id(cal_cm_row_0), id(cal_cm_row_1), id(cal_cm_row_2), id(cal_cm_row_3),
+              id(cal_cm_row_4), id(cal_cm_row_5), id(cal_cm_row_6), id(cal_cm_row_7),
+              id(cal_cm_row_8), id(cal_cm_row_9), id(cal_cm_row_10), id(cal_cm_row_11)
+            };
+            lv_obj_t** labels = (style == 0) ? ribbon_labels : compact_labels;
+            lv_obj_t** rows   = (style == 0) ? ribbon_rows   : compact_rows;
+
+            int pages = (total + N - 1) / N;
+            if (pages <= 0) pages = 1;
+            if (id(g_calendar_page) >= pages) id(g_calendar_page) = 0;
+            if (id(g_calendar_page) < 0)      id(g_calendar_page) = 0;
+            int page = id(g_calendar_page);
+
+            for (int i = 0; i < N; i++) {
+              int idx = page * N + i;
+              if (total == 0 && i == 0) {
+                lv_label_set_text(labels[i], "No events this week");
+                lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+              } else if (idx < total) {
+                lv_label_set_text(labels[i], events[idx].c_str());
+                lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+              } else {
+                lv_label_set_text(labels[i], "");
+                lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+              }
+            }
+            if (pages > 1) snprintf(pagebuf, sizeof(pagebuf), "%d/%d", page + 1, pages);
+            lv_obj_clear_flag(style == 0 ? id(cal_rows_box) : id(cal_compact_box), LV_OBJ_FLAG_HIDDEN);
+
+          } else if (style == 3) {
+            // Timeline — 4 cards, 1 slot = 1 event.
+            const int N = 4;
+            lv_obj_t* cards[4] = { id(cal_tl_card_0), id(cal_tl_card_1), id(cal_tl_card_2), id(cal_tl_card_3) };
+            lv_obj_t* times[4] = { id(cal_tl_time_0), id(cal_tl_time_1), id(cal_tl_time_2), id(cal_tl_time_3) };
+            lv_obj_t* sums[4]  = { id(cal_tl_sum_0),  id(cal_tl_sum_1),  id(cal_tl_sum_2),  id(cal_tl_sum_3)  };
+
+            int pages = (total + N - 1) / N;
+            if (pages <= 0) pages = 1;
+            if (id(g_calendar_page) >= pages) id(g_calendar_page) = 0;
+            if (id(g_calendar_page) < 0)      id(g_calendar_page) = 0;
+            int page = id(g_calendar_page);
+
+            for (int i = 0; i < N; i++) {
+              int idx = page * N + i;
+              if (total == 0 && i == 0) {
+                lv_label_set_text(times[i], "");
+                lv_label_set_text(sums[i], "No events this week");
+                lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+              } else if (idx < total) {
+                std::string wd, rest;
+                split_wd(events[idx], wd, rest);
+                lv_label_set_text(times[i], upper(wd).c_str());
+                lv_label_set_text(sums[i], rest.empty() ? events[idx].c_str() : rest.c_str());
+                lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+              } else {
+                lv_label_set_text(times[i], "");
+                lv_label_set_text(sums[i], "");
+                lv_obj_add_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+              }
+            }
+            if (pages > 1) snprintf(pagebuf, sizeof(pagebuf), "%d/%d", page + 1, pages);
+            lv_obj_clear_flag(id(cal_timeline_box), LV_OBJ_FLAG_HIDDEN);
+
+          } else {
+            // Agenda (style 1) — a pool of 10 generic rows shared between
+            // day-header entries and event entries. Build a flat list first
+            // (header inserted whenever the weekday token changes going down
+            // the already-sorted list), then greedily fill pages of 10 slots
+            // with 1-slot look-ahead so a header is never stranded alone at
+            // the bottom of a page.
+            const int AGENDA_SLOTS = 10;
+            lv_obj_t* rows[AGENDA_SLOTS] = {
+              id(cal_ag_row_0), id(cal_ag_row_1), id(cal_ag_row_2), id(cal_ag_row_3), id(cal_ag_row_4),
+              id(cal_ag_row_5), id(cal_ag_row_6), id(cal_ag_row_7), id(cal_ag_row_8), id(cal_ag_row_9)
+            };
+            lv_obj_t* labels[AGENDA_SLOTS] = {
+              id(cal_ag_lbl_0), id(cal_ag_lbl_1), id(cal_ag_lbl_2), id(cal_ag_lbl_3), id(cal_ag_lbl_4),
+              id(cal_ag_lbl_5), id(cal_ag_lbl_6), id(cal_ag_lbl_7), id(cal_ag_lbl_8), id(cal_ag_lbl_9)
+            };
+
+            struct AgendaItem { bool isHeader; std::string text; };
+            std::vector<AgendaItem> items;
+            std::string prevWd;
+            for (int i = 0; i < total; i++) {
+              std::string wd, rest;
+              split_wd(events[i], wd, rest);
+              if (i == 0 || wd != prevWd) {
+                items.push_back(AgendaItem{true, upper(wd)});
+                prevWd = wd;
+              }
+              items.push_back(AgendaItem{false, events[i]});
+            }
+            if (items.empty()) items.push_back(AgendaItem{false, "No events this week"});
+
+            std::vector<int> pageStarts{0};
+            int slot = 0;
+            for (int idx = 0; idx < (int)items.size(); idx++) {
+              bool lastSlot = (slot == AGENDA_SLOTS - 1);
+              if (items[idx].isHeader && lastSlot) {
+                pageStarts.push_back(idx);
+                slot = 0;
+              }
+              slot++;
+              if (slot == AGENDA_SLOTS) {
+                if (idx + 1 < (int)items.size()) pageStarts.push_back(idx + 1);
+                slot = 0;
+              }
+            }
+            int pages = (int)pageStarts.size();
+            if (id(g_calendar_page) >= pages) id(g_calendar_page) = 0;
+            if (id(g_calendar_page) < 0)      id(g_calendar_page) = 0;
+            int page = id(g_calendar_page);
+            int start = pageStarts[page];
+            int end = (page + 1 < pages) ? pageStarts[page + 1] : (int)items.size();
+
+            for (int i = 0; i < AGENDA_SLOTS; i++) {
+              int idx = start + i;
+              if (idx < end) {
+                const AgendaItem& it = items[idx];
+                lv_label_set_text(labels[i], it.text.c_str());
+                if (it.isHeader) {
+                  lv_obj_set_style_bg_opa(rows[i], LV_OPA_30, 0);
+                  lv_obj_set_style_bg_color(rows[i], lv_color_hex(id(g_theme_accent_bg)), 0);
+                  lv_obj_set_style_text_color(labels[i], lv_color_hex(id(g_theme_accent)), 0);
+                  lv_obj_set_style_text_font(labels[i], &lv_font_montserrat_18, 0);
+                  lv_obj_set_x(labels[i], 4);
+                } else {
+                  lv_obj_set_style_bg_opa(rows[i], LV_OPA_TRANSP, 0);
+                  lv_obj_set_style_text_color(labels[i], lv_color_hex(id(g_theme_text_secondary)), 0);
+                  lv_obj_set_style_text_font(labels[i], &lv_font_montserrat_16, 0);
+                  lv_obj_set_x(labels[i], 16);
+                }
+                lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+              } else {
+                lv_label_set_text(labels[i], "");
+                lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+              }
+            }
+            if (pages > 1) snprintf(pagebuf, sizeof(pagebuf), "%d/%d", page + 1, pages);
+            lv_obj_clear_flag(id(cal_agenda_box), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          lv_label_set_text(id(cal_page_lbl), pagebuf);
 
   # Re-fetch the current live camera frame (manual refresh only).
   - id: refresh_camera_live
@@ -1899,6 +2064,167 @@ lvgl:
                             text_font: montserrat_16
                             text_color: "${c_text_2}"
                             long_mode: SCROLL_CIRCULAR
+
+              # ── Agenda style (day-grouped) — 10 generic label rows; whether
+              # a given slot renders as a bold day-header or an indented event
+              # is decided per-render in render_calendar, not here. Hidden by
+              # default (style 0 = Ribbon is the default view).
+              - obj:
+                  id: cal_agenda_box
+                  x: 0
+                  y: 64
+                  width: 100%
+                  height: 85%
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  clickable: false
+                  hidden: true
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                  widgets:
+                  - obj: { id: cal_ag_row_0, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_0, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_1, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_1, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_2, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_2, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_3, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_3, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_4, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_4, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_5, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_5, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_6, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_6, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_7, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_7, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_8, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_8, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_ag_row_9, width: 100%, height: 8.5%, bg_opa: TRANSP, border_width: 0, radius: 0,
+                      widgets: [{ label: { id: cal_ag_lbl_9, align: LEFT_MID, x: 4, width: 92%, text: "", text_font: montserrat_16, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+
+              # ── Compact style — 12 smaller rows, thin bottom-border divider
+              # instead of an alternating ribbon fill, for higher information
+              # density than Ribbon.
+              - obj:
+                  id: cal_compact_box
+                  x: 0
+                  y: 64
+                  width: 100%
+                  height: 85%
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  clickable: false
+                  hidden: true
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                  widgets:
+                  - obj: { id: cal_cm_row_0, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_0, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_1, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_1, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_2, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_2, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_3, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_3, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_4, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_4, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_5, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_5, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_6, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_6, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_7, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_7, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_8, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_8, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_9, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_9, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_10, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_10, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+                  - obj: { id: cal_cm_row_11, width: 100%, height: 7%, bg_opa: TRANSP, border_width: 1, border_side: BOTTOM, border_color: "${c_divider}", radius: 0,
+                      widgets: [{ label: { id: cal_cm_lbl_11, align: LEFT_MID, x: 4, width: 96%, text: "", text_font: montserrat_14, text_color: "${c_text_2}", long_mode: SCROLL_CIRCULAR } }] }
+
+              # ── Timeline style — 4 spacious rounded cards, each with a small
+              # circular dot marker (a real LVGL object, not a text glyph —
+              # this project's compiled montserrat bitmap fonts are ASCII-only).
+              - obj:
+                  id: cal_timeline_box
+                  x: 0
+                  y: 64
+                  width: 100%
+                  height: 85%
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "off"
+                  scrollable: false
+                  clickable: false
+                  hidden: true
+                  layout:
+                    type: flex
+                    flex_flow: COLUMN
+                    pad_row: 6
+                  widgets:
+                  - obj:
+                      id: cal_tl_card_0
+                      width: 100%
+                      height: 22%
+                      radius: 12
+                      bg_color: "${c_card_bg}"
+                      bg_opa: 60%
+                      border_width: 0
+                      pad_all: 8
+                      widgets:
+                        - obj: { id: cal_tl_dot_0, width: 12, height: 12, radius: 50%, align: LEFT_MID, x: 8, bg_color: "${c_accent}", border_width: 0 }
+                        - label: { id: cal_tl_time_0, align: TOP_LEFT, x: 28, y: 2, text: "", text_font: montserrat_14, text_color: "${c_accent}" }
+                        - label: { id: cal_tl_sum_0, align: TOP_LEFT, x: 28, y: 22, width: 70%, text: "", text_font: montserrat_16, text_color: "${c_text}", long_mode: SCROLL_CIRCULAR }
+                  - obj:
+                      id: cal_tl_card_1
+                      width: 100%
+                      height: 22%
+                      radius: 12
+                      bg_color: "${c_card_bg}"
+                      bg_opa: 60%
+                      border_width: 0
+                      pad_all: 8
+                      widgets:
+                        - obj: { id: cal_tl_dot_1, width: 12, height: 12, radius: 50%, align: LEFT_MID, x: 8, bg_color: "${c_accent}", border_width: 0 }
+                        - label: { id: cal_tl_time_1, align: TOP_LEFT, x: 28, y: 2, text: "", text_font: montserrat_14, text_color: "${c_accent}" }
+                        - label: { id: cal_tl_sum_1, align: TOP_LEFT, x: 28, y: 22, width: 70%, text: "", text_font: montserrat_16, text_color: "${c_text}", long_mode: SCROLL_CIRCULAR }
+                  - obj:
+                      id: cal_tl_card_2
+                      width: 100%
+                      height: 22%
+                      radius: 12
+                      bg_color: "${c_card_bg}"
+                      bg_opa: 60%
+                      border_width: 0
+                      pad_all: 8
+                      widgets:
+                        - obj: { id: cal_tl_dot_2, width: 12, height: 12, radius: 50%, align: LEFT_MID, x: 8, bg_color: "${c_accent}", border_width: 0 }
+                        - label: { id: cal_tl_time_2, align: TOP_LEFT, x: 28, y: 2, text: "", text_font: montserrat_14, text_color: "${c_accent}" }
+                        - label: { id: cal_tl_sum_2, align: TOP_LEFT, x: 28, y: 22, width: 70%, text: "", text_font: montserrat_16, text_color: "${c_text}", long_mode: SCROLL_CIRCULAR }
+                  - obj:
+                      id: cal_tl_card_3
+                      width: 100%
+                      height: 22%
+                      radius: 12
+                      bg_color: "${c_card_bg}"
+                      bg_opa: 60%
+                      border_width: 0
+                      pad_all: 8
+                      widgets:
+                        - obj: { id: cal_tl_dot_3, width: 12, height: 12, radius: 50%, align: LEFT_MID, x: 8, bg_color: "${c_accent}", border_width: 0 }
+                        - label: { id: cal_tl_time_3, align: TOP_LEFT, x: 28, y: 2, text: "", text_font: montserrat_14, text_color: "${c_accent}" }
+                        - label: { id: cal_tl_sum_3, align: TOP_LEFT, x: 28, y: 22, width: 70%, text: "", text_font: montserrat_16, text_color: "${c_text}", long_mode: SCROLL_CIRCULAR }
 
         # ── Clock pill (time + date centered inside background) ──
         - obj:
@@ -5036,6 +5362,74 @@ lvgl:
                           text_color: "${c_text}"
                           on_click:
                             - script.execute: panel_theme_next
+
+                      # ── Calendar layout style cycler ──────────────────
+                      - label:
+                          x: 0
+                          y: 720
+                          text: "Calendar layout style:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 748
+                          width: 56
+                          height: 40
+                          radius: 20
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "<"
+                          text_font: montserrat_18
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_calendar_style) - 1;
+                                if (v < 0) v = 3;
+                                id(g_calendar_style) = v;
+                                static const char* names[4] = {
+                                  "Ribbon", "Agenda", "Compact", "Timeline"
+                                };
+                                lv_label_set_text(id(settings_calstyle_val), names[v]);
+                            - script.execute: render_calendar
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_calendar_style
+                                  value: !lambda 'return id(g_calendar_style);'
+                      - label:
+                          id: settings_calstyle_val
+                          x: 70
+                          y: 754
+                          width: 220
+                          text: "Ribbon"
+                          text_font: montserrat_20
+                          text_color: "${c_text}"
+                      - button:
+                          x: 296
+                          y: 748
+                          width: 56
+                          height: 40
+                          radius: 20
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: ">"
+                          text_font: montserrat_18
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_calendar_style) + 1;
+                                if (v > 3) v = 0;
+                                id(g_calendar_style) = v;
+                                static const char* names[4] = {
+                                  "Ribbon", "Agenda", "Compact", "Timeline"
+                                };
+                                lv_label_set_text(id(settings_calstyle_val), names[v]);
+                            - script.execute: render_calendar
+                            - homeassistant.service:
+                                service: input_number.set_value
+                                data:
+                                  entity_id: input_number.panel_calendar_style
+                                  value: !lambda 'return id(g_calendar_style);'
 
                 # ── Backlight + setup guide (right half) ─────────────────
                 - obj:

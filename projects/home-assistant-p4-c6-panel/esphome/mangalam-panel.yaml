@@ -348,6 +348,11 @@ esphome:
             "Slide Up", "Slide Down", "Zoom"
           };
           lv_label_set_text(id(settings_effect_val), eff_names[eff]);
+          // Surface the persisted calendar style name the same way.
+          int calStyle = id(g_calendar_style);
+          if (calStyle < 0 || calStyle > 3) calStyle = 0;
+          static const char* cal_style_names[4] = {"Ribbon", "Agenda", "Compact", "Timeline"};
+          lv_label_set_text(id(settings_calstyle_val), cal_style_names[calStyle]);
           // Sync backlight label with the restored light state.
           float bl = id(panel_backlight).current_values.get_brightness();
           if (bl >= 0.0f) {

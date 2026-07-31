@@ -476,6 +476,34 @@ script:
             }
           }
 
+          // Compact calendar style — thin bottom-border divider per row.
+          lv_obj_t *cm_rows[] = {
+            id(cal_cm_row_0), id(cal_cm_row_1), id(cal_cm_row_2), id(cal_cm_row_3),
+            id(cal_cm_row_4), id(cal_cm_row_5), id(cal_cm_row_6), id(cal_cm_row_7),
+            id(cal_cm_row_8), id(cal_cm_row_9), id(cal_cm_row_10), id(cal_cm_row_11),
+          };
+          lv_obj_t *cm_lbls[] = {
+            id(cal_cm_lbl_0), id(cal_cm_lbl_1), id(cal_cm_lbl_2), id(cal_cm_lbl_3),
+            id(cal_cm_lbl_4), id(cal_cm_lbl_5), id(cal_cm_lbl_6), id(cal_cm_lbl_7),
+            id(cal_cm_lbl_8), id(cal_cm_lbl_9), id(cal_cm_lbl_10), id(cal_cm_lbl_11),
+          };
+          for (int i = 0; i < 12; i++) {
+            lv_obj_set_style_border_color(cm_rows[i], lv_color_hex(t.divider), 0);
+            lv_obj_set_style_text_color(cm_lbls[i], lv_color_hex(t.text_secondary), 0);
+          }
+
+          // Timeline calendar style — card bg, dot marker, time/summary text.
+          lv_obj_t *tl_cards[] = { id(cal_tl_card_0), id(cal_tl_card_1), id(cal_tl_card_2), id(cal_tl_card_3) };
+          lv_obj_t *tl_dots[]  = { id(cal_tl_dot_0),  id(cal_tl_dot_1),  id(cal_tl_dot_2),  id(cal_tl_dot_3)  };
+          lv_obj_t *tl_times[] = { id(cal_tl_time_0), id(cal_tl_time_1), id(cal_tl_time_2), id(cal_tl_time_3) };
+          lv_obj_t *tl_sums[]  = { id(cal_tl_sum_0),  id(cal_tl_sum_1),  id(cal_tl_sum_2),  id(cal_tl_sum_3)  };
+          for (int i = 0; i < 4; i++) {
+            lv_obj_set_style_bg_color(tl_cards[i], lv_color_hex(t.card_bg), 0);
+            lv_obj_set_style_bg_color(tl_dots[i], lv_color_hex(t.accent), 0);
+            lv_obj_set_style_text_color(tl_times[i], lv_color_hex(t.accent), 0);
+            lv_obj_set_style_text_color(tl_sums[i], lv_color_hex(t.text_primary), 0);
+          }
+
           lv_obj_set_style_bg_color(id(weather_widget), lv_color_hex(t.overlay_bg), 0);
           lv_obj_set_style_text_color(id(wx_location_lbl), lv_color_hex(t.text_secondary), 0);
           lv_obj_set_style_text_color(id(wx_cond_lbl), lv_color_hex(t.text_secondary), 0);
@@ -632,6 +660,11 @@ script:
           if (!id(g_lvgl_ready) || !id(g_layout_edit_mode)) return;
           lv_obj_set_style_border_width(id(va_state_pill), 2, 0);
           lv_obj_set_style_border_color(id(va_state_pill), lv_color_hex((uint32_t) id(g_theme_accent)), 0);
+      # Agenda's day-header rows derive their colors from g_theme_accent /
+      # g_theme_accent_bg / g_theme_text_secondary at render time rather than
+      # being statically themed above (their role changes every render), so
+      # a fresh render is needed whenever the theme changes.
+      - script.execute: render_calendar
 
   - id: va_apply_current
     mode: restart
