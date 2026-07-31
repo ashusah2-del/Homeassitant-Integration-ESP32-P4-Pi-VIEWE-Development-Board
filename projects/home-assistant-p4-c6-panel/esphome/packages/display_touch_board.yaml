@@ -364,7 +364,11 @@ online_image:
     type: RGB565
     byte_order: LITTLE_ENDIAN
     resize: ${slideshow_img_resize}
-    buffer_size: 65536
+    # 256 KB: fill=1 crop-to-fill canvases (e.g. panel2's 848x800) return
+    # JPEGs of 110-150 KB from the proxy at JPEG_QUALITY=78, which blew the
+    # old 64 KB buffer on every fetch and silently fell back to the stock
+    # image (looked like "immich proxy unreachable" from panel2).
+    buffer_size: 262144
     update_interval: never
     request_headers:
       Accept: image/jpeg
@@ -381,7 +385,7 @@ online_image:
     type: RGB565
     byte_order: LITTLE_ENDIAN
     resize: ${slideshow_img_resize}
-    buffer_size: 65536
+    buffer_size: 262144
     update_interval: never
     request_headers:
       Accept: image/jpeg
