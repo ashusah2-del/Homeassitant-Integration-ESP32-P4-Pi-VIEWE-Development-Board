@@ -94,7 +94,7 @@ def _sof_type(data: bytes) -> int | None:
 
 def encode_sof0(raw: bytes, max_w: int, max_h: int,
                 quality: int = JPEG_QUALITY, subsampling: int = 2,
-                fill: bool = False) -> bytes:
+                fill: bool = False, budget_bytes: int = 60000) -> bytes:
     """Re-encode to SOF0 baseline JPEG on a 16-pixel-aligned canvas.
 
     fill=False (default) fits the photo within the canvas and letterboxes
@@ -102,26 +102,67 @@ def encode_sof0(raw: bytes, max_w: int, max_h: int,
     to cover the whole canvas and center-crops the overflow, so panels
     whose slideshow area isn't close to the canvas's own aspect ratio
     (e.g. a near-square area) don't end up with large black bars.
+
+    Guarantees the returned JPEG is <= budget_bytes. ESPHome's online_image
+    component hard-caps its download buffer at 65536 bytes (a schema limit,
+    not a tunable default — cv.int_range(256, 65536)), so an oversized
+    response makes the panel silently fall back to its stock image on every
+    fetch. Large fill=True canvases (e.g. panel2's 848x800) can produce
+    110-150 KB at the default quality, so quality is stepped down first —
+    and, if that alone isn't enough, the canvas geometry is shrunk and
+    quality retried — until the encode fits comfortably under the cap.
     """
     img = Image.open(io.BytesIO(raw))
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
     cw = max(16, (max_w // 16) * 16)
     ch = max(16, (max_h // 16) * 16)
-    if fill:
-        scale = max(cw / img.width, ch / img.height)
-        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.Resampling.LANCZOS)
-        left = (img.width - cw) // 2
-        top = (img.height - ch) // 2
-        canvas = img.crop((left, top, left + cw, top + ch))
-    else:
-        img.thumbnail((cw, ch), Image.Resampling.LANCZOS)
-        canvas = Image.new("RGB", (cw, ch), (0, 0, 0))
-        canvas.paste(img, ((cw - img.width) // 2, (ch - img.height) // 2))
-    buf = io.BytesIO()
-    canvas.save(buf, format="JPEG", quality=quality,
-                optimize=False, progressive=False, subsampling=subsampling)
-    return buf.getvalue()
+
+    def _compose(w: int, h: int) -> Image.Image:
+        if fill:
+            scale = max(w / img.width, h / img.height)
+            resized = img.resize((round(img.width * scale), round(img.height * scale)), Image.Resampling.LANCZOS)
+            left = (resized.width - w) // 2
+            top = (resized.height - h) // 2
+            return resized.crop((left, top, left + w, top + h))
+        thumb = img.copy()
+        thumb.thumbnail((w, h), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (w, h), (0, 0, 0))
+        canvas.paste(thumb, ((w - thumb.width) // 2, (h - thumb.height) // 2))
+        return canvas
+
+    def _save(canvas: Image.Image, q: int) -> bytes:
+        buf = io.BytesIO()
+        canvas.save(buf, format="JPEG", quality=q,
+                    optimize=False, progressive=False, subsampling=subsampling)
+        return buf.getvalue()
+
+    w, h = cw, ch
+    canvas = _compose(w, h)
+    q = quality
+    data = _save(canvas, q)
+
+    # Step 1: lower quality — cheap, no resize/resample needed.
+    while len(data) > budget_bytes and q > 30:
+        q -= 10
+        data = _save(canvas, q)
+
+    # Step 2: quality alone wasn't enough (rare — very large/busy canvases).
+    # Shrink the canvas geometry and retry the quality ladder.
+    while len(data) > budget_bytes and w > 128 and h > 128:
+        w = max(16, (max(128, int(w * 0.85)) // 16) * 16)
+        h = max(16, (max(128, int(h * 0.85)) // 16) * 16)
+        canvas = _compose(w, h)
+        q = quality
+        data = _save(canvas, q)
+        while len(data) > budget_bytes and q > 30:
+            q -= 10
+            data = _save(canvas, q)
+
+    if len(data) > budget_bytes:
+        log.warning("encode_sof0: could not fit under %d bytes (got %d at %dx%d q=%d)",
+                    budget_bytes, len(data), w, h, q)
+    return data
 
 
 # ── Immich ────────────────────────────────────────────────────────────────────
