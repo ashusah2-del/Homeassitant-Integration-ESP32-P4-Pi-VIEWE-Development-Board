@@ -1078,7 +1078,12 @@ script:
           const int H = lv_disp_get_ver_res(lv_disp_get_default());
           int final_x = 0, final_y = 0;
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
-            final_x = (W - (int)dsc->header.w) / 2;
+            // Center within the photo area (to the right of the calendar
+            // sidebar, per slideshow_photo_x), not the full screen width —
+            // the photo is decoded/sized to fit only that area, so
+            // centering across the full screen pulls it left, half-hiding
+            // it under the sidebar with an unfilled gap on the right.
+            final_x = ${slideshow_photo_x} + (W - ${slideshow_photo_x} - (int)dsc->header.w) / 2;
             final_y = (H - (int)dsc->header.h) / 2;
           }
           if (id(g_layout_edit_mode)) {
