@@ -458,11 +458,12 @@ script:
                 id(g_immich_retry) += 1;
                 char t[16];
                 snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                // Ask the proxy for exactly the widget's rendered pixel area
-                // (actual display resolution, post-rotation, minus the
-                // reserved sidebar) instead of a hand-maintained substitution
-                // that can drift out of sync with the real layout.
-                int photo_w = id(main_display).get_width() - ${slideshow_photo_x};
+                // Ask the proxy for the full screen resolution (actual
+                // display resolution, post-rotation) — the photo is
+                // full-bleed edge-to-edge; the calendar sidebar sits on
+                // top of it as a translucent overlay, it doesn't reserve
+                // exclusive screen space.
+                int photo_w = id(main_display).get_width();
                 int photo_h = id(main_display).get_height();
                 std::string url = id(immich_base_url) + "/random-photo?t=" + t +
                     "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h) +
@@ -1037,7 +1038,7 @@ script:
                 url: !lambda |-
                   char t[16];
                   snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  int photo_w = id(main_display).get_width() - ${slideshow_photo_x};
+                  int photo_w = id(main_display).get_width();
                   int photo_h = id(main_display).get_height();
                   return id(immich_base_url) + "/random-photo?t=" + t +
                       "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h) +
@@ -1049,7 +1050,7 @@ script:
                 url: !lambda |-
                   char t[16];
                   snprintf(t, sizeof(t), "%lu", (unsigned long) millis());
-                  int photo_w = id(main_display).get_width() - ${slideshow_photo_x};
+                  int photo_w = id(main_display).get_width();
                   int photo_h = id(main_display).get_height();
                   return id(immich_base_url) + "/random-photo?t=" + t +
                       "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h) +
@@ -1078,12 +1079,11 @@ script:
           const int H = lv_disp_get_ver_res(lv_disp_get_default());
           int final_x = 0, final_y = 0;
           if (dsc != nullptr && dsc->header.w > 0 && dsc->header.h > 0) {
-            // Center within the photo area (to the right of the calendar
-            // sidebar, per slideshow_photo_x), not the full screen width —
-            // the photo is decoded/sized to fit only that area, so
-            // centering across the full screen pulls it left, half-hiding
-            // it under the sidebar with an unfilled gap on the right.
-            final_x = ${slideshow_photo_x} + (W - ${slideshow_photo_x} - (int)dsc->header.w) / 2;
+            // Photo is full-bleed edge-to-edge; the calendar sidebar sits
+            // on top of it as a translucent overlay (see stock_fallback_img
+            // below for the same pattern), so center across the full
+            // screen, not just the area to the right of the sidebar.
+            final_x = (W - (int)dsc->header.w) / 2;
             final_y = (H - (int)dsc->header.h) / 2;
           }
           if (id(g_layout_edit_mode)) {
@@ -1693,9 +1693,10 @@ lvgl:
   pages:
     # ═══════════════════════════════════════════════════════════
     # PAGE 1 — SLIDESHOW  (idle / lock screen)
-    # Layout: full ${screen_w}x${screen_h}
-    #   Left  0 to (${slideshow_photo_x}-1)px  : calendar panel (70% opaque dark bg)
-    #   Right ${slideshow_photo_x}-${screen_w}px: Immich photo, clock pill (top-right)
+    # Layout: full ${screen_w}x${screen_h}, full-bleed photo edge-to-edge.
+    # The calendar panel sits on top of it (0 to its own width) as a
+    # translucent (70% opaque) overlay, same pattern as stock_fallback_img
+    # below — it doesn't reserve exclusive screen space from the photo.
     # ═══════════════════════════════════════════════════════════
     - id: slideshow_page
       bg_color: 0x000000
@@ -1709,7 +1710,7 @@ lvgl:
         - image:
             id: slideshow_img
             src: immich_photo
-            x: ${slideshow_photo_x}
+            x: 0
             y: 0
             hidden: true
         # Slot B of the double-buffered slideshow. Initially hidden — the
@@ -1720,7 +1721,7 @@ lvgl:
         - image:
             id: slideshow_img_b
             src: immich_photo_b
-            x: ${slideshow_photo_x}
+            x: 0
             y: 0
             hidden: true
 
