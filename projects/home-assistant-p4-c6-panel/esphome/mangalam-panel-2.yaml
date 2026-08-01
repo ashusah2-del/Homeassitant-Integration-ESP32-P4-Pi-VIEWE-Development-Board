@@ -74,14 +74,22 @@ substitutions:
   screen_w: "1280"
   screen_h: "800"
   slideshow_photo_x: "422"
-  # Photo area is screen_w(1280) - slideshow_photo_x(422) wide, full
-  # screen_h(800) tall — asks immich-proxy for a canvas that actually
-  # fills this panel's taller photo area instead of the shared 800x480
-  # default (which left a vertical gap, since 480 < 800).
-  slideshow_img_w: "858"
-  slideshow_img_h: "800"
+  # This board runs rotate_display: 90, so main_display's LVGL-logical
+  # width/height are transposed from the physical 1280x800 spec — at
+  # runtime get_width()=800, get_height()=1280. The actual photo area
+  # (screen_w's rotated width 800 - slideshow_photo_x 422, full rotated
+  # height 1280) is 378x1280, not the un-rotated 858x800 these
+  # substitutions previously assumed. slideshow_img_resize MUST match
+  # this exactly: it's a fixed decode-buffer target (RuntimeImage::resize()
+  # scales the source uniformly to fit *within* it), so a mismatched
+  # aspect ratio here silently shrinks the image to a narrow strip
+  # centered in a mostly-empty buffer — looked like "cropped, ~200px
+  # wide" even though the proxy was already returning a correctly-sized
+  # 378x1280 photo.
+  slideshow_img_w: "378"
+  slideshow_img_h: "1280"
   slideshow_img_fill: "1"
-  slideshow_img_resize: 858x800
+  slideshow_img_resize: 378x1280
 
   # Jellyfin page — scaled 1.25x (1280/1024) from panel1's literal values.
   jf_list_w: "625"
