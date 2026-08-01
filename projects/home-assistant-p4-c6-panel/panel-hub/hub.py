@@ -753,8 +753,13 @@ async def health():
 
 @app.get("/random-photo")
 async def random_photo(
+    # Bounds cover both landscape and portrait panels (e.g. panel2 runs
+    # rotate_display: 90, so its runtime LVGL canvas is 800x1280 and its
+    # dynamic size calc legitimately requests h up to 1280) — previously
+    # h capped at 800 rejected every request from a rotated panel with
+    # 422 Unprocessable Entity.
     w: int = Query(PHOTO_MAX_W, ge=16, le=1280),
-    h: int = Query(PHOTO_MAX_H, ge=16, le=800),
+    h: int = Query(PHOTO_MAX_H, ge=16, le=1280),
     fill: bool = Query(False),
 ):
     jpeg = await fetch_random_photo(w, h, fill)
