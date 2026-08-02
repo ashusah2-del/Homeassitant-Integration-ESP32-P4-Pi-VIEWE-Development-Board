@@ -53,6 +53,10 @@ FAVORITES_ONLY  = os.getenv("FAVORITES_ONLY", "false").lower() in ("1", "true", 
 PERSON_NAMES    = [p.strip() for p in os.getenv("IMMICH_PERSON_NAMES", "").split(",") if p.strip()]
 LANDSCAPE_PREFER = os.getenv("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
 PORTRAIT_BATCH   = int(os.getenv("PORTRAIT_BATCH", "4"))
+# Assets under these external-library paths are excluded from the slideshow
+# (case-insensitive substring match on originalPath) — e.g. the "AI Images"
+# folder holds AI-upscaled/enhanced photos, not real family photos.
+AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI Images").split(",") if p.strip()]
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
@@ -167,6 +171,11 @@ def encode_sof0(raw: bytes, max_w: int, max_h: int,
 
 # ── Immich ────────────────────────────────────────────────────────────────────
 
+def _is_ai_generated(asset: dict) -> bool:
+    path = (asset.get("originalPath") or "").lower()
+    return any(kw in path for kw in AI_EXCLUDE_PATHS)
+
+
 _person_ids: list[tuple[str, str]] | None = None  # (name, id) pairs
 
 
@@ -235,7 +244,9 @@ async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_
                 continue
 
             images = [a for a in assets if a.get("type", "IMAGE") == "IMAGE" and a.get("id")]
+            images = [a for a in images if not _is_ai_generated(a)]
             if not images:
+                log.warning("attempt %d: no non-AI IMAGE assets in batch", attempt)
                 continue
 
             if LANDSCAPE_PREFER:

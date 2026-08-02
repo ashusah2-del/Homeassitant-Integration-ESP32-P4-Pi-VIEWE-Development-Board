@@ -51,7 +51,16 @@ ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "800"))
 # Falls back to any orientation when no landscape exists in the batch.
 LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
 PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
+# Assets under these external-library paths are excluded from the slideshow
+# (case-insensitive substring match on originalPath) — e.g. the "AI Images"
+# folder holds AI-upscaled/enhanced photos, not real family photos.
+AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.environ.get("AI_EXCLUDE_PATHS", "AI Images").split(",") if p.strip()]
 _PERSON_IDS: list[tuple[str, str]] | None = None
+
+
+def _is_ai_generated(asset: dict) -> bool:
+    path = (asset.get("originalPath") or "").lower()
+    return any(kw in path for kw in AI_EXCLUDE_PATHS)
 
 
 def _get(url: str, headers: dict, timeout: int = 30) -> bytes:
@@ -203,8 +212,9 @@ def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = F
                 log.warning("attempt %d: bad JSON from random endpoint", attempt)
                 continue
             images = [a for a in arr if a.get("type", "IMAGE") == "IMAGE" and a.get("id")]
+            images = [a for a in images if not _is_ai_generated(a)]
             if not images:
-                log.warning("attempt %d: no IMAGE assets in batch", attempt)
+                log.warning("attempt %d: no non-AI IMAGE assets in batch", attempt)
                 continue
             item = _pick_landscape_preferred(images)
             is_landscape = (item.get("width") or 0) >= (item.get("height") or 0)
