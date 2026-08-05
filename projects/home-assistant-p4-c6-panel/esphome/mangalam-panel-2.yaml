@@ -74,21 +74,20 @@ substitutions:
   screen_w: "1280"
   screen_h: "800"
   slideshow_photo_x: "422"
-  # This board runs rotate_display: 90, so main_display's LVGL-logical
-  # width/height are transposed from the physical 1280x800 spec — at
-  # runtime get_width()=800, get_height()=1280. The slideshow photo is
-  # full-bleed edge-to-edge (800x1280, the full rotated canvas) — the
-  # calendar sidebar sits on top of it as a translucent overlay, it
-  # doesn't reserve exclusive space, so this must NOT be reduced by
-  # slideshow_photo_x. slideshow_img_resize MUST match this exactly:
-  # it's a fixed decode-buffer target (RuntimeImage::resize() scales the
-  # source uniformly to fit *within* it), so a mismatched aspect ratio
-  # here silently shrinks the image to a narrow strip centered in a
-  # mostly-empty buffer.
-  slideshow_img_w: "800"
-  slideshow_img_h: "1280"
-  slideshow_img_fill: "1"
-  slideshow_img_resize: 800x1280
+  # main_display's LVGL-logical canvas is 1280x800 (get_width()=1280,
+  # get_height()=800) — NOT transposed by rotate_display:90 as previously
+  # assumed here. The slideshow photo is full-bleed edge-to-edge
+  # (1280x800, the full canvas) — the calendar sidebar sits on top of it
+  # as a translucent overlay, it doesn't reserve exclusive space, so this
+  # must NOT be reduced by slideshow_photo_x.
+  #
+  # The slideshow requests the photo at screen_w x screen_h (see
+  # display_touch_board.yaml's immich_photo/immich_photo_b) — no separate
+  # size token to keep in sync (a past mismatch between this token and
+  # the actual canvas caused a bad crop — see project memory). Crop vs
+  # letterbox is the proxy's own decision, keyed off the resolution it
+  # receives (see immich-proxy's FILL_RESOLUTIONS) — 1280x800 is in that
+  # set, so this panel gets full-bleed crop-to-cover.
 
   # Jellyfin page — scaled 1.25x (1280/1024) from panel1's literal values.
   jf_list_w: "625"

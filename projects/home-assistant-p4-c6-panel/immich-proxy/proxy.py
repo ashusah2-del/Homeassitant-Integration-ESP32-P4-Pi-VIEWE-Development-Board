@@ -46,14 +46,20 @@ MAX_H           = int(os.environ.get("MAX_H", "480"))
 # Clamped so a bogus request can't ask for a canvas too large for the
 # ESP32's PSRAM to decode (see MAX_W/MAX_H comment above).
 ABS_MAX_W       = int(os.environ.get("ABS_MAX_W", "1280"))
-# 1280 matches panel 2's rotated portrait canvas (screen_h=1280 in
-# mangalam-panel-2.yaml). A lower cap here silently clamps its h=1280
-# request down to a square canvas before fill/crop even runs.
+# 1280 covers panel 2's screen_h too, in case a future panel is mounted
+# portrait. A lower cap here silently clamps an oversized request down
+# to a smaller canvas before fill/crop even runs.
 ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "1280"))
 # Fetch N candidates per request and prefer landscape (width >= height).
 # Falls back to any orientation when no landscape exists in the batch.
 LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
 PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
+# Panels send only their own screen resolution (?w=&h=) — they don't decide
+# crop vs letterbox themselves. The proxy looks the resolution up here to
+# pick fill mode per panel: panel 2 (1280x800, full-bleed slideshow) wants
+# crop-to-cover; panel 1 (1024x600, photo inset in its dashboard) wants the
+# original letterbox behavior. Unlisted resolutions default to letterbox.
+FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
 # Assets under these external-library paths are excluded from the slideshow
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
 # folder holds AI-upscaled/enhanced photos, not real family photos.
@@ -137,7 +143,8 @@ def _sof_type(data: bytes) -> int | None:
     return None
 
 
-def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = False) -> bytes:
+def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MAX_H,
+                       fill: bool = False, budget_bytes: int = 60000) -> bytes:
     """Return a fixed-size, baseline JPEG that is friendly to JPEGDEC.
 
     The panel decoder is most reliable with 4:2:0 JPEGs whose dimensions are
@@ -146,32 +153,75 @@ def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MA
     unless fill=True, which instead scales the photo to cover the whole
     canvas and center-crops the overflow (no black bars, some edge loss).
     Default (fill=False) preserves the original letterbox behavior exactly.
+
+    Guarantees the returned JPEG is <= budget_bytes. ESPHome's online_image
+    component hard-caps its download buffer at 65536 bytes (a schema limit,
+    not a tunable default — cv.int_range(256, 65536)), so an oversized
+    response makes the panel silently fall back to its stock image on every
+    fetch. Large fill=True canvases (e.g. panel2's 1280x800) can produce
+    90-170 KB at the default quality, so quality is stepped down first —
+    and, if that alone isn't enough, the canvas geometry is shrunk and
+    quality retried — until the encode fits comfortably under the cap.
+    Ported from panel-hub/hub.py's encode_sof0, which solved this same
+    problem for the hub's own image endpoints.
     """
     img = Image.open(io.BytesIO(jpeg_raw))
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
-    canvas_w = max(16, (target_w // 16) * 16)
-    canvas_h = max(16, (target_h // 16) * 16)
-    if fill:
-        scale = max(canvas_w / img.width, canvas_h / img.height)
-        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.Resampling.LANCZOS)
-        left = (img.width - canvas_w) // 2
-        top = (img.height - canvas_h) // 2
-        canvas = img.crop((left, top, left + canvas_w, top + canvas_h))
-    else:
-        img.thumbnail((canvas_w, canvas_h), Image.Resampling.LANCZOS)
-        canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
-        canvas.paste(img, ((canvas_w - img.width) // 2, (canvas_h - img.height) // 2))
-    out = io.BytesIO()
-    canvas.save(
-        out,
-        format="JPEG",
-        quality=JPEG_QUALITY,
-        optimize=False,
-        progressive=False,
-        subsampling=2,  # 4:2:0 on a 16px-aligned canvas is the safest JPEGDEC path.
-    )
-    return out.getvalue()
+    cw = max(16, (target_w // 16) * 16)
+    ch = max(16, (target_h // 16) * 16)
+
+    def _compose(w: int, h: int) -> Image.Image:
+        if fill:
+            scale = max(w / img.width, h / img.height)
+            resized = img.resize((round(img.width * scale), round(img.height * scale)), Image.Resampling.LANCZOS)
+            left = (resized.width - w) // 2
+            top = (resized.height - h) // 2
+            return resized.crop((left, top, left + w, top + h))
+        thumb = img.copy()
+        thumb.thumbnail((w, h), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (w, h), (0, 0, 0))
+        canvas.paste(thumb, ((w - thumb.width) // 2, (h - thumb.height) // 2))
+        return canvas
+
+    def _save(canvas: Image.Image, q: int) -> bytes:
+        buf = io.BytesIO()
+        canvas.save(
+            buf,
+            format="JPEG",
+            quality=q,
+            optimize=False,
+            progressive=False,
+            subsampling=2,  # 4:2:0 on a 16px-aligned canvas is the safest JPEGDEC path.
+        )
+        return buf.getvalue()
+
+    w, h = cw, ch
+    canvas = _compose(w, h)
+    q = JPEG_QUALITY
+    data = _save(canvas, q)
+
+    # Step 1: lower quality — cheap, no resize/resample needed.
+    while len(data) > budget_bytes and q > 30:
+        q -= 10
+        data = _save(canvas, q)
+
+    # Step 2: quality alone wasn't enough (rare — very large/busy canvases).
+    # Shrink the canvas geometry and retry the quality ladder.
+    while len(data) > budget_bytes and w > 128 and h > 128:
+        w = max(16, (max(128, int(w * 0.85)) // 16) * 16)
+        h = max(16, (max(128, int(h * 0.85)) // 16) * 16)
+        canvas = _compose(w, h)
+        q = JPEG_QUALITY
+        data = _save(canvas, q)
+        while len(data) > budget_bytes and q > 30:
+            q -= 10
+            data = _save(canvas, q)
+
+    if len(data) > budget_bytes:
+        log.warning("_to_baseline_jpeg: could not fit under %d bytes (got %d at %dx%d q=%d)",
+                    budget_bytes, len(data), w, h, q)
+    return data
 
 
 def _pick_oriented(assets: list, want_landscape: bool) -> dict:
@@ -307,7 +357,7 @@ class Handler(BaseHTTPRequestHandler):
                 target_h = min(ABS_MAX_H, max(16, int(query["h"][0])))
             except (KeyError, ValueError):
                 target_h = MAX_H
-            fill = query.get("fill", ["0"])[0].lower() in ("1", "true", "yes", "on")
+            fill = f"{target_w}x{target_h}" in FILL_RESOLUTIONS
             jpeg = fetch_safe_jpeg(target_w, target_h, fill)
             if jpeg:
                 self.send_response(200)

@@ -361,20 +361,26 @@ online_image:
   # B downloads the next photo. When slot B's decode finishes,
   # crossfade_to_active_slot brings it forward while the old A fades/
   # slides out — so the previous image is always visible *during* the
-  # transition. PSRAM cost: ~1.2 MB per slot (1024×600×RGB565).
+  # transition. PSRAM cost depends on screen_w x screen_h x 2 bytes/px.
+  #
+  # The request only carries this panel's own screen resolution
+  # (screen_w/screen_h, the same tokens the rest of the layout is built
+  # from) — no fill/crop flag. The proxy decides letterbox vs crop-to-fill
+  # itself, keyed off that resolution, so this file doesn't need to know
+  # or duplicate that decision.
   - id: immich_photo
-    url: "${proxy_url}/random-photo?w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}"
+    url: "${proxy_url}/random-photo?w=${screen_w}&h=${screen_h}"
     format: JPEG
     type: RGB565
     byte_order: LITTLE_ENDIAN
-    resize: ${slideshow_img_resize}
+    resize: ${screen_w}x${screen_h}
     # 65536 is ESPHome's hard cap for online_image (cv.int_range(256, 65536)
     # in the component schema) — it cannot go higher. The proxy's
-    # encode_sof0() must guarantee its JPEG output stays under this, since
-    # fill=1 crop-to-fill canvases (e.g. panel2's 848x800) can otherwise
-    # return 110-150 KB JPEGs that blow this buffer on every fetch and
-    # silently fall back to the stock image (looked like "immich proxy
-    # unreachable" from panel2). See panel-hub/hub.py's size-ceiling retry.
+    # _to_baseline_jpeg() guarantees its JPEG output stays under this via
+    # a quality/geometry step-down (ported from panel-hub/hub.py's
+    # size-ceiling retry) — a large crop-to-fill canvas could otherwise
+    # return 100-170 KB JPEGs that blow this buffer on every fetch and
+    # silently fall back to the stock image.
     buffer_size: 65536
     update_interval: never
     request_headers:
@@ -387,11 +393,11 @@ online_image:
       - script.execute: { id: slideshow_failed, slot: 0 }
 
   - id: immich_photo_b
-    url: "${proxy_url}/random-photo?w=${slideshow_img_w}&h=${slideshow_img_h}&fill=${slideshow_img_fill}"
+    url: "${proxy_url}/random-photo?w=${screen_w}&h=${screen_h}"
     format: JPEG
     type: RGB565
     byte_order: LITTLE_ENDIAN
-    resize: ${slideshow_img_resize}
+    resize: ${screen_w}x${screen_h}
     buffer_size: 65536
     update_interval: never
     request_headers:
@@ -466,8 +472,7 @@ script:
                 int photo_w = id(main_display).get_width();
                 int photo_h = id(main_display).get_height();
                 std::string url = id(immich_base_url) + "/random-photo?t=" + t +
-                    "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h) +
-                    "&fill=${slideshow_img_fill}";
+                    "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h);
                 auto *img = (slot == 0) ? id(immich_photo) : id(immich_photo_b);
                 img->set_url(url);
                 img->update();
@@ -1041,8 +1046,7 @@ script:
                   int photo_w = id(main_display).get_width();
                   int photo_h = id(main_display).get_height();
                   return id(immich_base_url) + "/random-photo?t=" + t +
-                      "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h) +
-                      "&fill=${slideshow_img_fill}";
+                      "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h);
                 update: true
           else:
             - online_image.set_url:
@@ -1053,8 +1057,7 @@ script:
                   int photo_w = id(main_display).get_width();
                   int photo_h = id(main_display).get_height();
                   return id(immich_base_url) + "/random-photo?t=" + t +
-                      "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h) +
-                      "&fill=${slideshow_img_fill}";
+                      "&w=" + std::to_string(photo_w) + "&h=" + std::to_string(photo_h);
                 update: true
 
   # Crossfade the just-loaded slot in while the previously-visible slot
