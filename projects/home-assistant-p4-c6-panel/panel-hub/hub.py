@@ -58,22 +58,24 @@ PORTRAIT_BATCH   = int(os.getenv("PORTRAIT_BATCH", "4"))
 # folder holds AI-upscaled/enhanced photos, not real family photos.
 AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI Images").split(",") if p.strip()]
 # Panels send only their own slideshow canvas resolution (?w=&h=) —
-# crop-vs-letterbox isn't their call to make. This picks it for them,
-# keyed off the exact resolution received: panels in this set get
-# full-bleed crop-to-cover (fill=True); everything else gets letterbox
-# (fill=False) — scaled to fit entirely within the canvas, padded with
-# black bars on whichever axis doesn't match.
+# nothing else panel-specific. Adding a panel of any dimension is then
+# just a new ESPHome substitutions file; no backend config to update.
 #
-# Panel 2 sends 1280x800 — CONFIRMED via on-screen corner-coordinate
-# labels (2026-08-05) that main_display.get_width()/get_height() are
-# really 1280/800 on this board, not transposed. (A same-day theory that
-# it was 800x1280 was wrong — a misleading log line plus a stale/
-# portrait-fallback photo briefly looked like confirmation but wasn't.)
-# Panel 2 wants no visible bars (full-bleed with the calendar as a
-# translucent overlay), so it's in this set; the aspect-closest asset
-# selection in fetch_random_photo keeps its crop minimal. Panel 1
-# (1024x600, no rotation) is a bounded photo inset and stays letterbox.
-FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
+# Fill mode is universal (always cover-to-fill, no per-resolution
+# allowlist): a photo is scaled to fully cover the requested canvas and
+# cropped on whichever axis overflows, so every panel fills edge to edge
+# regardless of its own aspect ratio — "at least fill vertically" is
+# automatically satisfied since cover mode guarantees BOTH axes are
+# covered. fetch_random_photo's aspect-closest asset selection (below)
+# keeps the actual crop minimal by picking whichever fetched photo's own
+# aspect ratio is nearest the panel's, so this rarely means a heavy crop
+# in practice.
+# Hard ceiling on a panel's requested w/h — a safety net against a
+# runaway request, not a per-panel setting. 1280 covers both current
+# panels; bump via hub.env for a bigger future panel (bounded by ESP32
+# PSRAM decode limits in practice, not an arbitrary code limit).
+ABS_MAX_W = int(os.getenv("ABS_MAX_W", "1280"))
+ABS_MAX_H = int(os.getenv("ABS_MAX_H", "1280"))
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
@@ -227,12 +229,15 @@ def _resolve_person_ids() -> list[tuple[str, str]]:
         return []
 
 
-async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_MAX_H,
-                              fill: bool = False) -> bytes | None:
+async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_MAX_H) -> bytes | None:
+    # Always cover-to-fill (see module-level comment above PHOTO_MAX_W) —
+    # this is the one caller of encode_sof0's fill=, so it's hardcoded
+    # here rather than threaded through as a parameter nothing varies.
+    #
     # Match the asset's orientation to the requested canvas, not a fixed
     # global default — a landscape photo forced to cover a portrait canvas
-    # (fill=True) gets scaled way up and center-cropped, discarding most of
-    # the frame width. Different panels can request different aspect ratios.
+    # gets scaled way up and center-cropped, discarding most of the frame
+    # width. Different panels can request different aspect ratios.
     want_landscape = target_w >= target_h
     loop = asyncio.get_event_loop()
     person_filter = await loop.run_in_executor(None, _resolve_person_ids)
@@ -311,12 +316,12 @@ async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_
                 continue
 
             jpeg = await loop.run_in_executor(
-                None, encode_sof0, raw, target_w, target_h, JPEG_QUALITY, 2, fill)
+                None, encode_sof0, raw, target_w, target_h, JPEG_QUALITY, 2, True)
 
             orient = "landscape" if (item.get("width", 0) >= item.get("height", 0)) else "portrait-fallback"
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
-            log.info("photo %s (%s, %s) SOF 0xFF%02X: %d→%d bytes (<=%dx%d, fill=%s)",
-                     item["id"], scope, orient, sof, len(raw), len(jpeg), target_w, target_h, fill)
+            log.info("photo %s (%s, %s) SOF 0xFF%02X: %d→%d bytes (<=%dx%d)",
+                     item["id"], scope, orient, sof, len(raw), len(jpeg), target_w, target_h)
             return jpeg
 
         except Exception as e:
@@ -806,18 +811,15 @@ async def health():
 
 @app.get("/random-photo")
 async def random_photo(
-    # Bounds cover both panels' screen resolutions (panel1 1024x600,
-    # panel2 1280x800) with headroom for a future larger panel — previously
-    # h capped at 800 rejected every request with h > 800 with a 422.
-    #
-    # The panel sends only its own screen size; crop-vs-letterbox is not
-    # a client decision (see FILL_RESOLUTIONS) — there's no `fill` param
-    # here anymore.
-    w: int = Query(PHOTO_MAX_W, ge=16, le=1280),
-    h: int = Query(PHOTO_MAX_H, ge=16, le=1280),
+    # A new panel of any dimension just sends its own w/h here — bump
+    # ABS_MAX_W/ABS_MAX_H in hub.env if it's bigger than the current
+    # ceiling (still bounded by ESP32 PSRAM decode limits, not arbitrary).
+    # The panel sends only its own screen size; fill mode is universal
+    # (see comment on fetch_random_photo) — no `fill` param here.
+    w: int = Query(PHOTO_MAX_W, ge=16, le=ABS_MAX_W),
+    h: int = Query(PHOTO_MAX_H, ge=16, le=ABS_MAX_H),
 ):
-    fill = f"{w}x{h}" in FILL_RESOLUTIONS
-    jpeg = await fetch_random_photo(w, h, fill)
+    jpeg = await fetch_random_photo(w, h)
     if not jpeg:
         raise HTTPException(503, "Immich unavailable")
     return Response(content=jpeg, media_type="image/jpeg",

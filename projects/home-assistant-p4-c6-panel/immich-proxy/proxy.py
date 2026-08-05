@@ -54,15 +54,11 @@ ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "1280"))
 # Falls back to any orientation when no landscape exists in the batch.
 LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
 PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
-# Panels send only their own slideshow canvas resolution (?w=&h=) — they
-# don't decide crop vs letterbox themselves. The proxy looks the
-# resolution up here to pick fill mode: resolutions in this set get
-# full-bleed crop-to-cover; everything else gets letterbox. Panel 2 sends
-# 1280x800 — CONFIRMED via on-screen corner-coordinate labels
-# (2026-08-05) that main_display.get_width()/get_height() are really
-# 1280/800 on this board, not transposed. Panel 1 sends 1024x600 and
-# stays letterbox.
-FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
+# Panels send only their own slideshow canvas resolution (?w=&h=) —
+# nothing else panel-specific, so adding a panel of any dimension is
+# just a new ESPHome substitutions file, no backend config to update.
+# Fill mode is universal (always cover-to-fill, no per-resolution
+# allowlist) — see fetch_safe_jpeg.
 # Assets under these external-library paths are excluded from the slideshow
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
 # folder holds AI-upscaled/enhanced photos, not real family photos.
@@ -254,12 +250,16 @@ def _pick_oriented(assets: list, want_landscape: bool, target_aspect: float,
     return min(pool, key=lambda a: abs((a.get("width") or 1) / (a.get("height") or 1) - target_aspect))
 
 
-def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = False) -> bytes | None:
+def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H) -> bytes | None:
+    # Always cover-to-fill — panel-independent, no per-resolution config.
+    # cover mode guarantees both axes are fully covered regardless of the
+    # panel's own aspect ratio; a photo whose own aspect ratio is close
+    # to the panel's (picked below) only loses a sliver to the crop.
+    #
     # Match the asset's orientation to the requested canvas, not a fixed
     # global default — a landscape photo forced to cover a portrait canvas
-    # (fill=True) gets scaled way up and center-cropped, discarding most of
-    # the frame width. Panel 1 requests a landscape canvas (800x480), panel
-    # 2 requests a portrait canvas (800x1280); both share this proxy.
+    # gets scaled way up and center-cropped, discarding most of the frame
+    # width.
     want_landscape = target_w >= target_h
     for attempt in range(RETRIES):
         try:
@@ -317,7 +317,7 @@ def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = F
                 continue
             # ALWAYS resize+re-encode. Full-size JPEGs (1440x1920 ≈ 5.5MB RGB565)
             # exhaust ESP32 PSRAM during decode and crash the device.
-            result = _to_baseline_jpeg(jpeg_raw, target_w, target_h, fill)
+            result = _to_baseline_jpeg(jpeg_raw, target_w, target_h, fill=True)
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")
             orient_tag = "landscape" if is_landscape else "portrait-fallback"
             log.info(
@@ -381,8 +381,7 @@ class Handler(BaseHTTPRequestHandler):
                 target_h = min(ABS_MAX_H, max(16, int(query["h"][0])))
             except (KeyError, ValueError):
                 target_h = MAX_H
-            fill = f"{target_w}x{target_h}" in FILL_RESOLUTIONS
-            jpeg = fetch_safe_jpeg(target_w, target_h, fill)
+            jpeg = fetch_safe_jpeg(target_w, target_h)
             if jpeg:
                 self.send_response(200)
                 self.send_header("Content-Type", "image/jpeg")
