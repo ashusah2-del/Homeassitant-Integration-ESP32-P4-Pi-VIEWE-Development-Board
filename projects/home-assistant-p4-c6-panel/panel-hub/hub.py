@@ -60,11 +60,13 @@ AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI
 # Panels send only their own screen resolution (?w=&h=) — crop-vs-letterbox
 # isn't their call to make. This picks it for them, keyed off the exact
 # resolution received: panels in this set get full-bleed crop-to-cover
-# (fill=True) and lose overflow off whichever edge doesn't match the
-# photo's aspect ratio; everything else (default, both panels currently)
-# gets letterbox — scaled to fit entirely within the canvas with no crop,
-# padded with black bars on whichever axis doesn't match.
-FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "").split(",") if r.strip()}
+# (fill=True); everything else gets letterbox (fill=False) — scaled to fit
+# entirely within the canvas, padded with black bars on whichever axis
+# doesn't match. Panel 2 (1280x800, full-bleed slideshow with the calendar
+# as a translucent overlay) wants no visible bars, so it's in this set;
+# the aspect-closest asset selection in fetch_random_photo keeps its crop
+# minimal. Panel 1 (1024x600) is a bounded photo inset and stays letterbox.
+FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
@@ -267,9 +269,17 @@ async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_
                     matching = [a for a in images if (a.get("width") or 0) >= (a.get("height") or 0)]
                 else:
                     matching = [a for a in images if (a.get("height") or 0) > (a.get("width") or 0)]
-                item = (matching or images)[0]
+                pool = matching or images
             else:
-                item = images[0]
+                pool = images
+            # Among the pool, prefer whichever asset's own aspect ratio is
+            # closest to the requested canvas's. Under fill=True this
+            # minimizes how much gets cropped off (a well-matched photo
+            # loses only a sliver off one edge instead of a large chunk);
+            # under fill=False it minimizes the letterbox bars for the
+            # same reason. Free improvement either way.
+            target_aspect = target_w / target_h
+            item = min(pool, key=lambda a: abs((a.get("width") or 1) / (a.get("height") or 1) - target_aspect))
 
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.get(

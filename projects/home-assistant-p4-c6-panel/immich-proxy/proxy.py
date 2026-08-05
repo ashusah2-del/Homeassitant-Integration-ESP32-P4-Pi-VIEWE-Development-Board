@@ -56,11 +56,11 @@ LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "
 PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
 # Panels send only their own screen resolution (?w=&h=) — they don't decide
 # crop vs letterbox themselves. The proxy looks the resolution up here to
-# pick fill mode: resolutions in this set get full-bleed crop-to-cover;
-# everything else (default, both panels currently) gets letterbox — no
-# crop, scaled to fit entirely within the canvas with black bars on
-# whichever axis doesn't match.
-FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "").split(",") if r.strip()}
+# pick fill mode: resolutions in this set get full-bleed crop-to-cover
+# (panel 2, 1280x800 — wants no visible bars); everything else gets
+# letterbox — no crop, scaled to fit entirely within the canvas with black
+# bars on whichever axis doesn't match (panel 1, 1024x600).
+FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
 # Assets under these external-library paths are excluded from the slideshow
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
 # folder holds AI-upscaled/enhanced photos, not real family photos.
@@ -225,15 +225,22 @@ def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MA
     return data
 
 
-def _pick_oriented(assets: list, want_landscape: bool) -> dict:
-    """Return an asset matching the requested orientation if one exists, else first asset."""
+def _pick_oriented(assets: list, want_landscape: bool, target_aspect: float) -> dict:
+    """Return the asset whose own aspect ratio is closest to target_aspect,
+    among those matching the requested orientation (if any exist).
+
+    Picking the closest aspect match — instead of just any asset with the
+    right orientation — minimizes how much a fill=True cover-crop needs to
+    cut off (a well-matched photo loses only a sliver off one edge) and
+    minimizes fill=False letterbox bars for the same reason.
+    """
     if not LANDSCAPE_PREFER:
-        return assets[0]
-    if want_landscape:
-        matching = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)]
+        pool = assets
+    elif want_landscape:
+        pool = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)] or assets
     else:
-        matching = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)]
-    return (matching or assets)[0]
+        pool = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)] or assets
+    return min(pool, key=lambda a: abs((a.get("width") or 1) / (a.get("height") or 1) - target_aspect))
 
 
 def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = False) -> bytes | None:
@@ -279,7 +286,7 @@ def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = F
             if not images:
                 log.warning("attempt %d: no non-AI IMAGE assets in batch", attempt)
                 continue
-            item = _pick_oriented(images, want_landscape)
+            item = _pick_oriented(images, want_landscape, target_w / target_h)
             is_landscape = (item.get("width") or 0) >= (item.get("height") or 0)
             asset_id = item["id"]
 
