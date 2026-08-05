@@ -2406,7 +2406,7 @@ lvgl:
             widgets:
               - label:
                   align: CENTER
-                  text: "Layout v${firmware_version}"
+                  text: "Layout"
                   text_font: montserrat_16
                   text_color: "${c_text}"
 
