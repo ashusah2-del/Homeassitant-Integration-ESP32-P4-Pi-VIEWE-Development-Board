@@ -61,12 +61,20 @@ substitutions:
   screen_w: "1024"
   screen_h: "600"
   slideshow_photo_x: "340"
-  # The slideshow requests the photo at screen_w x screen_h (see
-  # display_touch_board.yaml's immich_photo/immich_photo_b) — no separate
-  # size token to keep in sync. Crop-vs-letterbox is the proxy's own
-  # decision, keyed off the resolution it receives (see immich-proxy's
-  # FILL_RESOLUTIONS) — this panel isn't in that set, so it gets the
-  # original letterbox behavior.
+  # No rotation on this board (rotate_display: 0), so main_display's
+  # LVGL-logical canvas matches screen_w/screen_h exactly — these just
+  # mirror them for the slideshow's decode buffer (see
+  # display_touch_board.yaml's immich_photo/immich_photo_b, and
+  # mangalam-panel-2.yaml for why panel 2 needs its own transposed
+  # values instead of reusing screen_w/screen_h directly).
+  slideshow_canvas_w: "1024"
+  slideshow_canvas_h: "600"
+  # TEMP diagnostic — corner pixel-coordinate labels, panel 2 only. See
+  # mangalam-panel-2.yaml.
+  debug_show_corners: "false"
+  # Crop-vs-letterbox is the proxy's own decision, keyed off the
+  # resolution it receives (see immich-proxy's FILL_RESOLUTIONS) — this
+  # panel isn't in that set, so it gets the original letterbox behavior.
 
   # Jellyfin page — literal values already in production.
   jf_list_w: "500"

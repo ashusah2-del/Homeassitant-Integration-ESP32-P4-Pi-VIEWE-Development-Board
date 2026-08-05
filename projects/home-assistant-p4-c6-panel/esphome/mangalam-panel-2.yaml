@@ -74,17 +74,23 @@ substitutions:
   screen_w: "1280"
   screen_h: "800"
   slideshow_photo_x: "422"
-  # main_display's LVGL-logical canvas is 1280x800 (get_width()=1280,
-  # get_height()=800) — NOT transposed by rotate_display:90 as previously
-  # assumed here. The slideshow photo is full-bleed edge-to-edge
-  # (1280x800, the full canvas) — the calendar sidebar sits on top of it
-  # as a translucent overlay, it doesn't reserve exclusive space, so this
-  # must NOT be reduced by slideshow_photo_x.
-  #
-  # The slideshow requests the photo at screen_w x screen_h (see
-  # display_touch_board.yaml's immich_photo/immich_photo_b) — no separate
-  # size token to keep in sync (a past mismatch between this token and
-  # the actual canvas caused a bad crop — see project memory). Crop vs
+  # CONFIRMED via on-screen corner-coordinate labels (2026-08-05): this
+  # board's LVGL-logical canvas is 1280x800 — get_width()=1280 (corner
+  # labels read 1279 on the right), get_height()=800 (799 on the
+  # bottom). rotate_display:90 does NOT transpose it. (An earlier theory
+  # this session — that it was transposed to 800x1280 — was wrong; a
+  # single misleading log line plus a stale/portrait-fallback photo
+  # briefly looked like confirmation but wasn't. Corrected here.)
+  slideshow_canvas_w: "1280"
+  slideshow_canvas_h: "800"
+  # TEMP diagnostic — four corner labels showing each corner's live pixel
+  # coordinate. Confirmed the canvas size above; safe to remove now, but
+  # left in as a quick sanity check if this is ever doubted again. Panel
+  # 1 has this off.
+  debug_show_corners: "true"
+  # The slideshow is full-bleed edge-to-edge — the calendar sidebar sits
+  # on top of it as a translucent overlay, it doesn't reserve exclusive
+  # space, so this must NOT be reduced by slideshow_photo_x. Crop vs
   # letterbox is the proxy's own decision, keyed off the resolution it
   # receives (see immich-proxy's FILL_RESOLUTIONS) — 1280x800 is in that
   # set, so this panel gets full-bleed crop-to-cover.
@@ -399,6 +405,7 @@ esphome:
             snprintf(bb, sizeof(bb), "%d%%", pct);
             lv_label_set_text(id(settings_backlight_val), bb);
           }
+      - script.execute: set_debug_corner_labels
       - script.execute: clear_page_scrollable
       - script.execute: apply_slideshow_layout_positions
       - script.execute: refresh_weather_widget

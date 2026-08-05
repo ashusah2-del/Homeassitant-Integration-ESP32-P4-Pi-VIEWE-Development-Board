@@ -361,19 +361,24 @@ online_image:
   # B downloads the next photo. When slot B's decode finishes,
   # crossfade_to_active_slot brings it forward while the old A fades/
   # slides out — so the previous image is always visible *during* the
-  # transition. PSRAM cost depends on screen_w x screen_h x 2 bytes/px.
+  # transition. PSRAM cost depends on slideshow_canvas_w x _h x 2 bytes/px.
   #
-  # The request only carries this panel's own screen resolution
-  # (screen_w/screen_h, the same tokens the rest of the layout is built
-  # from) — no fill/crop flag. The proxy decides letterbox vs crop-to-fill
-  # itself, keyed off that resolution, so this file doesn't need to know
-  # or duplicate that decision.
+  # The request only carries this panel's own slideshow canvas size
+  # (slideshow_canvas_w/h — NOT screen_w/screen_h: on a rotated board
+  # those can differ from what main_display.get_width()/get_height()
+  # actually report, see mangalam-panel-2.yaml) — no fill/crop flag. The
+  # proxy decides letterbox vs crop-to-fill itself, keyed off that
+  # resolution, so this file doesn't need to know or duplicate that
+  # decision. `resize:` must match exactly since it's a fixed decode
+  # buffer, not derived at runtime — refresh_immich_slideshow's own
+  # requests (below) instead call get_width()/get_height() directly,
+  # so they always self-correct even if these tokens are ever wrong.
   - id: immich_photo
-    url: "${proxy_url}/random-photo?w=${screen_w}&h=${screen_h}"
+    url: "${proxy_url}/random-photo?w=${slideshow_canvas_w}&h=${slideshow_canvas_h}"
     format: JPEG
     type: RGB565
     byte_order: LITTLE_ENDIAN
-    resize: ${screen_w}x${screen_h}
+    resize: ${slideshow_canvas_w}x${slideshow_canvas_h}
     # 65536 is ESPHome's hard cap for online_image (cv.int_range(256, 65536)
     # in the component schema) — it cannot go higher. The proxy's
     # _to_baseline_jpeg() guarantees its JPEG output stays under this via
@@ -393,11 +398,11 @@ online_image:
       - script.execute: { id: slideshow_failed, slot: 0 }
 
   - id: immich_photo_b
-    url: "${proxy_url}/random-photo?w=${screen_w}&h=${screen_h}"
+    url: "${proxy_url}/random-photo?w=${slideshow_canvas_w}&h=${slideshow_canvas_h}"
     format: JPEG
     type: RGB565
     byte_order: LITTLE_ENDIAN
-    resize: ${screen_w}x${screen_h}
+    resize: ${slideshow_canvas_w}x${slideshow_canvas_h}
     buffer_size: 65536
     update_interval: never
     request_headers:
@@ -426,6 +431,25 @@ script:
       - lvgl.widget.show: error_bar
       - delay: 8s
       - lvgl.widget.hide: error_bar
+
+  # TEMP diagnostic (2026-08-05) — fills in the four corner labels'
+  # actual text from live lv_disp_get_hor_res()/ver_res(). Harmless to
+  # run on both panels (the labels themselves stay hidden unless
+  # debug_show_corners is true). Remove alongside the labels above.
+  - id: set_debug_corner_labels
+    mode: restart
+    then:
+      - lambda: |-
+          const int W = lv_disp_get_hor_res(lv_disp_get_default());
+          const int H = lv_disp_get_ver_res(lv_disp_get_default());
+          char buf[24];
+          lv_label_set_text(id(dbg_corner_tl), "0,0");
+          snprintf(buf, sizeof(buf), "%d,0", W - 1);
+          lv_label_set_text(id(dbg_corner_tr), buf);
+          snprintf(buf, sizeof(buf), "0,%d", H - 1);
+          lv_label_set_text(id(dbg_corner_bl), buf);
+          snprintf(buf, sizeof(buf), "%d,%d", W - 1, H - 1);
+          lv_label_set_text(id(dbg_corner_br), buf);
 
   # Shared success path for both slideshow slots.
   - id: slideshow_loaded
@@ -1541,6 +1565,58 @@ lvgl:
   # ── Top layer — overlays that must float above every page ──────
   top_layer:
     widgets:
+      # ── TEMP diagnostic (2026-08-05): four corner pixel-coordinate
+      # labels, gated by debug_show_corners (panel 2 only — see
+      # mangalam-panel-2.yaml). align with 0,0 offset places these at
+      # whatever LVGL considers the true logical corners regardless of
+      # any assumed screen_w/screen_h, so where they visually land (and
+      # what numbers they show) is direct ground truth for
+      # get_width()/get_height(). Text is set once in on_boot. Remove
+      # this whole block once the canvas-orientation question is closed.
+      - label:
+          id: dbg_corner_tl
+          align: TOP_LEFT
+          x: 0
+          y: 0
+          text: "0,0"
+          text_font: montserrat_16
+          text_color: 0xFFFF00
+          bg_color: 0x000000
+          bg_opa: 80%
+          hidden: !lambda 'return !(${debug_show_corners});'
+      - label:
+          id: dbg_corner_tr
+          align: TOP_RIGHT
+          x: 0
+          y: 0
+          text: "?,0"
+          text_font: montserrat_16
+          text_color: 0xFFFF00
+          bg_color: 0x000000
+          bg_opa: 80%
+          hidden: !lambda 'return !(${debug_show_corners});'
+      - label:
+          id: dbg_corner_bl
+          align: BOTTOM_LEFT
+          x: 0
+          y: 0
+          text: "0,?"
+          text_font: montserrat_16
+          text_color: 0xFFFF00
+          bg_color: 0x000000
+          bg_opa: 80%
+          hidden: !lambda 'return !(${debug_show_corners});'
+      - label:
+          id: dbg_corner_br
+          align: BOTTOM_RIGHT
+          x: 0
+          y: 0
+          text: "?,?"
+          text_font: montserrat_16
+          text_color: 0xFFFF00
+          bg_color: 0x000000
+          bg_opa: 80%
+          hidden: !lambda 'return !(${debug_show_corners});'
       # ── Status toast — single error/status surface for the whole panel.
       # Shown via the panel_toast script (auto-hides after 8 s, tap to
       # dismiss). Lives on the LVGL top layer so it floats over any page.

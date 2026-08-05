@@ -57,15 +57,22 @@ PORTRAIT_BATCH   = int(os.getenv("PORTRAIT_BATCH", "4"))
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
 # folder holds AI-upscaled/enhanced photos, not real family photos.
 AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI Images").split(",") if p.strip()]
-# Panels send only their own screen resolution (?w=&h=) — crop-vs-letterbox
-# isn't their call to make. This picks it for them, keyed off the exact
-# resolution received: panels in this set get full-bleed crop-to-cover
-# (fill=True); everything else gets letterbox (fill=False) — scaled to fit
-# entirely within the canvas, padded with black bars on whichever axis
-# doesn't match. Panel 2 (1280x800, full-bleed slideshow with the calendar
-# as a translucent overlay) wants no visible bars, so it's in this set;
-# the aspect-closest asset selection in fetch_random_photo keeps its crop
-# minimal. Panel 1 (1024x600) is a bounded photo inset and stays letterbox.
+# Panels send only their own slideshow canvas resolution (?w=&h=) —
+# crop-vs-letterbox isn't their call to make. This picks it for them,
+# keyed off the exact resolution received: panels in this set get
+# full-bleed crop-to-cover (fill=True); everything else gets letterbox
+# (fill=False) — scaled to fit entirely within the canvas, padded with
+# black bars on whichever axis doesn't match.
+#
+# Panel 2 sends 1280x800 — CONFIRMED via on-screen corner-coordinate
+# labels (2026-08-05) that main_display.get_width()/get_height() are
+# really 1280/800 on this board, not transposed. (A same-day theory that
+# it was 800x1280 was wrong — a misleading log line plus a stale/
+# portrait-fallback photo briefly looked like confirmation but wasn't.)
+# Panel 2 wants no visible bars (full-bleed with the calendar as a
+# translucent overlay), so it's in this set; the aspect-closest asset
+# selection in fetch_random_photo keeps its crop minimal. Panel 1
+# (1024x600, no rotation) is a bounded photo inset and stays letterbox.
 FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
@@ -269,6 +276,15 @@ async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_
                     matching = [a for a in images if (a.get("width") or 0) >= (a.get("height") or 0)]
                 else:
                     matching = [a for a in images if (a.get("height") or 0) > (a.get("width") or 0)]
+                # Re-fetch a fresh batch rather than immediately settling
+                # for the wrong orientation — a portrait photo cover-cropped
+                # onto a landscape canvas (or vice versa) loses most of its
+                # frame. Only fall back to any orientation on the very last
+                # attempt, so a photo still gets served eventually.
+                if not matching and attempt < RETRIES - 1:
+                    log.info("attempt %d: no %s assets in batch, retrying for a better match",
+                             attempt, "landscape" if want_landscape else "portrait")
+                    continue
                 pool = matching or images
             else:
                 pool = images

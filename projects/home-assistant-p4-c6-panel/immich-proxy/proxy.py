@@ -54,12 +54,14 @@ ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "1280"))
 # Falls back to any orientation when no landscape exists in the batch.
 LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
 PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
-# Panels send only their own screen resolution (?w=&h=) — they don't decide
-# crop vs letterbox themselves. The proxy looks the resolution up here to
-# pick fill mode: resolutions in this set get full-bleed crop-to-cover
-# (panel 2, 1280x800 — wants no visible bars); everything else gets
-# letterbox — no crop, scaled to fit entirely within the canvas with black
-# bars on whichever axis doesn't match (panel 1, 1024x600).
+# Panels send only their own slideshow canvas resolution (?w=&h=) — they
+# don't decide crop vs letterbox themselves. The proxy looks the
+# resolution up here to pick fill mode: resolutions in this set get
+# full-bleed crop-to-cover; everything else gets letterbox. Panel 2 sends
+# 1280x800 — CONFIRMED via on-screen corner-coordinate labels
+# (2026-08-05) that main_display.get_width()/get_height() are really
+# 1280/800 on this board, not transposed. Panel 1 sends 1024x600 and
+# stays letterbox.
 FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
 # Assets under these external-library paths are excluded from the slideshow
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
@@ -225,7 +227,8 @@ def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MA
     return data
 
 
-def _pick_oriented(assets: list, want_landscape: bool, target_aspect: float) -> dict:
+def _pick_oriented(assets: list, want_landscape: bool, target_aspect: float,
+                    allow_fallback: bool = True) -> dict | None:
     """Return the asset whose own aspect ratio is closest to target_aspect,
     among those matching the requested orientation (if any exist).
 
@@ -233,13 +236,21 @@ def _pick_oriented(assets: list, want_landscape: bool, target_aspect: float) -> 
     right orientation — minimizes how much a fill=True cover-crop needs to
     cut off (a well-matched photo loses only a sliver off one edge) and
     minimizes fill=False letterbox bars for the same reason.
+
+    allow_fallback=False returns None instead of falling back to the wrong
+    orientation when the batch has none matching — the caller can then
+    retry with a fresh batch rather than serving a badly-cropped photo.
     """
     if not LANDSCAPE_PREFER:
         pool = assets
     elif want_landscape:
-        pool = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)] or assets
+        matching = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)]
+        pool = matching if (matching or not allow_fallback) else assets
     else:
-        pool = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)] or assets
+        matching = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)]
+        pool = matching if (matching or not allow_fallback) else assets
+    if not pool:
+        return None
     return min(pool, key=lambda a: abs((a.get("width") or 1) / (a.get("height") or 1) - target_aspect))
 
 
@@ -286,7 +297,12 @@ def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = F
             if not images:
                 log.warning("attempt %d: no non-AI IMAGE assets in batch", attempt)
                 continue
-            item = _pick_oriented(images, want_landscape, target_w / target_h)
+            item = _pick_oriented(images, want_landscape, target_w / target_h,
+                                   allow_fallback=(attempt == RETRIES - 1))
+            if item is None:
+                log.info("attempt %d: no %s assets in batch, retrying for a better match",
+                         attempt, "landscape" if want_landscape else "portrait")
+                continue
             is_landscape = (item.get("width") or 0) >= (item.get("height") or 0)
             asset_id = item["id"]
 
