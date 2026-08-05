@@ -56,10 +56,11 @@ LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "
 PORTRAIT_BATCH   = int(os.environ.get("PORTRAIT_BATCH", "4"))
 # Panels send only their own screen resolution (?w=&h=) — they don't decide
 # crop vs letterbox themselves. The proxy looks the resolution up here to
-# pick fill mode per panel: panel 2 (1280x800, full-bleed slideshow) wants
-# crop-to-cover; panel 1 (1024x600, photo inset in its dashboard) wants the
-# original letterbox behavior. Unlisted resolutions default to letterbox.
-FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
+# pick fill mode: resolutions in this set get full-bleed crop-to-cover;
+# everything else (default, both panels currently) gets letterbox — no
+# crop, scaled to fit entirely within the canvas with black bars on
+# whichever axis doesn't match.
+FILL_RESOLUTIONS = {r.strip() for r in os.environ.get("FILL_RESOLUTIONS", "").split(",") if r.strip()}
 # Assets under these external-library paths are excluded from the slideshow
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
 # folder holds AI-upscaled/enhanced photos, not real family photos.

@@ -60,8 +60,11 @@ AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI
 # Panels send only their own screen resolution (?w=&h=) — crop-vs-letterbox
 # isn't their call to make. This picks it for them, keyed off the exact
 # resolution received: panels in this set get full-bleed crop-to-cover
-# (fill=True), everything else gets the original letterbox behavior.
-FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
+# (fill=True) and lose overflow off whichever edge doesn't match the
+# photo's aspect ratio; everything else (default, both panels currently)
+# gets letterbox — scaled to fit entirely within the canvas with no crop,
+# padded with black bars on whichever axis doesn't match.
+FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "").split(",") if r.strip()}
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
