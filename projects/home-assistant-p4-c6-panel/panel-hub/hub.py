@@ -57,6 +57,11 @@ PORTRAIT_BATCH   = int(os.getenv("PORTRAIT_BATCH", "4"))
 # (case-insensitive substring match on originalPath) — e.g. the "AI Images"
 # folder holds AI-upscaled/enhanced photos, not real family photos.
 AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI Images").split(",") if p.strip()]
+# Panels send only their own screen resolution (?w=&h=) — crop-vs-letterbox
+# isn't their call to make. This picks it for them, keyed off the exact
+# resolution received: panels in this set get full-bleed crop-to-cover
+# (fill=True), everything else gets the original letterbox behavior.
+FILL_RESOLUTIONS = {r.strip() for r in os.getenv("FILL_RESOLUTIONS", "1280x800").split(",") if r.strip()}
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
@@ -111,8 +116,8 @@ def encode_sof0(raw: bytes, max_w: int, max_h: int,
     component hard-caps its download buffer at 65536 bytes (a schema limit,
     not a tunable default — cv.int_range(256, 65536)), so an oversized
     response makes the panel silently fall back to its stock image on every
-    fetch. Large fill=True canvases (e.g. panel2's 848x800) can produce
-    110-150 KB at the default quality, so quality is stepped down first —
+    fetch. Large fill=True canvases (e.g. panel2's 1280x800) can produce
+    90-170 KB at the default quality, so quality is stepped down first —
     and, if that alone isn't enough, the canvas geometry is shrunk and
     quality retried — until the encode fits comfortably under the cap.
     """
@@ -212,6 +217,11 @@ def _resolve_person_ids() -> list[tuple[str, str]]:
 
 async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_MAX_H,
                               fill: bool = False) -> bytes | None:
+    # Match the asset's orientation to the requested canvas, not a fixed
+    # global default — a landscape photo forced to cover a portrait canvas
+    # (fill=True) gets scaled way up and center-cropped, discarding most of
+    # the frame width. Different panels can request different aspect ratios.
+    want_landscape = target_w >= target_h
     loop = asyncio.get_event_loop()
     person_filter = await loop.run_in_executor(None, _resolve_person_ids)
 
@@ -250,8 +260,11 @@ async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_
                 continue
 
             if LANDSCAPE_PREFER:
-                landscape = [a for a in images if (a.get("width") or 0) >= (a.get("height") or 0)]
-                item = (landscape or images)[0]
+                if want_landscape:
+                    matching = [a for a in images if (a.get("width") or 0) >= (a.get("height") or 0)]
+                else:
+                    matching = [a for a in images if (a.get("height") or 0) > (a.get("width") or 0)]
+                item = (matching or images)[0]
             else:
                 item = images[0]
 
@@ -764,15 +777,17 @@ async def health():
 
 @app.get("/random-photo")
 async def random_photo(
-    # Bounds cover both landscape and portrait panels (e.g. panel2 runs
-    # rotate_display: 90, so its runtime LVGL canvas is 800x1280 and its
-    # dynamic size calc legitimately requests h up to 1280) — previously
-    # h capped at 800 rejected every request from a rotated panel with
-    # 422 Unprocessable Entity.
+    # Bounds cover both panels' screen resolutions (panel1 1024x600,
+    # panel2 1280x800) with headroom for a future larger panel — previously
+    # h capped at 800 rejected every request with h > 800 with a 422.
+    #
+    # The panel sends only its own screen size; crop-vs-letterbox is not
+    # a client decision (see FILL_RESOLUTIONS) — there's no `fill` param
+    # here anymore.
     w: int = Query(PHOTO_MAX_W, ge=16, le=1280),
     h: int = Query(PHOTO_MAX_H, ge=16, le=1280),
-    fill: bool = Query(False),
 ):
+    fill = f"{w}x{h}" in FILL_RESOLUTIONS
     jpeg = await fetch_random_photo(w, h, fill)
     if not jpeg:
         raise HTTPException(503, "Immich unavailable")
