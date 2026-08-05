@@ -21,7 +21,6 @@ A custom Home Assistant control panel running on a **Guition ESP32-P4 + ESP32-C6
 | `esphome/packages/tuya_local.yaml` | Tuya LAN page + HTTP scripts. |
 | `esphome/packages/jellyfin_local.yaml` | Jellyfin browse page (posters, pagination, cast target selection). |
 | `home_assistant/packages/esp32p4_panel.yaml` | HA-side YAML: input_text/input_number helpers, automations (calendar refresh, Jellyfin play script). Drop into HA packages folder. |
-| `immich-proxy/proxy.py` | Python `BaseHTTPRequestHandler` (port 8765). Re-encodes Immich/camera images as SOF0 baseline JPEG at fixed 800×480. Runs as systemd user service. |
 | `jellyfin-proxy/proxy.py` | Python service (port 8767). Exposes `/health`, `/movies`, `/poster/<id>`, `POST /play/<id>` for the panel. |
 | `hypon-proxy/proxy.py` | Python service (port 8769). Logs into Hypontech Cloud directly and polls all 5 API endpoints (HA's own integration only uses 2) — exposes grid power, home load, battery SOC, inverter/gateway status, CO2/trees, earnings via `/hypon/status` for HA's `rest:` sensors in `esp32p4_panel.yaml`. |
 | `tuya-bridge/bridge.py` | Tuya LAN bridge (port 8766) using tinytuya. Devices in `devices.json`. |
@@ -62,10 +61,6 @@ Copy `home_assistant/packages/esp32p4_panel.yaml` to the HA packages folder on t
 Config files (gitignored in prod):
 
 ```bash
-# Immich proxy
-cp immich-proxy/proxy.env.example immich-proxy/proxy.env
-# Fill: IMMICH_URL, IMMICH_API_KEY, HA_URL, HA_TOKEN
-
 # Jellyfin proxy
 cp jellyfin-proxy/proxy.env.example jellyfin-proxy/proxy.env
 # Fill: JELLYFIN_URL, JELLYFIN_API_KEY

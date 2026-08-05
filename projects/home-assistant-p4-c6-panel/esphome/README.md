@@ -239,29 +239,13 @@ so they're visible regardless of the active page.
 
 ## Supporting services
 
-### Immich proxy (`docker/immich-proxy/`)
+### Immich + camera images
 
-A small `BaseHTTPRequestHandler` Python service running as a systemd
-**user** service (`immich-proxy.service`) on the Docker host
-(`<docker-host-ip>:8765`). It exposes two endpoints used by the panel:
-
-- `GET /random-photo` — fetches a random IMAGE asset from Immich's full
-  library by default (`FAVORITES_ONLY=true` restricts it to favourites).
-  If `IMMICH_PERSON_NAMES` is set, each request picks a random configured
-  person and only returns photos containing at least that person. It then
-  follows the `?size=preview` thumbnail link, then **always**
-  re-encodes via Pillow as SOF0 baseline JPEG letterboxed into a fixed
-  16-pixel-aligned `MAX_W × MAX_H` canvas (default 800 × 480). Removes
-  the SOF1 incompatibility, odd portrait dimensions, and full-size
-  decode-memory pressure.
-- `GET /camera/<entity>?size=thumb|full` — fetches an HA
-  `/api/camera_proxy/camera.<entity>` snapshot using a long-lived
-  HA token, then resizes (300×200 for thumbs, 800×500 for full) and
-  re-encodes via Pillow. Same SOF0 guarantee.
-
-Config lives in `proxy.env` (gitignored): Immich URL + API key, HA URL
-+ long-lived token, JPEG quality, retry count, and optional
-`FAVORITES_ONLY` / `IMMICH_PERSON_NAMES`.
+The standalone `immich-proxy` service (formerly `:8765`) has been removed.
+Its `GET /random-photo` and `GET /camera/<entity>` endpoints — random
+Immich photo fetch and HA camera snapshots, re-encoded via Pillow to
+JPEGDEC-safe SOF0 baseline JPEGs — are now served by **panel-hub**
+(`panel-hub/`, port `:8768`). See the panel-hub section for details.
 
 ### Jellyfin proxy (`jellyfin-proxy/`)
 
