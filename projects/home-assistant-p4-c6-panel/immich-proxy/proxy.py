@@ -46,7 +46,10 @@ MAX_H           = int(os.environ.get("MAX_H", "480"))
 # Clamped so a bogus request can't ask for a canvas too large for the
 # ESP32's PSRAM to decode (see MAX_W/MAX_H comment above).
 ABS_MAX_W       = int(os.environ.get("ABS_MAX_W", "1280"))
-ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "800"))
+# 1280 matches panel 2's rotated portrait canvas (screen_h=1280 in
+# mangalam-panel-2.yaml). A lower cap here silently clamps its h=1280
+# request down to a square canvas before fill/crop even runs.
+ABS_MAX_H       = int(os.environ.get("ABS_MAX_H", "1280"))
 # Fetch N candidates per request and prefer landscape (width >= height).
 # Falls back to any orientation when no landscape exists in the batch.
 LANDSCAPE_PREFER = os.environ.get("LANDSCAPE_PREFER", "true").lower() in ("1", "true", "yes", "on")
@@ -171,15 +174,24 @@ def _to_baseline_jpeg(jpeg_raw: bytes, target_w: int = MAX_W, target_h: int = MA
     return out.getvalue()
 
 
-def _pick_landscape_preferred(assets: list) -> dict:
-    """Return a landscape asset (width >= height) if one exists, else first asset."""
+def _pick_oriented(assets: list, want_landscape: bool) -> dict:
+    """Return an asset matching the requested orientation if one exists, else first asset."""
     if not LANDSCAPE_PREFER:
         return assets[0]
-    landscape = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)]
-    return (landscape or assets)[0]
+    if want_landscape:
+        matching = [a for a in assets if (a.get("width") or 0) >= (a.get("height") or 0)]
+    else:
+        matching = [a for a in assets if (a.get("height") or 0) > (a.get("width") or 0)]
+    return (matching or assets)[0]
 
 
 def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = False) -> bytes | None:
+    # Match the asset's orientation to the requested canvas, not a fixed
+    # global default — a landscape photo forced to cover a portrait canvas
+    # (fill=True) gets scaled way up and center-cropped, discarding most of
+    # the frame width. Panel 1 requests a landscape canvas (800x480), panel
+    # 2 requests a portrait canvas (800x1280); both share this proxy.
+    want_landscape = target_w >= target_h
     for attempt in range(RETRIES):
         try:
             batch = PORTRAIT_BATCH if LANDSCAPE_PREFER else 1
@@ -216,7 +228,7 @@ def fetch_safe_jpeg(target_w: int = MAX_W, target_h: int = MAX_H, fill: bool = F
             if not images:
                 log.warning("attempt %d: no non-AI IMAGE assets in batch", attempt)
                 continue
-            item = _pick_landscape_preferred(images)
+            item = _pick_oriented(images, want_landscape)
             is_landscape = (item.get("width") or 0) >= (item.get("height") or 0)
             asset_id = item["id"]
 
