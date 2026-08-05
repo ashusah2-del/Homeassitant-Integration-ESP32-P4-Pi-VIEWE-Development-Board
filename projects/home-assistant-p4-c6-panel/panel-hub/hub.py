@@ -61,15 +61,14 @@ AI_EXCLUDE_PATHS = [p.strip().lower() for p in os.getenv("AI_EXCLUDE_PATHS", "AI
 # nothing else panel-specific. Adding a panel of any dimension is then
 # just a new ESPHome substitutions file; no backend config to update.
 #
-# Fill mode is universal (always cover-to-fill, no per-resolution
-# allowlist): a photo is scaled to fully cover the requested canvas and
-# cropped on whichever axis overflows, so every panel fills edge to edge
-# regardless of its own aspect ratio — "at least fill vertically" is
-# automatically satisfied since cover mode guarantees BOTH axes are
-# covered. fetch_random_photo's aspect-closest asset selection (below)
-# keeps the actual crop minimal by picking whichever fetched photo's own
-# aspect ratio is nearest the panel's, so this rarely means a heavy crop
-# in practice.
+# Fit mode is universal (letterbox / contain, never crop): the WHOLE photo
+# is scaled to fit inside the requested canvas, centered, with black bars
+# on whichever axis is short. A landscape photo on a landscape panel fills
+# top-to-bottom with thin side bars — the user picked "show the whole
+# photo, fill height, no crop" over edge-to-edge cover-crop because
+# cropping shaved heads/edges and looked unnatural. Same-orientation asset
+# selection (fetch_random_photo) keeps the bars thin by preferring photos
+# whose aspect ratio is close to the panel's.
 # Hard ceiling on a panel's requested w/h — a safety net against a
 # runaway request, not a per-panel setting. 1280 covers both current
 # panels; bump via hub.env for a bigger future panel (bounded by ESP32
@@ -247,14 +246,16 @@ def _resolve_person_ids() -> list[tuple[str, str]]:
 
 
 async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_MAX_H) -> bytes | None:
-    # Always cover-to-fill (see module-level comment above PHOTO_MAX_W) —
-    # this is the one caller of encode_sof0's fill=, so it's hardcoded
-    # here rather than threaded through as a parameter nothing varies.
+    # Fit the WHOLE photo inside the canvas (letterbox, fill=False) — never
+    # crop. A landscape photo on the landscape panel fills top-to-bottom
+    # with thin black side bars; nothing is cut off, which reads as more
+    # natural than a cover-crop that shaves heads/edges. (See the module
+    # comment above PHOTO_MAX_W.) This is the one caller of encode_sof0's
+    # fill=, so the choice is hardcoded here.
     #
-    # Match the asset's orientation to the requested canvas, not a fixed
-    # global default — a landscape photo forced to cover a portrait canvas
-    # gets scaled way up and center-cropped, discarding most of the frame
-    # width. Different panels can request different aspect ratios.
+    # Match the asset's orientation to the requested canvas — a portrait
+    # photo letterboxed into a landscape canvas ends up tiny with huge side
+    # bars, so we prefer (and retry for) same-orientation photos below.
     want_landscape = target_w >= target_h
     loop = asyncio.get_event_loop()
     person_filter = await loop.run_in_executor(None, _resolve_person_ids)
@@ -333,7 +334,7 @@ async def fetch_random_photo(target_w: int = PHOTO_MAX_W, target_h: int = PHOTO_
                 continue
 
             jpeg = await loop.run_in_executor(
-                None, encode_sof0, raw, target_w, target_h, JPEG_QUALITY, 2, True)
+                None, encode_sof0, raw, target_w, target_h, JPEG_QUALITY, 2, False)
 
             orient = "landscape" if (item.get("width", 0) >= item.get("height", 0)) else "portrait-fallback"
             scope = f"person:{person_name}" if person_name else ("favorites" if FAVORITES_ONLY else "all")

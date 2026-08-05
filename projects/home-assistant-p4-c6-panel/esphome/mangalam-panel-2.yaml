@@ -61,7 +61,7 @@ substitutions:
   jf_cast4_label: ""
   jf_cast4_entity: ""
   idle_timeout: 30s
-  firmware_version: "0.7.2"
+  firmware_version: "0.8.0"
   fallback_ap_ssid: !secret panel2_fallback_ap_ssid
   # HA script that handles room-button announcements (Alexa device set there).
   announce_script: "script.panel_announce"
@@ -83,11 +83,12 @@ substitutions:
   # briefly looked like confirmation but wasn't. Corrected here.)
   slideshow_canvas_w: "1280"
   slideshow_canvas_h: "800"
-  # The slideshow is full-bleed edge-to-edge — the calendar sidebar sits
-  # on top of it as a translucent overlay, it doesn't reserve exclusive
-  # space, so this must NOT be reduced by slideshow_photo_x. panel-hub
-  # always cover-crops the photo to fill the requested canvas (see its
-  # /random-photo), so this panel gets edge-to-edge with no bars.
+  # The slideshow photo occupies the whole canvas — the calendar sidebar
+  # sits on top of it as a translucent overlay, it doesn't reserve
+  # exclusive space, so this must NOT be reduced by slideshow_photo_x.
+  # panel-hub fits (letterboxes) the whole photo into the requested canvas
+  # without cropping (see its /random-photo), so a landscape photo fills
+  # top-to-bottom with thin black side bars.
 
   # Jellyfin page — scaled 1.25x (1280/1024) from panel1's literal values.
   jf_list_w: "625"

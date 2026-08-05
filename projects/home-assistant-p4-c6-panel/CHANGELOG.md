@@ -6,6 +6,51 @@ and the slideshow's "Layout vX.Y.Z" pill. Bump it whenever a change is
 user-visible enough to matter for support/debugging — not required for every
 commit.
 
+## [0.8.0] - 2026-08-05
+
+Slideshow image pipeline overhaul — fixes panel 2 showing portrait /
+cropped / blurry photos, and makes the whole thing panel-independent.
+
+- **Fixed panel 2 slideshow rendering portrait/sideways.** The runtime
+  request paths (`refresh_immich_slideshow` + the two crossfade
+  `set_url` lambdas in `display_touch_board.yaml`) built the photo URL
+  from `main_display.get_width()/get_height()`, which return the
+  PHYSICAL pre-rotation panel size (800x1280 on this `rotate_display:90`
+  board) — so every slideshow tick asked `panel-hub` for a portrait
+  photo that then decoded into the landscape 1280x800 buffer sideways.
+  All request paths now use `slideshow_canvas_w/h` (1280x800), matching
+  the `online_image` decode buffer. NB: `main_display.get_width()`
+  (ESPHome, pre-rotation) and `lv_disp_get_hor_res()` (LVGL,
+  post-rotation) differ on rotated boards.
+- **Panel-independent fit (letterbox, no crop).** `panel-hub`'s
+  `/random-photo` scales the WHOLE photo to fit inside whatever `w x h`
+  the panel requests, centered with thin black bars on the short axis —
+  nothing is ever cropped (chosen over edge-to-edge cover-crop, which
+  shaved heads/edges and looked unnatural). A landscape photo on the
+  landscape panel fills top-to-bottom with slim side bars. No
+  per-resolution allowlist and no `fill` query param, so adding a panel
+  of any dimension is just a new substitutions file; the only backend
+  knob is `ABS_MAX_W/H` (env) for a panel bigger than 1280.
+- **Sharper photos within the 64KB cap.** ESPHome's `online_image`
+  download buffer is hard-capped at 65536 bytes. The encoder now uses
+  `optimize=True` (~5-10% smaller at identical quality), a 63000-byte
+  budget, and drops JPEG quality to a floor of 20 at NATIVE resolution
+  before ever shrinking geometry (a native-res photo at lower quality
+  looks sharper than a shrunk one upscaled to fill the screen). Any
+  unavoidable shrink now steps gently (0.92) so it lands just under
+  native (~1168x736, a 1.10x upscale) instead of a soft 912x560. ~11/14
+  photos now served at native 1280x800.
+- **Orientation preference retries.** When a fetched Immich batch has no
+  photo matching the requested orientation, the proxy now re-fetches a
+  fresh batch (up to `RETRIES`) instead of immediately serving a
+  wrong-orientation photo; it also picks the aspect-closest asset to
+  minimize crop.
+- **Removed the standalone `immich-proxy` service.** Its `/random-photo`
+  and `/camera/*` endpoints were superseded by `panel-hub` (`:8768`)
+  months ago — `immich_proxy_url` in secrets points at `:8768`, nothing
+  used `:8765`. Deleted the repo dir, the deployed copy, and the systemd
+  unit.
+
 ## [0.7.2] - 2026-07-23
 
 Fixed: tapping dashboard room tiles, tado thermostat cards, or dragging
