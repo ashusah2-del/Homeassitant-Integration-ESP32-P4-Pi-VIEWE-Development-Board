@@ -69,12 +69,8 @@ substitutions:
   # values instead of reusing screen_w/screen_h directly).
   slideshow_canvas_w: "1024"
   slideshow_canvas_h: "600"
-  # TEMP diagnostic — corner pixel-coordinate labels, panel 2 only. See
-  # mangalam-panel-2.yaml.
-  debug_show_corners: "false"
-  # Crop-vs-letterbox is the proxy's own decision, keyed off the
-  # resolution it receives (see immich-proxy's FILL_RESOLUTIONS) — this
-  # panel isn't in that set, so it gets the original letterbox behavior.
+  # panel-hub always cover-crops the photo to fill the requested canvas
+  # (see its /random-photo), so this panel gets edge-to-edge with no bars.
 
   # Jellyfin page — literal values already in production.
   jf_list_w: "500"

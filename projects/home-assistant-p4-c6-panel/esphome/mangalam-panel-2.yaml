@@ -83,17 +83,11 @@ substitutions:
   # briefly looked like confirmation but wasn't. Corrected here.)
   slideshow_canvas_w: "1280"
   slideshow_canvas_h: "800"
-  # TEMP diagnostic — four corner labels showing each corner's live pixel
-  # coordinate. Confirmed the canvas size above; safe to remove now, but
-  # left in as a quick sanity check if this is ever doubted again. Panel
-  # 1 has this off.
-  debug_show_corners: "true"
   # The slideshow is full-bleed edge-to-edge — the calendar sidebar sits
   # on top of it as a translucent overlay, it doesn't reserve exclusive
-  # space, so this must NOT be reduced by slideshow_photo_x. Crop vs
-  # letterbox is the proxy's own decision, keyed off the resolution it
-  # receives (see immich-proxy's FILL_RESOLUTIONS) — 1280x800 is in that
-  # set, so this panel gets full-bleed crop-to-cover.
+  # space, so this must NOT be reduced by slideshow_photo_x. panel-hub
+  # always cover-crops the photo to fill the requested canvas (see its
+  # /random-photo), so this panel gets edge-to-edge with no bars.
 
   # Jellyfin page — scaled 1.25x (1280/1024) from panel1's literal values.
   jf_list_w: "625"
@@ -405,7 +399,6 @@ esphome:
             snprintf(bb, sizeof(bb), "%d%%", pct);
             lv_label_set_text(id(settings_backlight_val), bb);
           }
-      - script.execute: set_debug_corner_labels
       - script.execute: clear_page_scrollable
       - script.execute: apply_slideshow_layout_positions
       - script.execute: refresh_weather_widget

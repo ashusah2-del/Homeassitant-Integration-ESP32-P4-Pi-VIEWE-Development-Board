@@ -79,6 +79,15 @@ ABS_MAX_H = int(os.getenv("ABS_MAX_H", "1280"))
 PHOTO_MAX_W     = int(os.getenv("MAX_W", "800"))
 PHOTO_MAX_H     = int(os.getenv("MAX_H", "480"))
 JPEG_QUALITY    = int(os.getenv("JPEG_QUALITY", "78"))
+# Lowest JPEG quality the size-ceiling ladder will drop to at native
+# resolution before it resorts to shrinking the image. A native-resolution
+# photo at q=25 looks sharper on the panel than a downscaled one upscaled
+# back to fill the screen, so we push quality down to this floor first.
+JPEG_MIN_QUALITY = int(os.getenv("JPEG_MIN_QUALITY", "20"))
+# Target size for the encoded JPEG. Must stay under ESPHome online_image's
+# hard 65536-byte buffer cap; 63000 uses almost all of it (more bytes =
+# sharper) while leaving a small safety margin.
+JPEG_BUDGET_BYTES = int(os.getenv("JPEG_BUDGET_BYTES", "63000"))
 RETRIES         = int(os.getenv("RETRIES", "8"))
 
 HA_URL          = os.getenv("HA_URL", "").rstrip("/")
@@ -117,23 +126,26 @@ def _sof_type(data: bytes) -> int | None:
 
 def encode_sof0(raw: bytes, max_w: int, max_h: int,
                 quality: int = JPEG_QUALITY, subsampling: int = 2,
-                fill: bool = False, budget_bytes: int = 60000) -> bytes:
+                fill: bool = False, budget_bytes: int = JPEG_BUDGET_BYTES) -> bytes:
     """Re-encode to SOF0 baseline JPEG on a 16-pixel-aligned canvas.
 
     fill=False (default) fits the photo within the canvas and letterboxes
-    the shortfall — original behavior, unchanged. fill=True instead scales
-    to cover the whole canvas and center-crops the overflow, so panels
-    whose slideshow area isn't close to the canvas's own aspect ratio
-    (e.g. a near-square area) don't end up with large black bars.
+    the shortfall. fill=True instead scales to cover the whole canvas and
+    center-crops the overflow (no black bars).
 
     Guarantees the returned JPEG is <= budget_bytes. ESPHome's online_image
     component hard-caps its download buffer at 65536 bytes (a schema limit,
     not a tunable default — cv.int_range(256, 65536)), so an oversized
     response makes the panel silently fall back to its stock image on every
-    fetch. Large fill=True canvases (e.g. panel2's 1280x800) can produce
-    90-170 KB at the default quality, so quality is stepped down first —
-    and, if that alone isn't enough, the canvas geometry is shrunk and
-    quality retried — until the encode fits comfortably under the cap.
+    fetch.
+
+    Sharpness strategy: the panel decodes at native canvas resolution, so a
+    full-resolution image at low JPEG quality looks sharper than a shrunk
+    one upscaled back to fill the screen. We therefore drop quality all the
+    way to JPEG_MIN_QUALITY at native resolution FIRST, and only shrink the
+    geometry if even that overflows the budget. `optimize=True` squeezes
+    ~5-10% more out of the Huffman tables at identical visual quality (still
+    baseline SOF0, JPEGDEC-safe), so more detail fits under the cap.
     """
     img = Image.open(io.BytesIO(raw))
     img = ImageOps.exif_transpose(img)
@@ -157,30 +169,35 @@ def encode_sof0(raw: bytes, max_w: int, max_h: int,
     def _save(canvas: Image.Image, q: int) -> bytes:
         buf = io.BytesIO()
         canvas.save(buf, format="JPEG", quality=q,
-                    optimize=False, progressive=False, subsampling=subsampling)
+                    optimize=True, progressive=False, subsampling=subsampling)
         return buf.getvalue()
+
+    def _fit_quality(canvas: Image.Image) -> tuple[bytes, int]:
+        # Highest quality (stepping down by 5) whose encode fits the budget,
+        # bottoming out at JPEG_MIN_QUALITY. Fine step lands close to the
+        # cap so we spend the whole budget on detail.
+        q = quality
+        data = _save(canvas, q)
+        while len(data) > budget_bytes and q > JPEG_MIN_QUALITY:
+            q = max(JPEG_MIN_QUALITY, q - 5)
+            data = _save(canvas, q)
+        return data, q
 
     w, h = cw, ch
     canvas = _compose(w, h)
-    q = quality
-    data = _save(canvas, q)
+    data, q = _fit_quality(canvas)
 
-    # Step 1: lower quality — cheap, no resize/resample needed.
-    while len(data) > budget_bytes and q > 30:
-        q -= 10
-        data = _save(canvas, q)
-
-    # Step 2: quality alone wasn't enough (rare — very large/busy canvases).
-    # Shrink the canvas geometry and retry the quality ladder.
+    # Only if native resolution at the quality floor STILL overflows do we
+    # shrink geometry — kept as a last resort because upscaling the result
+    # on the panel is what makes photos look blurry. Shrink in gentle 8%
+    # steps (not a big jump) so a photo that only slightly overflows lands
+    # just under native (e.g. 1184x736, a barely-visible 1.08x upscale)
+    # rather than being over-shrunk to a soft 912x560.
     while len(data) > budget_bytes and w > 128 and h > 128:
-        w = max(16, (max(128, int(w * 0.85)) // 16) * 16)
-        h = max(16, (max(128, int(h * 0.85)) // 16) * 16)
+        w = max(16, (max(128, int(w * 0.92)) // 16) * 16)
+        h = max(16, (max(128, int(h * 0.92)) // 16) * 16)
         canvas = _compose(w, h)
-        q = quality
-        data = _save(canvas, q)
-        while len(data) > budget_bytes and q > 30:
-            q -= 10
-            data = _save(canvas, q)
+        data, q = _fit_quality(canvas)
 
     if len(data) > budget_bytes:
         log.warning("encode_sof0: could not fit under %d bytes (got %d at %dx%d q=%d)",

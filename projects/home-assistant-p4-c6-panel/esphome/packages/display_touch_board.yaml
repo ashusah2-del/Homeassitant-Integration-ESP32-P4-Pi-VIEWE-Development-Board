@@ -432,25 +432,6 @@ script:
       - delay: 8s
       - lvgl.widget.hide: error_bar
 
-  # TEMP diagnostic (2026-08-05) — fills in the four corner labels'
-  # actual text from live lv_disp_get_hor_res()/ver_res(). Harmless to
-  # run on both panels (the labels themselves stay hidden unless
-  # debug_show_corners is true). Remove alongside the labels above.
-  - id: set_debug_corner_labels
-    mode: restart
-    then:
-      - lambda: |-
-          const int W = lv_disp_get_hor_res(lv_disp_get_default());
-          const int H = lv_disp_get_ver_res(lv_disp_get_default());
-          char buf[24];
-          lv_label_set_text(id(dbg_corner_tl), "0,0");
-          snprintf(buf, sizeof(buf), "%d,0", W - 1);
-          lv_label_set_text(id(dbg_corner_tr), buf);
-          snprintf(buf, sizeof(buf), "0,%d", H - 1);
-          lv_label_set_text(id(dbg_corner_bl), buf);
-          snprintf(buf, sizeof(buf), "%d,%d", W - 1, H - 1);
-          lv_label_set_text(id(dbg_corner_br), buf);
-
   # Shared success path for both slideshow slots.
   - id: slideshow_loaded
     mode: restart
@@ -1568,58 +1549,6 @@ lvgl:
   # ── Top layer — overlays that must float above every page ──────
   top_layer:
     widgets:
-      # ── TEMP diagnostic (2026-08-05): four corner pixel-coordinate
-      # labels, gated by debug_show_corners (panel 2 only — see
-      # mangalam-panel-2.yaml). align with 0,0 offset places these at
-      # whatever LVGL considers the true logical corners regardless of
-      # any assumed screen_w/screen_h, so where they visually land (and
-      # what numbers they show) is direct ground truth for
-      # get_width()/get_height(). Text is set once in on_boot. Remove
-      # this whole block once the canvas-orientation question is closed.
-      - label:
-          id: dbg_corner_tl
-          align: TOP_LEFT
-          x: 0
-          y: 0
-          text: "0,0"
-          text_font: montserrat_16
-          text_color: 0xFFFF00
-          bg_color: 0x000000
-          bg_opa: 80%
-          hidden: !lambda 'return !(${debug_show_corners});'
-      - label:
-          id: dbg_corner_tr
-          align: TOP_RIGHT
-          x: 0
-          y: 0
-          text: "?,0"
-          text_font: montserrat_16
-          text_color: 0xFFFF00
-          bg_color: 0x000000
-          bg_opa: 80%
-          hidden: !lambda 'return !(${debug_show_corners});'
-      - label:
-          id: dbg_corner_bl
-          align: BOTTOM_LEFT
-          x: 0
-          y: 0
-          text: "0,?"
-          text_font: montserrat_16
-          text_color: 0xFFFF00
-          bg_color: 0x000000
-          bg_opa: 80%
-          hidden: !lambda 'return !(${debug_show_corners});'
-      - label:
-          id: dbg_corner_br
-          align: BOTTOM_RIGHT
-          x: 0
-          y: 0
-          text: "?,?"
-          text_font: montserrat_16
-          text_color: 0xFFFF00
-          bg_color: 0x000000
-          bg_opa: 80%
-          hidden: !lambda 'return !(${debug_show_corners});'
       # ── Status toast — single error/status surface for the whole panel.
       # Shown via the panel_toast script (auto-hides after 8 s, tap to
       # dismiss). Lives on the LVGL top layer so it floats over any page.
