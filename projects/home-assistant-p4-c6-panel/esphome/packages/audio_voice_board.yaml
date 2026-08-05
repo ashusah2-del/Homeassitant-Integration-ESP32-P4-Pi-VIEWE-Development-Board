@@ -40,12 +40,21 @@ microphone:
     i2s_audio_id: i2s_mic_bus
     i2s_din_pin: GPIO27
     pdm: true
-    # TEMPORARY test (2026-07-23): re-testing channel selection now that
-    # factory firmware confirmed the mic hardware itself works. The
-    # 2026-07-12 investigation tried "left" (this comment's original
-    # claim), still saw zeros, and concluded "hardware dead" without
-    # circling back to try "right" again — re-testing that assumption.
-    channel: right
+    # channel: left — matches the vendor BSP, whose PDM mic init uses
+    # I2S_PDM_RX_SLOT_DEFAULT_CONFIG(16BIT, MONO) → default slot_mask
+    # I2S_PDM_SLOT_LEFT (esp32_p4_ultra/bsp_audio_codec_microphone_init and
+    # examples/esp-idf/04-mic_msm261d). So this is the BSP-correct slot.
+    #
+    # STATUS 2026-08-05: even at FULL BSP parity — pins GPIO26/27,
+    # I2S_ROLE_MASTER, I2S_PDM_RX_CLK_DEFAULT_CONFIG (bclk_div=8, fixed in
+    # my_components/i2s_audio; the struct-literal previously left bclk_div=0),
+    # MONO/LEFT slot — the mic_test still reads peak=0 rms=0 with samples
+    # flowing (16128/s). Config now identical to the known-good BSP, so the
+    # remaining suspects are hardware (this unit's MSM261D) or an ESPHome
+    # DMA-read-path difference vs raw i2s_channel_read. Next isolation step:
+    # flash the raw BSP mic example (04-mic_msm261d) to confirm hardware, or
+    # test the OTHER panel to see if it's unit-specific.
+    channel: left
     sample_rate: 16000
     bits_per_sample: 16bit
     adc_type: external

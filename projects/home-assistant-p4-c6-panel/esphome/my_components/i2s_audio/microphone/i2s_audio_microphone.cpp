@@ -217,12 +217,16 @@ bool I2SAudioMicrophone::start_driver_() {
   i2s_std_gpio_config_t pin_config = this->parent_->get_pin_config();
 #if SOC_I2S_SUPPORTS_PDM_RX
   if (this->pdm_) {
-    i2s_pdm_rx_clk_config_t clk_cfg = {
-        .sample_rate_hz = this->sample_rate_,
-        .clk_src = clk_src,
-        .mclk_multiple = this->mclk_multiple_,
-        .dn_sample_mode = I2S_PDM_DSR_8S,
-    };
+    // Start from the IDF default macro so every field (crucially bclk_div,
+    // which this struct-literal previously left at 0 — an invalid PDM clock
+    // divider) matches the vendor BSP's known-good config exactly. The BSP
+    // for this board (esp32_p4_ultra: bsp_audio_codec_microphone_init) uses
+    // I2S_PDM_RX_CLK_DEFAULT_CONFIG(16000) verbatim and captures real audio;
+    // the hand-built literal here delivered pure zeros. Then re-apply the
+    // component's own clock-source / mclk choices on top.
+    i2s_pdm_rx_clk_config_t clk_cfg = I2S_PDM_RX_CLK_DEFAULT_CONFIG(this->sample_rate_);
+    clk_cfg.clk_src = clk_src;
+    clk_cfg.mclk_multiple = this->mclk_multiple_;
 
     i2s_pdm_rx_slot_config_t slot_cfg = I2S_PDM_RX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, this->slot_mode_);
     switch (this->std_slot_mask_) {
