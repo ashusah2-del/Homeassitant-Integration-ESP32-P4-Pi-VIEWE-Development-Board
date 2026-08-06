@@ -194,13 +194,11 @@ bool I2SAudioMicrophone::start_driver_() {
     }
   }
 #else
-  i2s_chan_config_t chan_cfg = {
-      .id = this->parent_->get_port(),
-      .role = this->i2s_role_,
-      .dma_desc_num = 4,
-      .dma_frame_num = 256,
-      .auto_clear = false,
-  };
+  // Use the IDF default channel config (dma_desc_num=6, dma_frame_num=240)
+  // — matches the vendor BSP / raw reader that captures full-scale audio.
+  // The previous hand-set 4/256 was the last field differing from the
+  // known-good raw path while it delivered zeros.
+  i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(this->parent_->get_port(), this->i2s_role_);
   /* Allocate a new RX channel and get the handle of this channel */
   err = i2s_new_channel(&chan_cfg, NULL, &this->rx_handle_);
   if (err != ESP_OK) {

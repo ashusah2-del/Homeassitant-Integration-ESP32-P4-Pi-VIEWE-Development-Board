@@ -19,14 +19,6 @@ i2s_audio:
     i2s_lrclk_pin: GPIO32
     i2s_bclk_pin: GPIO33
 
-# TEMPORARY — gates the one-shot mic hardware test below. Remove once
-# the mic test is confirmed and torn down.
-globals:
-  - id: g_mic_test_started
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-
 switch:
   - platform: gpio
     name: "Speaker Enable"
@@ -40,51 +32,20 @@ microphone:
     i2s_audio_id: i2s_mic_bus
     i2s_din_pin: GPIO27
     pdm: true
-    # channel: left — matches the vendor BSP, whose PDM mic init uses
-    # I2S_PDM_RX_SLOT_DEFAULT_CONFIG(16BIT, MONO) → default slot_mask
-    # I2S_PDM_SLOT_LEFT (esp32_p4_ultra/bsp_audio_codec_microphone_init and
-    # examples/esp-idf/04-mic_msm261d). So this is the BSP-correct slot.
+    # channel: left — BSP-correct slot. The vendor PDM mic init uses
+    # I2S_PDM_RX_SLOT_DEFAULT_CONFIG(16BIT, MONO) whose default slot_mask is
+    # I2S_PDM_SLOT_LEFT (esp32_p4_ultra/bsp_audio_codec_microphone_init,
+    # examples/esp-idf/04-mic_msm261d).
     #
-    # STATUS 2026-08-05: even at FULL BSP parity — pins GPIO26/27,
-    # I2S_ROLE_MASTER, I2S_PDM_RX_CLK_DEFAULT_CONFIG (bclk_div=8, fixed in
-    # my_components/i2s_audio; the struct-literal previously left bclk_div=0),
-    # MONO/LEFT slot — the mic_test still reads peak=0 rms=0 with samples
-    # flowing (16128/s). Config now identical to the known-good BSP, so the
-    # remaining suspects are hardware (this unit's MSM261D) or an ESPHome
-    # DMA-read-path difference vs raw i2s_channel_read. Next isolation step:
-    # flash the raw BSP mic example (04-mic_msm261d) to confirm hardware, or
-    # test the OTHER panel to see if it's unit-specific.
+    # ⚠ MIC IS NON-FUNCTIONAL via this component — reads pure zeros despite
+    # full BSP parity (pins GPIO26/27, I2S_ROLE_MASTER, DEFAULT clk with
+    # bclk_div=8, MONO/LEFT slot, default DMA). PROVEN a component bug, not
+    # hardware: a raw IDF reader (mic_hw_test.h) with the identical config
+    # captures full-scale audio (peak≈31247). Tracked in GitHub issue #1.
     channel: left
     sample_rate: 16000
     bits_per_sample: 16bit
     adc_type: external
-    # TEMPORARY mic hardware test — independent of voice_assistant/HA, so
-    # it works even while HA is unreachable. Logs peak amplitude and RMS
-    # of the raw PCM stream once per second. Remove once confirmed.
-    on_data:
-      - lambda: |-
-          static uint32_t last_log = 0;
-          static int32_t peak = 0;
-          static int64_t sumsq = 0;
-          static int count = 0;
-          const int16_t *samples = reinterpret_cast<const int16_t *>(x.data());
-          size_t n = x.size() / 2;
-          for (size_t i = 0; i < n; i++) {
-            int16_t s = samples[i];
-            int32_t a = s < 0 ? -s : s;
-            if (a > peak) peak = a;
-            sumsq += (int64_t) s * s;
-            count++;
-          }
-          uint32_t now = millis();
-          if (now - last_log > 1000) {
-            double rms = count > 0 ? sqrt((double) sumsq / (double) count) : 0.0;
-            ESP_LOGW("mic_test", "peak=%d rms=%.1f samples=%d", (int) peak, rms, count);
-            peak = 0;
-            sumsq = 0;
-            count = 0;
-            last_log = now;
-          }
 
 speaker:
   - platform: i2s_audio
@@ -210,22 +171,13 @@ interval:
                 format: "Assist streaming idle while HA up — restarting"
             - script.execute: ensure_assist_streaming
             - script.execute: va_ui_set_ready
-  # TEMPORARY mic hardware test — starts raw capture directly, independent
-  # of voice_assistant/HA connectivity, so it works even while HA is down.
-  # Fires once, ~2s after boot. Remove once confirmed working (along with
-  # the on_data lambda on panel_mic and g_mic_test_started global).
-  - interval: 2s
-    then:
-      - if:
-          condition:
-            lambda: 'return !id(g_mic_test_started);'
-          then:
-            - globals.set: { id: g_mic_test_started, value: 'true' }
-            - logger.log:
-                level: WARN
-                tag: mic_test
-                format: "Starting mic capture test (independent of HA)"
-            - microphone.capture: panel_mic
+  # NOTE: the mic is currently NON-FUNCTIONAL through this ESPHome
+  # i2s_audio component — it reads pure zeros even though the hardware and
+  # PDM config are proven good (raw IDF reader captures full-scale audio).
+  # Tracked in GitHub issue #1. The voice_assistant is left armed above so
+  # wake word starts working the moment the component bug is fixed; no
+  # mic_test capture here (it double-consumed the mic and only spammed
+  # zeros). See mic_hw_test.h for the raw reader that proves the hardware.
 
 sensor:
   - platform: adc
