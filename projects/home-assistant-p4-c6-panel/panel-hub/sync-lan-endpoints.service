@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync iHost + Home Assistant mDNS names to panel-hub hub.env
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash "%h/docker/ESPs3 Device/projects/home-assistant-p4-c6-panel/panel-hub/sync-lan-endpoints.sh"
+StandardOutput=journal
+StandardError=journal

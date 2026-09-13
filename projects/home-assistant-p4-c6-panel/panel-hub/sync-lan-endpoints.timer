@@ -1,5 +1,5 @@
 [Unit]
-Description=Periodically sync iHost mDNS name to panel-hub hub.env
+Description=Periodically sync iHost + HA mDNS names to panel-hub hub.env
 
 [Timer]
 # Run 1 min after boot (self-heal after a power blip), then once a day.

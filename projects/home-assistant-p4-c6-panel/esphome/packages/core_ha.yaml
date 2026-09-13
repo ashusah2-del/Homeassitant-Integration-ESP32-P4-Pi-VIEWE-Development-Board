@@ -34,6 +34,14 @@ api:
   # is fully usable standalone (Tuya/Jellyfin/iHost/slideshow), so a long
   # HA outage must not power-cycle it.
   reboot_timeout: 0s
+  # HA-callable services. `ihost_refresh` re-polls the iHost bridge health and
+  # all sensors/switches on demand (e.g. after the iHost's DHCP IP drifts and
+  # the panel-hub auto-heals) without waiting for the 60s page timer.
+  services:
+    - service: ihost_refresh
+      then:
+        - script.execute: ih_poll_health
+        - script.execute: ih_refresh_all
   # ESPHome dashboard log-subscriber threads accumulate as zombie connections
   # (they stay alive in the container even after browser tabs close). With 12
   # slots they can easily fill up and lock HA out. 6 is enough for HA + a few
