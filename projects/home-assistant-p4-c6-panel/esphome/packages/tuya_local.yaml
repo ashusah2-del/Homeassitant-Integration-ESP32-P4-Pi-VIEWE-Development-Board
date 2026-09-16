@@ -205,7 +205,7 @@ script:
       - lambda: 'id(g_tuya_busy) = true;'
       - http_request.get:
 
-          url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy"
+          url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy";'
           capture_response: true
           on_response:
             then:
@@ -228,7 +228,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob"
+          url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob";'
           capture_response: true
           on_response:
             then:
@@ -251,7 +251,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/simple/1571285310521cd5c87c"
+          url: !lambda 'return id(immich_base_url) + "/simple/1571285310521cd5c87c";'
           capture_response: true
           on_response:
             then:
@@ -270,7 +270,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/simple/1571285350029127c9f3"
+          url: !lambda 'return id(immich_base_url) + "/simple/1571285350029127c9f3";'
           capture_response: true
           on_response:
             then:
@@ -289,7 +289,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t"
+          url: !lambda 'return id(immich_base_url) + "/lock/bf86f41ytmtjjm5t";'
           capture_response: true
           on_response:
             then:
@@ -308,7 +308,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh"
+          url: !lambda 'return id(immich_base_url) + "/simple/bfaf99ydtny1wmyh";'
           capture_response: true
           on_response:
             then:
@@ -327,7 +327,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/alarm/bf504b80ba9e1483b07vzc"
+          url: !lambda 'return id(immich_base_url) + "/alarm/bf504b80ba9e1483b07vzc";'
           capture_response: true
           on_response:
             then:
@@ -345,7 +345,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/sensor/bfd389d3ddd79b5678utvs"
+          url: !lambda 'return id(immich_base_url) + "/sensor/bfd389d3ddd79b5678utvs";'
           capture_response: true
           on_response:
             then:
@@ -363,7 +363,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/sensor/bff359c0e1a9090ad4ehuk"
+          url: !lambda 'return id(immich_base_url) + "/sensor/bff359c0e1a9090ad4ehuk";'
           capture_response: true
           on_response:
             then:
@@ -381,7 +381,7 @@ script:
       - delay: 150ms
       - http_request.get:
 
-          url: "${tuya_bridge_url}/sensor/bf8c8b69c7a5212d95lgfa"
+          url: !lambda 'return id(immich_base_url) + "/sensor/bf8c8b69c7a5212d95lgfa";'
           capture_response: true
           on_response:
             then:
@@ -409,7 +409,7 @@ script:
           then:
             - lambda: 'id(g_tuya_busy) = true;'
             - http_request.get:
-                url: "${tuya_bridge_url}/alarm/bf504b80ba9e1483b07vzc"
+                url: !lambda 'return id(immich_base_url) + "/alarm/bf504b80ba9e1483b07vzc";'
                 capture_response: true
                 on_response:
                   then:
@@ -425,7 +425,7 @@ script:
                     - lambda: 'id(g_alarm_state) = -1;'
             - delay: 150ms
             - http_request.get:
-                url: "${tuya_bridge_url}/sensor/bfd389d3ddd79b5678utvs"
+                url: !lambda 'return id(immich_base_url) + "/sensor/bfd389d3ddd79b5678utvs";'
                 capture_response: true
                 on_response:
                   then:
@@ -441,7 +441,7 @@ script:
                     - lambda: 'id(g_smoke_state) = -1;'
             - delay: 150ms
             - http_request.get:
-                url: "${tuya_bridge_url}/sensor/bff359c0e1a9090ad4ehuk"
+                url: !lambda 'return id(immich_base_url) + "/sensor/bff359c0e1a9090ad4ehuk";'
                 capture_response: true
                 on_response:
                   then:
@@ -457,7 +457,7 @@ script:
                     - lambda: 'id(g_co_state) = -1;'
             - delay: 150ms
             - http_request.get:
-                url: "${tuya_bridge_url}/sensor/bf8c8b69c7a5212d95lgfa"
+                url: !lambda 'return id(immich_base_url) + "/sensor/bf8c8b69c7a5212d95lgfa";'
                 capture_response: true
                 on_response:
                   then:
@@ -479,7 +479,7 @@ script:
     then:
       - http_request.get:
 
-          url: "${tuya_bridge_url}/health"
+          url: !lambda 'return id(immich_base_url) + "/health";'
           capture_response: true
           on_response:
             then:
@@ -511,7 +511,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s1/on";'
                       body: ""
                       on_response:
                         then:
@@ -528,7 +528,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s1/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s1/off";'
                       body: ""
                       on_response:
                         then:
@@ -559,7 +559,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s2/on";'
                       body: ""
                       on_response:
                         then:
@@ -576,7 +576,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s2/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s2/off";'
                       body: ""
                       on_response:
                         then:
@@ -607,7 +607,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s3/on";'
                       body: ""
                       on_response:
                         then:
@@ -624,7 +624,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s3/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s3/off";'
                       body: ""
                       on_response:
                         then:
@@ -655,7 +655,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s4/on";'
                       body: ""
                       on_response:
                         then:
@@ -672,7 +672,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/s4/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/s4/off";'
                       body: ""
                       on_response:
                         then:
@@ -703,7 +703,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/usb/on";'
                       body: ""
                       on_response:
                         then:
@@ -720,7 +720,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bfaf38ec9b4b8efbd3dedy/usb/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bfaf38ec9b4b8efbd3dedy/usb/off";'
                       body: ""
                       on_response:
                         then:
@@ -751,7 +751,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s1/on";'
                       body: ""
                       on_response:
                         then:
@@ -768,7 +768,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s1/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s1/off";'
                       body: ""
                       on_response:
                         then:
@@ -799,7 +799,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s2/on";'
                       body: ""
                       on_response:
                         then:
@@ -816,7 +816,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s2/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s2/off";'
                       body: ""
                       on_response:
                         then:
@@ -847,7 +847,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s3/on";'
                       body: ""
                       on_response:
                         then:
@@ -864,7 +864,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s3/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s3/off";'
                       body: ""
                       on_response:
                         then:
@@ -895,7 +895,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s4/on";'
                       body: ""
                       on_response:
                         then:
@@ -912,7 +912,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/s4/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/s4/off";'
                       body: ""
                       on_response:
                         then:
@@ -943,7 +943,7 @@ script:
                 then:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/on"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/usb/on";'
                       body: ""
                       on_response:
                         then:
@@ -960,7 +960,7 @@ script:
                 else:
                   - http_request.post:
 
-                      url: "${tuya_bridge_url}/strip/bf03612cd9b0910bdclaob/usb/off"
+                      url: !lambda 'return id(immich_base_url) + "/strip/bf03612cd9b0910bdclaob/usb/off";'
                       body: ""
                       on_response:
                         then:
@@ -987,7 +987,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/unlock"
+                url: !lambda 'return id(immich_base_url) + "/lock/bf86f41ytmtjjm5t/unlock";'
                 body: ""
                 on_response:
                   then:
@@ -1014,7 +1014,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/lock/bf86f41ytmtjjm5t/lock"
+                url: !lambda 'return id(immich_base_url) + "/lock/bf86f41ytmtjjm5t/lock";'
                 body: ""
                 on_response:
                   then:
@@ -1041,7 +1041,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/on"
+                url: !lambda 'return id(immich_base_url) + "/simple/bfaf99ydtny1wmyh/on";'
                 body: ""
                 on_response:
                   then:
@@ -1068,7 +1068,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/simple/bfaf99ydtny1wmyh/off"
+                url: !lambda 'return id(immich_base_url) + "/simple/bfaf99ydtny1wmyh/off";'
                 body: ""
                 on_response:
                   then:
@@ -1095,7 +1095,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/on"
+                url: !lambda 'return id(immich_base_url) + "/simple/1571285310521cd5c87c/on";'
                 body: ""
                 on_response:
                   then:
@@ -1122,7 +1122,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/simple/1571285310521cd5c87c/off"
+                url: !lambda 'return id(immich_base_url) + "/simple/1571285310521cd5c87c/off";'
                 body: ""
                 on_response:
                   then:
@@ -1149,7 +1149,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/simple/1571285350029127c9f3/on"
+                url: !lambda 'return id(immich_base_url) + "/simple/1571285350029127c9f3/on";'
                 body: ""
                 on_response:
                   then:
@@ -1176,7 +1176,7 @@ script:
             - script.execute: tuya_apply_ui
             - http_request.post:
 
-                url: "${tuya_bridge_url}/simple/1571285350029127c9f3/off"
+                url: !lambda 'return id(immich_base_url) + "/simple/1571285350029127c9f3/off";'
                 body: ""
                 on_response:
                   then:

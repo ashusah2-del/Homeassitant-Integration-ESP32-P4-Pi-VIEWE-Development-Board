@@ -194,7 +194,7 @@ script:
     mode: restart
     then:
       - http_request.get:
-          url: "${jellyfin_proxy_url}/health"
+          url: !lambda 'return id(immich_base_url) + "/health";'
           capture_response: true
           on_response:
             then:
@@ -348,7 +348,7 @@ script:
             if (r < 0 || r >= (int) arr.size()) return true;
             const char *mid = arr[r]["id"] | "";
             if (!mid[0]) return true;
-            std::string url = "${jellyfin_proxy_url}/poster/";
+            std::string url = id(immich_base_url) + "/poster/";
             url += mid;
             switch (r) {
               case 0: id(jf_row_img_0).set_url(url); id(jf_row_img_0).update(); break;
@@ -396,8 +396,8 @@ script:
             - http_request.get:
                 url: !lambda |-
                   char url[160];
-                  snprintf(url, sizeof(url), "${jellyfin_proxy_url}/movies?start=%d&limit=8",
-                           id(g_jf_start_index));
+                  snprintf(url, sizeof(url), "%s/movies?start=%d&limit=8",
+                           id(immich_base_url).c_str(), id(g_jf_start_index));
                   return std::string(url);
                 capture_response: true
                 on_response:
@@ -458,7 +458,7 @@ script:
             - online_image.set_url:
                 id: jf_poster
                 url: !lambda |-
-                  return "${jellyfin_proxy_url}/poster/" + id(g_jf_selected_id);
+                  return id(immich_base_url) + "/poster/" + id(g_jf_selected_id);
                 update: true
       - script.execute: jf_apply_ui
 

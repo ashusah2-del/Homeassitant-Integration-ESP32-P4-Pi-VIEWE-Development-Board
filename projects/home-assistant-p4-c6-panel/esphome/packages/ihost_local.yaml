@@ -113,7 +113,7 @@ script:
     mode: single
     then:
       - http_request.get:
-          url: "${ihost_proxy_url}/health"
+          url: !lambda 'return id(immich_base_url) + "/ihost/health";'
           capture_response: true
           on_response:
             then:
@@ -144,7 +144,7 @@ script:
             lambda: 'return strlen("${ih_sensor1_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sensor1_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sensor1_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -168,7 +168,7 @@ script:
             lambda: 'return strlen("${ih_sensor2_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sensor2_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sensor2_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -192,7 +192,7 @@ script:
             lambda: 'return strlen("${ih_sensor3_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sensor3_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sensor3_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -216,7 +216,7 @@ script:
             lambda: 'return strlen("${ih_sensor4_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sensor4_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sensor4_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -240,7 +240,7 @@ script:
             lambda: 'return strlen("${ih_sensor5_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sensor5_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sensor5_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -264,7 +264,7 @@ script:
             lambda: 'return strlen("${ih_sensor6_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sensor6_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sensor6_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -288,7 +288,7 @@ script:
             lambda: 'return strlen("${ih_sw1_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sw1_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sw1_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -312,7 +312,7 @@ script:
             lambda: 'return strlen("${ih_sw2_serial}") > 0;'
           then:
             - http_request.get:
-                url: "${ihost_proxy_url}/device/${ih_sw2_serial}"
+                url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sw2_serial}";'
                 capture_response: true
                 on_response:
                   then:
@@ -429,7 +429,7 @@ script:
                   lambda: 'return id(g_ih_sw1) == 1;'
                 then:
                   - http_request.post:
-                      url: "${ihost_proxy_url}/device/${ih_sw1_serial}/on"
+                      url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sw1_serial}/on";'
                       body: ""
                       on_response:
                         then:
@@ -442,7 +442,7 @@ script:
                           - lambda: 'id(g_ih_sw1) = 0; id(g_ih_busy) = false; id(ih_apply_ui).execute();'
                 else:
                   - http_request.post:
-                      url: "${ihost_proxy_url}/device/${ih_sw1_serial}/off"
+                      url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sw1_serial}/off";'
                       body: ""
                       on_response:
                         then:
@@ -470,7 +470,7 @@ script:
                   lambda: 'return id(g_ih_sw2) == 1;'
                 then:
                   - http_request.post:
-                      url: "${ihost_proxy_url}/device/${ih_sw2_serial}/on"
+                      url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sw2_serial}/on";'
                       body: ""
                       on_response:
                         then:
@@ -483,7 +483,7 @@ script:
                           - lambda: 'id(g_ih_sw2) = 0; id(g_ih_busy) = false; id(ih_apply_ui).execute();'
                 else:
                   - http_request.post:
-                      url: "${ihost_proxy_url}/device/${ih_sw2_serial}/off"
+                      url: !lambda 'return id(immich_base_url) + "/ihost/device/${ih_sw2_serial}/off";'
                       body: ""
                       on_response:
                         then:

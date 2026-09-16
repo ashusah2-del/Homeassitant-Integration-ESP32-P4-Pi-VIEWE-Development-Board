@@ -105,6 +105,13 @@ image:
     byte_order: LITTLE_ENDIAN
 
 globals:
+  # Shared runtime base URL for the panel-hub (Docker host :8768). Despite the
+  # legacy name, EVERY hub call is built from this: Immich photos, camera thumbs
+  # (display_touch_board), Tuya (tuya_local), iHost (ihost_local) and Jellyfin
+  # (jellyfin_local). Overridable at runtime with NO reflash: HA pushes
+  # input_text.panel_immich_url (see core_ha.yaml on_value) and the hub's
+  # /panel/config can set it at boot (panel_hub_config.yaml). Defaults to the
+  # compile-time ${proxy_url}. restore_value:no — re-seeded from HA on connect.
   - id: immich_base_url
     type: std::string
     restore_value: no

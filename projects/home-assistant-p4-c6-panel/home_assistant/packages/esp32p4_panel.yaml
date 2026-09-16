@@ -9,14 +9,18 @@ homeassistant:
     light.guition_p4_7inch_ha_panel_backlight:
       friendly_name: Panel Backlight
 
-# Allows changing Immich URL from HA UI without reflashing the device.
-# The panel reads this at startup and whenever the value changes.
+# Runtime-configurable base URL for the panel-hub (Docker host, e.g.
+# http://192.168.55.59:8768). The panel builds EVERY hub request from this —
+# Immich photos, camera thumbs, Tuya, iHost, and Jellyfin all share the one
+# base. Set it here (e.g. after the Docker host IP drifts) and the panel picks
+# it up on connect and on change — no reflash, no OTA. Leave blank to keep the
+# compiled-in default. entity_id kept as panel_immich_url for firmware compat.
 input_text:
   panel_immich_url:
-    name: Panel Immich URL
+    name: Panel Hub URL
     initial: ""
     max: 120
-    icon: mdi:image-multiple
+    icon: mdi:server-network
 
   panel_calendar_events:
     name: Panel Calendar Events
