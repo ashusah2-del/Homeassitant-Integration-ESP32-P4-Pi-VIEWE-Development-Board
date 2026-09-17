@@ -9,7 +9,7 @@ even if the Pi later has to be power-cycled.
 
 Env (ha-freeze-watch.env): HA_URL, HA_TOKEN, HA_SSH (user@host), SSH_PORT.
 """
-import os, time, json, subprocess, datetime, urllib.request
+import os, time, json, subprocess, datetime, urllib.request, urllib.parse
 
 HA_URL = os.environ.get("HA_URL", "http://192.168.55.4:8123").rstrip("/")
 TOKEN = os.environ["HA_TOKEN"].strip().strip('"')
@@ -18,10 +18,25 @@ SSH_PORT = os.environ.get("SSH_PORT", "22222")
 INTERVAL = int(os.environ.get("INTERVAL", "30"))
 SLOW_MS = int(os.environ.get("SLOW_MS", "6000"))
 HTTP_TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "8"))
+FAIL_THRESHOLD = int(os.environ.get("FAIL_THRESHOLD", "2"))  # consecutive misses before alert
+TG_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+TG_CHAT = os.environ.get("TELEGRAM_CHAT", "").strip()
 DIR = os.path.dirname(os.path.abspath(__file__))
 HEALTH = os.path.join(DIR, "health.log")
 
 _last_capture = 0.0
+
+
+def notify(text):
+    """Out-of-band Telegram alert (works while HA is down). No-op if unconfigured."""
+    if not (TG_TOKEN and TG_CHAT):
+        return
+    try:
+        data = urllib.parse.urlencode({"chat_id": TG_CHAT, "text": text}).encode()
+        urllib.request.urlopen(
+            f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data=data, timeout=15)
+    except Exception as e:
+        log(f"{now()}  telegram notify failed: {e}")
 
 
 def now():
@@ -71,17 +86,37 @@ def capture(reason):
 
 
 def main():
-    log(f"{now()}  --- freeze-watch started (interval={INTERVAL}s slow>{SLOW_MS}ms) ---")
+    log(f"{now()}  --- freeze-watch started (interval={INTERVAL}s slow>{SLOW_MS}ms "
+        f"telegram={'on' if TG_TOKEN and TG_CHAT else 'off'}) ---")
+    misses = 0            # consecutive unreachable polls
+    alerted = False       # have we sent a DOWN alert for the current outage?
+    down_since = None
     while True:
         ms, state = probe()
         if ms is None:
-            log(f"{now()}  UNREACHABLE  state={state}")
+            misses += 1
+            log(f"{now()}  UNREACHABLE  state={state}  (miss {misses})")
             capture(f"unreachable:{state}")
-        elif ms > SLOW_MS or state != "RUNNING":
-            log(f"{now()}  SLOW  {ms}ms  state={state}")
-            capture(f"slow:{ms}ms/{state}")
+            if down_since is None:
+                down_since = datetime.datetime.now()
+            if not alerted and misses >= FAIL_THRESHOLD:
+                alerted = True
+                notify(f"🔴 Home Assistant UNREACHABLE from Docker host (.59)\n"
+                       f"since ~{down_since.strftime('%H:%M:%S')} ({state}). "
+                       f"Logs are being captured on .59 (ha-freeze-watch/capture-*.txt).")
         else:
-            log(f"{now()}  ok  {ms}ms  state={state}")
+            if alerted:  # recovering from an outage we alerted on
+                dur = int((datetime.datetime.now() - down_since).total_seconds())
+                notify(f"🟢 Home Assistant reachable again after "
+                       f"{dur//3600}h{dur%3600//60}m{dur%60}s ({ms}ms, state={state}).")
+            misses = 0
+            alerted = False
+            down_since = None
+            if ms > SLOW_MS or state != "RUNNING":
+                log(f"{now()}  SLOW  {ms}ms  state={state}")
+                capture(f"slow:{ms}ms/{state}")
+            else:
+                log(f"{now()}  ok  {ms}ms  state={state}")
         time.sleep(INTERVAL)
 
 
