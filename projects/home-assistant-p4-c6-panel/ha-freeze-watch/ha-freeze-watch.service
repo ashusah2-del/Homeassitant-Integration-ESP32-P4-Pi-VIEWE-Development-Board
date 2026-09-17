@@ -1,0 +1,13 @@
+[Unit]
+Description=HA freeze catcher — logs HA health, captures logs on freeze (runs on Docker host)
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/docker/ha-freeze-watch/ha-freeze-watch.env
+ExecStart=/usr/bin/python3 %h/docker/ha-freeze-watch/watch.py
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

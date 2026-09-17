@@ -61,3 +61,8 @@ Thumbs.db
 
 # HA bluray dashboard generator token
 projects/home-assistant-p4-c6-panel/ha-bluray-dashboard/bluray-dashboard.env
+
+# HA freeze watcher token + runtime logs
+projects/home-assistant-p4-c6-panel/ha-freeze-watch/ha-freeze-watch.env
+projects/home-assistant-p4-c6-panel/ha-freeze-watch/health.log
+projects/home-assistant-p4-c6-panel/ha-freeze-watch/capture-*.txt
