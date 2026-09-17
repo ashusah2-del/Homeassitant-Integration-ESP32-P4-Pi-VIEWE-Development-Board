@@ -19,12 +19,29 @@ INTERVAL = int(os.environ.get("INTERVAL", "30"))
 SLOW_MS = int(os.environ.get("SLOW_MS", "6000"))
 HTTP_TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "8"))
 FAIL_THRESHOLD = int(os.environ.get("FAIL_THRESHOLD", "2"))  # consecutive misses before alert
+AUTO_RESTART = os.environ.get("AUTO_RESTART", "1") not in ("0", "", "false", "no")
+RESTART_AFTER = int(os.environ.get("RESTART_AFTER", "300"))  # seconds unreachable before ha core restart
 TG_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
 TG_CHAT = os.environ.get("TELEGRAM_CHAT", "").strip()
 DIR = os.path.dirname(os.path.abspath(__file__))
 HEALTH = os.path.join(DIR, "health.log")
 
 _last_capture = 0.0
+
+
+def ha_core_restart():
+    """Graceful `ha core restart` over SSH (SSH add-on is a separate container,
+    usually alive even when core is frozen). Never `docker restart` — that breaks
+    the supervisor. Returns (ok, output_tail)."""
+    try:
+        r = subprocess.run(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
+             "-p", SSH_PORT, SSH, "ha core restart"],
+            capture_output=True, text=True, timeout=120)
+        out = (r.stdout + r.stderr).strip()
+        return r.returncode == 0, out[-300:]
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
 
 
 def notify(text):
@@ -87,9 +104,11 @@ def capture(reason):
 
 def main():
     log(f"{now()}  --- freeze-watch started (interval={INTERVAL}s slow>{SLOW_MS}ms "
-        f"telegram={'on' if TG_TOKEN and TG_CHAT else 'off'}) ---")
+        f"telegram={'on' if TG_TOKEN and TG_CHAT else 'off'} "
+        f"auto_restart={'on' if AUTO_RESTART else 'off'}@{RESTART_AFTER}s) ---")
     misses = 0            # consecutive unreachable polls
     alerted = False       # have we sent a DOWN alert for the current outage?
+    restarted = False     # have we issued ha core restart for this outage?
     down_since = None
     while True:
         ms, state = probe()
@@ -99,18 +118,33 @@ def main():
             capture(f"unreachable:{state}")
             if down_since is None:
                 down_since = datetime.datetime.now()
+            down_secs = (datetime.datetime.now() - down_since).total_seconds()
             if not alerted and misses >= FAIL_THRESHOLD:
                 alerted = True
                 notify(f"🔴 Home Assistant UNREACHABLE from Docker host (.59)\n"
                        f"since ~{down_since.strftime('%H:%M:%S')} ({state}). "
-                       f"Logs are being captured on .59 (ha-freeze-watch/capture-*.txt).")
+                       f"Logs captured on .59 (ha-freeze-watch/capture-*.txt).")
+            # auto-heal: one graceful `ha core restart` per outage after RESTART_AFTER
+            if AUTO_RESTART and not restarted and down_secs >= RESTART_AFTER:
+                restarted = True
+                capture("pre-restart")  # keep the pre-restart logs for diagnosis
+                log(f"{now()}  >>> auto ha core restart (down {int(down_secs)}s)")
+                notify(f"⏳ HA unreachable ~{int(down_secs)//60}m — issuing "
+                       f"`ha core restart` from .59…")
+                ok, out = ha_core_restart()
+                log(f"{now()}  restart {'OK' if ok else 'FAILED'}: {out}")
+                notify(("↻ ha core restart issued." if ok else
+                        "⚠️ ha core restart FAILED (SSH/core wedged?) — may need a "
+                        "manual power-cycle.\n") + (f"\n{out}" if out else ""))
         else:
             if alerted:  # recovering from an outage we alerted on
                 dur = int((datetime.datetime.now() - down_since).total_seconds())
+                how = " (after auto-restart)" if restarted else ""
                 notify(f"🟢 Home Assistant reachable again after "
-                       f"{dur//3600}h{dur%3600//60}m{dur%60}s ({ms}ms, state={state}).")
+                       f"{dur//3600}h{dur%3600//60}m{dur%60}s{how} ({ms}ms, state={state}).")
             misses = 0
             alerted = False
+            restarted = False
             down_since = None
             if ms > SLOW_MS or state != "RUNNING":
                 log(f"{now()}  SLOW  {ms}ms  state={state}")
