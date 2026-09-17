@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh Bluray upgrade button list on the Mangalam Pro dashboard
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,8 @@
+[Unit]
+Description=Regenerate HA Mangalam Pro Bluray upgrade button list from Radarr sensor
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/docker/ha-bluray-dashboard/bluray-dashboard.env
+ExecStart=/usr/bin/python3 %h/docker/ha-bluray-dashboard/generate.py

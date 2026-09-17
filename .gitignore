@@ -58,3 +58,6 @@ Thumbs.db
 
 # ─── Claude Code agent harness ──────────────────────────────────────────
 .claude/
+
+# HA bluray dashboard generator token
+projects/home-assistant-p4-c6-panel/ha-bluray-dashboard/bluray-dashboard.env
