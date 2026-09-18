@@ -1,0 +1,10 @@
+---
+# AppDaemon apps.yaml — deploy to the AppDaemon add-on's apps/ dir on the Pi:
+#   /mnt/data/supervisor/app_configs/a0d7b954_appdaemon/apps/
+# Keep the real apps.yaml (with credentials) OUT of git.
+hypon:
+  module: hypon
+  class: Hypon
+  username: "YOUR_HYPONTECH_EMAIL"
+  password: "YOUR_HYPONTECH_PASSWORD"
+  poll_interval: 60

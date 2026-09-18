@@ -22,7 +22,8 @@ A custom Home Assistant control panel running on a **Guition ESP32-P4 + ESP32-C6
 | `esphome/packages/jellyfin_local.yaml` | Jellyfin browse page (posters, pagination, cast target selection). |
 | `home_assistant/packages/esp32p4_panel.yaml` | HA-side YAML: input_text/input_number helpers, automations (calendar refresh, Jellyfin play script). Drop into HA packages folder. |
 | `jellyfin-proxy/proxy.py` | Python service (port 8767). Exposes `/health`, `/movies`, `/poster/<id>`, `POST /play/<id>` for the panel. |
-| `hypon-proxy/proxy.py` | Python service (port 8769). Logs into Hypontech Cloud directly and polls all 5 API endpoints (HA's own integration only uses 2) — exposes grid power, home load, battery SOC, inverter/gateway status, CO2/trees, earnings via `/hypon/status` for HA's `rest:` sensors in `esp32p4_panel.yaml`. |
+| `hypon-proxy/proxy.py` | **RETIRED 2026-09-18** (service stopped + disabled on the Docker host). Replaced by the AppDaemon app `home_assistant/appdaemon/apps/hypon.py`, which runs on HA itself, logs into Hypontech Cloud, and writes the same 19 `sensor.hypon_*` entities directly (no proxy, no `rest:` sensor). Self-contained on HA — removed the Docker-host dependency. Kept here for reference only. |
+| `home_assistant/appdaemon/apps/hypon.py` | AppDaemon app (runs in the AppDaemon add-on on the Pi). Polls all 5 Hypontech endpoints and `set_state`s the 19 `sensor.hypon_*` entities every 60s. Creds live in AppDaemon `apps.yaml` (gitignored). Because AppDaemon is a separate process, its blocking cloud login can't stall HA's event loop. |
 | `tuya-bridge/bridge.py` | Tuya LAN bridge (port 8766) using tinytuya. Devices in `devices.json`. |
 
 ### Page navigation
