@@ -91,6 +91,26 @@ media_player:
 # from an API client that hasn't subscribed as the voice client — the
 # device firmware answers it with a null active_wake_words pointer and
 # CRASHES (Load access fault in VoiceAssistantConfigurationResponse).
+# Backoff state for the Assist stream. A failing pipeline (e.g. the HA
+# conversation backend down / mis-configured) used to be restarted in a tight
+# loop via on_end/on_error, flooding HA with errors until it froze. These gate
+# every restart through ensure_assist_streaming: a hard 5s minimum between
+# starts, plus an escalating backoff set by on_error and cleared on the next
+# wake-word / STT success.
+globals:
+  - id: g_va_last_start
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: g_va_err_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_va_backoff_until
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
 script:
   - id: ensure_assist_streaming
     mode: restart
@@ -102,7 +122,17 @@ script:
               - not:
                   voice_assistant.is_running:
                     id: panel_va
+              - lambda: |-
+                  uint32_t now = millis();
+                  // Still inside a post-error backoff window? Don't restart.
+                  if (id(g_va_backoff_until) != 0 &&
+                      (int32_t)(id(g_va_backoff_until) - now) > 0) return false;
+                  // Never restart faster than every 5s — kills retry storms.
+                  if (id(g_va_last_start) != 0 && (now - id(g_va_last_start)) < 5000)
+                    return false;
+                  return true;
           then:
+            - lambda: 'id(g_va_last_start) = millis();'
             - voice_assistant.start_continuous:
                 id: panel_va
             - logger.log:
@@ -133,12 +163,15 @@ voice_assistant:
           - script.execute: va_ui_set_offline
   # Fired by HA when openwakeword spots "Okay Nabu" in the stream.
   on_wake_word_detected:
+    # A real interaction started — the pipeline works, clear any error backoff.
+    - lambda: 'id(g_va_err_count) = 0; id(g_va_backoff_until) = 0;'
     - logger.log:
         level: INFO
         tag: wake_word
         format: "Okay Nabu heard — Assist listening"
     - script.execute: va_ui_set_listening
   on_stt_end:
+    - lambda: 'id(g_va_err_count) = 0;'
     - script.execute: va_ui_set_thinking
   # TTS responses play on the panel's own media player (configured above).
   on_tts_start:
@@ -148,6 +181,17 @@ voice_assistant:
     - script.execute: ensure_assist_streaming
   on_error:
     - script.execute: va_ui_set_error
+    - lambda: |-
+        id(g_va_err_count) += 1;
+        // After 3 rapid failures, back off with escalating delay (15s * count,
+        // capped 5 min) so a down/broken conversation backend can't storm HA.
+        if (id(g_va_err_count) >= 3) {
+          uint32_t secs = (uint32_t) id(g_va_err_count) * 15;
+          if (secs > 300) secs = 300;
+          id(g_va_backoff_until) = millis() + secs * 1000;
+          ESP_LOGW("wake_word", "Assist pipeline errors=%d — backing off %us",
+                   id(g_va_err_count), secs);
+        }
     - delay: 3s
     - script.execute: ensure_assist_streaming
     - script.execute: va_ui_set_ready
