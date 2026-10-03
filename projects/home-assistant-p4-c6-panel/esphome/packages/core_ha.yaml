@@ -302,7 +302,7 @@ script:
           } else if (!id(g_ha_connected)) {
             color = 0xFF5252; txt = "HA";
           } else if (!id(g_immich_ok) || !id(g_tuya_bridge_ok) ||
-                     !id(g_jf_bridge_ok) || !id(g_ih_bridge_ok)) {
+                     !id(g_yts_bridge_ok) || !id(g_ih_bridge_ok)) {
             color = 0xFFC107; txt = "WARN";
           }
           // One pill instance per carousel page header (no shared-widget
@@ -311,13 +311,13 @@ script:
             id(status_pill_dot), id(status_pill_dot_ihost),
             id(status_pill_dot_tado), id(status_pill_dot_pres),
             id(status_pill_dot_energy), id(status_pill_dot_cam),
-            id(status_pill_dot_tuya), id(status_pill_dot_jf),
+            id(status_pill_dot_tuya), id(status_pill_dot_yts),
           };
           lv_obj_t *lbls[] = {
             id(status_pill_lbl), id(status_pill_lbl_ihost),
             id(status_pill_lbl_tado), id(status_pill_lbl_pres),
             id(status_pill_lbl_energy), id(status_pill_lbl_cam),
-            id(status_pill_lbl_tuya), id(status_pill_lbl_jf),
+            id(status_pill_lbl_tuya), id(status_pill_lbl_yts),
           };
           for (size_t i = 0; i < 8; i++) {
             lv_obj_set_style_bg_color(dots[i], lv_color_hex(color), 0);
@@ -372,7 +372,7 @@ script:
             (std::string("Tuya bridge: ") + (id(g_tuya_bridge_ok) ? "Online" : "Offline") +
              " (" + age_str(id(g_tuya_last_ok)) + ")").c_str());
           lv_label_set_text(id(diag_jf_lbl),
-            (std::string("Jellyfin proxy: ") + (id(g_jf_bridge_ok) ? "Online" : "Offline") +
+            (std::string("Movie hub: ") + (id(g_yts_bridge_ok) ? "Online" : "Offline") +
              " (" + age_str(id(g_jf_last_ok)) + ")").c_str());
           lv_label_set_text(id(diag_ih_lbl),
             (std::string("iHost bridge: ") + (id(g_ih_bridge_ok) ? "Online" : "Offline") +

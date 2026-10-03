@@ -537,7 +537,7 @@ packages:
   theme: !include packages/theme_palettes.yaml
   audio_voice: !include packages/audio_voice_board.yaml
   tuya: !include packages/tuya_local.yaml
-  jellyfin: !include packages/jellyfin_local.yaml
+  yts_movies: !include packages/yts_movies.yaml
   ihost: !include packages/ihost_local.yaml
   hub_config: !include packages/panel_hub_config.yaml
 
@@ -555,7 +555,7 @@ wifi:
     - script.execute: update_status_pill
     - script.execute: refresh_immich_slideshow
     - script.execute: tuya_poll_health
-    - script.execute: jf_poll_health
+    - script.execute: yts_poll_health
     - script.execute: ih_poll_health
   # No on_disconnect handler existed before — on a raw WiFi drop nothing
   # reset the per-page busy locks or the wifi status flag, so an in-flight
@@ -566,7 +566,7 @@ wifi:
   on_disconnect:
     - globals.set: { id: g_wifi_connected, value: 'false' }
     - globals.set: { id: g_tuya_busy, value: 'false' }
-    - globals.set: { id: g_jf_busy, value: 'false' }
+    - globals.set: { id: g_yts_busy, value: 'false' }
     - globals.set: { id: g_ih_busy, value: 'false' }
     - script.execute: update_status_pill
   ap:

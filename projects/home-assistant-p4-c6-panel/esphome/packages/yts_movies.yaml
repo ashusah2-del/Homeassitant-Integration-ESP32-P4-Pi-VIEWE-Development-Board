@@ -1,0 +1,933 @@
+# ─── Latest Movies page (YTS browse → Radarr grab) ────────────────────────────
+# Browses the YTS "latest movies" feed via panel-hub (:8768) and, on Download,
+# hands the movie to Radarr by IMDb id (Radarr → Prowlarr → qBittorrent → import
+# into Jellyfin). The hub cross-references the Jellyfin library + Radarr queue so
+# each row shows a status dot: green = already in library, amber = downloading,
+# grey = available to grab.
+#
+# Reuses the hub base URL (id(immich_base_url)) and the jf_* layout substitutions
+# that both panel profiles already define. Posters come back as baseline JPEG
+# from the hub (JPEGDEC-safe — never fetch YTS covers directly, see CLAUDE.md).
+# Parallel online_image downloads are unreliable on the P4, so row thumbnails are
+# lazy-loaded one at a time; the big detail poster loads only for the selection.
+
+globals:
+  - id: g_yts_bridge_ok
+    type: bool
+    restore_value: false
+  - id: g_yts_busy
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: g_yts_page_active
+    type: bool
+    restore_value: false
+  - id: g_yts_page
+    type: int
+    restore_value: false
+    initial_value: '1'
+  - id: g_yts_total
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: g_yts_sort
+    type: int
+    restore_value: true
+    initial_value: '0'   # 0 = latest added to YTS, 1 = newest release (year)
+  - id: g_yts_selected_row
+    type: int
+    restore_value: false
+    initial_value: '-1'
+  - id: g_yts_movies_json
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_yts_selected_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_yts_selected_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_yts_selected_year
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: g_yts_selected_status
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+online_image:
+  - id: yts_poster
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 280x400
+    buffer_size: 65536
+    update_interval: never
+    request_headers:
+      Accept: image/jpeg
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active) && id(g_lvgl_ready)) {
+            lv_img_set_src(id(yts_poster_widget), id(yts_poster).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_poster_widget));
+          }
+  - id: yts_row_img_0
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_0), id(yts_row_img_0).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_0));
+          }
+  - id: yts_row_img_1
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_1), id(yts_row_img_1).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_1));
+          }
+  - id: yts_row_img_2
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_2), id(yts_row_img_2).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_2));
+          }
+  - id: yts_row_img_3
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_3), id(yts_row_img_3).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_3));
+          }
+  - id: yts_row_img_4
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_4), id(yts_row_img_4).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_4));
+          }
+  - id: yts_row_img_5
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_5), id(yts_row_img_5).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_5));
+          }
+  - id: yts_row_img_6
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_6), id(yts_row_img_6).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_6));
+          }
+  - id: yts_row_img_7
+    url: "${jellyfin_proxy_url}/yts/poster/0"
+    format: JPEG
+    type: RGB565
+    byte_order: LITTLE_ENDIAN
+    resize: 36x54
+    buffer_size: 4096
+    update_interval: never
+    request_headers: { Accept: image/jpeg }
+    on_download_finished:
+      - lambda: |-
+          if (id(g_yts_page_active)) {
+            lv_img_set_src(id(yts_row_pic_7), id(yts_row_img_7).get_lv_img_dsc());
+            lv_obj_invalidate(id(yts_row_pic_7));
+          }
+
+script:
+  - id: yts_poll_health
+    mode: restart
+    then:
+      - http_request.get:
+          url: !lambda 'return id(immich_base_url) + "/health";'
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  bool was_ok = id(g_yts_bridge_ok);
+                  id(g_yts_bridge_ok) = (response->status_code == 200);
+                  if (id(g_yts_bridge_ok)) id(g_jf_last_ok) = millis();
+                  else if (was_ok) id(panel_toast).execute("Movie hub offline");
+          on_error:
+            then:
+              - lambda: |-
+                  if (id(g_yts_bridge_ok)) id(panel_toast).execute("Movie hub offline");
+                  id(g_yts_bridge_ok) = false;
+
+  # Map a status string to a dot colour: library=green, downloading=amber,
+  # available=muted grey. Returned as a 0xRRGGBB value for lv_color_hex.
+  - id: yts_apply_ui
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+
+          lv_label_set_text(id(yts_status_lbl),
+            !id(g_yts_bridge_ok) ? "Movie hub offline" :
+            id(g_yts_busy) ? "Loading latest movies..." :
+            id(g_yts_total) == 0 ? "No movies found" : "Tap a movie, then Download");
+
+          lv_obj_t *rows[]   = { id(yts_row_0), id(yts_row_1), id(yts_row_2), id(yts_row_3),
+                                 id(yts_row_4), id(yts_row_5), id(yts_row_6), id(yts_row_7) };
+          lv_obj_t *labels[] = { id(yts_row_lbl_0), id(yts_row_lbl_1), id(yts_row_lbl_2), id(yts_row_lbl_3),
+                                 id(yts_row_lbl_4), id(yts_row_lbl_5), id(yts_row_lbl_6), id(yts_row_lbl_7) };
+          lv_obj_t *dots[]   = { id(yts_row_dot_0), id(yts_row_dot_1), id(yts_row_dot_2), id(yts_row_dot_3),
+                                 id(yts_row_dot_4), id(yts_row_dot_5), id(yts_row_dot_6), id(yts_row_dot_7) };
+
+          int count = 0;
+          if (!id(g_yts_movies_json).empty()) {
+            json::parse_json(id(g_yts_movies_json), [&](JsonObject root) -> bool {
+              JsonArray arr = root["movies"];
+              count = arr.size();
+              for (int i = 0; i < 8; i++) {
+                if (i < count) {
+                  JsonObject m = arr[i];
+                  const char *name = m["title"] | "?";
+                  int year = m["year"] | 0;
+                  float rating = m["rating"] | 0.0f;
+                  const char *status = m["status"] | "available";
+                  char line[112];
+                  if (year > 0 && rating > 0.0f)
+                    snprintf(line, sizeof(line), "%s (%d)  %.1f", name, year, rating);
+                  else if (year > 0)
+                    snprintf(line, sizeof(line), "%s (%d)", name, year);
+                  else
+                    snprintf(line, sizeof(line), "%s", name);
+                  lv_label_set_text(labels[i], line);
+                  uint32_t dc = (uint32_t) id(g_theme_text_muted);
+                  if (!strcmp(status, "library")) dc = (uint32_t) id(g_theme_success);
+                  else if (!strcmp(status, "downloading")) dc = (uint32_t) id(g_theme_warning);
+                  lv_obj_set_style_bg_color(dots[i], lv_color_hex(dc), 0);
+                  lv_obj_clear_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+                  bool sel = (i == id(g_yts_selected_row));
+                  lv_obj_set_style_bg_color(rows[i], lv_color_hex(sel ? (uint32_t) id(g_theme_accent_bg) : (uint32_t) id(g_theme_card_bg)), 0);
+                  lv_obj_set_style_border_color(rows[i], lv_color_hex(sel ? (uint32_t) id(g_theme_accent) : 0x243B55), 0);
+                  lv_obj_set_style_text_color(labels[i], lv_color_hex(sel ? (uint32_t) id(g_theme_accent) : 0xFFFFFF), 0);
+                } else {
+                  lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+                }
+              }
+              return true;
+            });
+          } else {
+            for (int i = 0; i < 8; i++) lv_obj_add_flag(rows[i], LV_OBJ_FLAG_HIDDEN);
+          }
+
+          char page_buf[48];
+          int start = (id(g_yts_page) - 1) * 8;
+          int end = start + count;
+          if (id(g_yts_total) > 0)
+            snprintf(page_buf, sizeof(page_buf), "%d-%d of %d", start + 1, end, id(g_yts_total));
+          else
+            snprintf(page_buf, sizeof(page_buf), "--");
+          lv_label_set_text(id(yts_page_lbl), page_buf);
+
+          if (!id(g_yts_selected_name).empty()) {
+            char title[128];
+            if (id(g_yts_selected_year) > 0)
+              snprintf(title, sizeof(title), "%s (%d)", id(g_yts_selected_name).c_str(), id(g_yts_selected_year));
+            else
+              snprintf(title, sizeof(title), "%s", id(g_yts_selected_name).c_str());
+            lv_label_set_text(id(yts_detail_title), title);
+          } else {
+            lv_label_set_text(id(yts_detail_title), id(g_yts_bridge_ok) ? "Select a movie" : "Movie hub unavailable");
+          }
+
+          lv_obj_set_style_text_color(id(yts_status_lbl),
+            lv_color_hex(!id(g_yts_bridge_ok) ? (uint32_t) id(g_theme_warning) : (uint32_t) id(g_theme_text_muted)), 0);
+
+          // Download button reflects the selected movie's status: an in-library
+          // or already-downloading movie has nothing to grab.
+          const std::string &st = id(g_yts_selected_status);
+          bool grabbable = id(g_yts_selected_id).empty() ? true : (st != "library" && st != "downloading");
+          lv_label_set_text(id(yts_download_lbl),
+            id(g_yts_selected_id).empty() ? "Download" :
+            st == "library" ? "In Library" :
+            st == "downloading" ? "Downloading" : "Download");
+          lv_obj_set_style_bg_color(id(yts_download_btn),
+            lv_color_hex(grabbable ? (uint32_t) id(g_theme_success) : (uint32_t) id(g_theme_text_muted)), 0);
+
+  - id: yts_fetch_movies
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_yts_busy);'
+          then: []
+          else:
+            - lambda: 'id(g_yts_busy) = true;'
+            - script.execute: yts_apply_ui
+            - http_request.get:
+                url: !lambda |-
+                  char url[180];
+                  const char *s = id(g_yts_sort) ? "year" : "date_added";
+                  snprintf(url, sizeof(url), "%s/yts/movies?page=%d&sort=%s",
+                           id(immich_base_url).c_str(), id(g_yts_page), s);
+                  return std::string(url);
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        id(g_yts_busy) = false;
+                        if (response->status_code != 200) {
+                          id(g_yts_movies_json) = "";
+                          id(g_yts_total) = 0;
+                          id(g_yts_bridge_ok) = false;
+                        } else {
+                          id(g_yts_bridge_ok) = true;
+                          id(g_yts_movies_json) = body;
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                            id(g_yts_total) = root["movie_count"] | 0;
+                            return true;
+                          });
+                          if (id(g_yts_selected_row) < 0) {
+                            id(yts_select_row).execute(0);
+                          } else {
+                            id(yts_load_row_posters).execute();
+                          }
+                        }
+                        id(yts_apply_ui).execute();
+                on_error:
+                  then:
+                    - lambda: |-
+                        id(g_yts_busy) = false;
+                        id(g_yts_bridge_ok) = false;
+                        id(yts_apply_ui).execute();
+
+  - id: yts_load_one_row_poster
+    mode: single
+    parameters:
+      row: int
+    then:
+      - lambda: |-
+          if (id(g_yts_movies_json).empty()) return;
+          json::parse_json(id(g_yts_movies_json), [&](JsonObject root) -> bool {
+            JsonArray arr = root["movies"];
+            int r = row;
+            if (r < 0 || r >= (int) arr.size()) return true;
+            const char *mid = arr[r]["id"] | "";
+            if (!mid[0]) return true;
+            std::string url = id(immich_base_url) + "/yts/poster/" + mid;
+            switch (r) {
+              case 0: id(yts_row_img_0).set_url(url); id(yts_row_img_0).update(); break;
+              case 1: id(yts_row_img_1).set_url(url); id(yts_row_img_1).update(); break;
+              case 2: id(yts_row_img_2).set_url(url); id(yts_row_img_2).update(); break;
+              case 3: id(yts_row_img_3).set_url(url); id(yts_row_img_3).update(); break;
+              case 4: id(yts_row_img_4).set_url(url); id(yts_row_img_4).update(); break;
+              case 5: id(yts_row_img_5).set_url(url); id(yts_row_img_5).update(); break;
+              case 6: id(yts_row_img_6).set_url(url); id(yts_row_img_6).update(); break;
+              case 7: id(yts_row_img_7).set_url(url); id(yts_row_img_7).update(); break;
+            }
+            return true;
+          });
+
+  # Lazy: one thumbnail at a time — parallel online_image downloads fail on P4.
+  - id: yts_load_row_posters
+    mode: restart
+    then:
+      - script.execute: { id: yts_load_one_row_poster, row: 0 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 1 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 2 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 3 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 4 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 5 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 6 }
+      - delay: 300ms
+      - script.execute: { id: yts_load_one_row_poster, row: 7 }
+
+  - id: yts_select_row
+    mode: restart
+    parameters:
+      row: int
+    then:
+      - lambda: |-
+          id(g_yts_selected_row) = row;
+          id(g_yts_selected_id) = "";
+          id(g_yts_selected_name) = "";
+          id(g_yts_selected_year) = 0;
+          id(g_yts_selected_status) = "";
+          if (!id(g_yts_movies_json).empty()) {
+            json::parse_json(id(g_yts_movies_json), [&](JsonObject root) -> bool {
+              JsonArray arr = root["movies"];
+              if (row >= 0 && row < (int) arr.size()) {
+                JsonObject m = arr[row];
+                id(g_yts_selected_id) = m["id"] | "";
+                id(g_yts_selected_name) = m["title"] | "";
+                id(g_yts_selected_year) = m["year"] | 0;
+                id(g_yts_selected_status) = m["status"] | "available";
+              }
+              return true;
+            });
+          }
+      - if:
+          condition:
+            lambda: 'return !id(g_yts_selected_id).empty();'
+          then:
+            - online_image.set_url:
+                id: yts_poster
+                url: !lambda 'return id(immich_base_url) + "/yts/poster/" + id(g_yts_selected_id);'
+                update: true
+      - script.execute: yts_apply_ui
+
+  - id: yts_download_selected
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: |-
+              const std::string &st = id(g_yts_selected_status);
+              return (st == "library" || st == "downloading");
+          then:
+            - lambda: |-
+                id(panel_toast).execute(id(g_yts_selected_status) == "library"
+                  ? "Already in library" : "Already downloading");
+          else:
+            - if:
+                condition:
+                  lambda: 'return !id(g_yts_selected_id).empty() && id(g_yts_bridge_ok);'
+                then:
+                  - lvgl.label.update:
+                      id: yts_status_lbl
+                      text: "Adding to Radarr..."
+                  - http_request.post:
+                      url: !lambda 'return id(immich_base_url) + "/yts/download/" + id(g_yts_selected_id);'
+                      capture_response: true
+                      on_response:
+                        then:
+                          - lambda: |-
+                              const char *msg = "Added to Radarr";
+                              if (response->status_code == 200) {
+                                json::parse_json(body, [&](JsonObject root) -> bool {
+                                  const char *st = root["status"] | "";
+                                  if (!strcmp(st, "library")) msg = "Already in library";
+                                  else if (!strcmp(st, "exists")) msg = "Search triggered";
+                                  else if (!strcmp(st, "qbittorrent")) msg = "Sent to qBittorrent";
+                                  return true;
+                                });
+                              } else {
+                                msg = "Radarr request failed";
+                              }
+                              id(panel_toast).execute(msg);
+                              lv_label_set_text(id(yts_status_lbl), msg);
+                      on_error:
+                        then:
+                          - lambda: |-
+                              id(panel_toast).execute("Radarr request failed");
+                              lv_label_set_text(id(yts_status_lbl), "Radarr request failed");
+                else:
+                  - lvgl.label.update:
+                      id: yts_status_lbl
+                      text: !lambda |-
+                        if (!id(g_yts_bridge_ok)) return std::string("Movie hub offline");
+                        return std::string("Select a movie first");
+
+  - id: yts_toggle_sort
+    mode: single
+    then:
+      - lambda: |-
+          id(g_yts_sort) = id(g_yts_sort) ? 0 : 1;
+          id(g_yts_page) = 1;
+          id(g_yts_selected_row) = -1;
+          id(g_yts_selected_id) = "";
+          lv_label_set_text(id(yts_sort_lbl), id(g_yts_sort) ? "Sort: Release" : "Sort: Latest");
+      - script.execute: yts_fetch_movies
+
+  - id: yts_page_prev
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_yts_page) > 1 && !id(g_yts_busy);'
+          then:
+            - lambda: |-
+                id(g_yts_page) -= 1;
+                id(g_yts_selected_row) = -1;
+                id(g_yts_selected_id) = "";
+            - script.execute: yts_fetch_movies
+
+  - id: yts_page_next
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return (id(g_yts_page) * 8) < id(g_yts_total) && !id(g_yts_busy);'
+          then:
+            - lambda: |-
+                id(g_yts_page) += 1;
+                id(g_yts_selected_row) = -1;
+                id(g_yts_selected_id) = "";
+            - script.execute: yts_fetch_movies
+
+interval:
+  - interval: 120s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_yts_page_active);'
+          then:
+            - script.execute: yts_poll_health
+
+lvgl:
+  pages:
+    - id: yts_page
+      bg_color: "${c_page_bg}"
+      on_load:
+        - lambda: |-
+            id(g_yts_page_active) = true;
+            if (id(g_lvgl_ready))
+              lv_label_set_text(id(yts_sort_lbl), id(g_yts_sort) ? "Sort: Release" : "Sort: Latest");
+        - script.execute: yts_fetch_movies
+      on_unload:
+        - lambda: |-
+            id(g_yts_page_active) = false;
+            id(g_yts_busy) = false;
+      on_swipe_right:
+        - lvgl.page.show: tuya_page
+      on_swipe_left:
+        - lvgl.page.show: slideshow_page
+      widgets:
+        - obj:
+            id: yts_header_bar
+            width: 100%
+            height: ${header_h}
+            align: TOP_LEFT
+            bg_color: "${c_header_bg}"
+            bg_opa: 98%
+            border_width: 0
+            border_side: BOTTOM
+            border_color: "${c_header_border}"
+            pad_all: 0
+            widgets:
+              - button:
+                  align: LEFT_MID
+                  x: 14
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - image:
+                        align: CENTER
+                        src: img_home
+              - label:
+                  align: CENTER
+                  text: "Latest Movies"
+                  text_font: montserrat_28
+                  text_color: "${c_text}"
+              - button:
+                  align: RIGHT_MID
+                  x: -78
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: tuya_page
+                  widgets:
+                    - label: { align: CENTER, text: "<", text_font: montserrat_22, text_color: "${c_text}" }
+              - button:
+                  align: RIGHT_MID
+                  x: -16
+                  width: ${nav_btn_w}
+                  height: ${nav_btn_h}
+                  bg_color: "${c_nav_btn}"
+                  radius: ${btn_radius}
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: slideshow_page
+                  widgets:
+                    - label: { align: CENTER, text: ">", text_font: montserrat_22, text_color: "${c_text}" }
+              - button:
+                  id: status_pill_yts
+                  align: RIGHT_MID
+                  x: -146
+                  width: 84
+                  height: 34
+                  radius: 17
+                  bg_color: "${c_accent_bg}"
+                  border_width: 0
+                  on_click:
+                    - lvgl.page.show: diagnostics_page
+                  widgets:
+                    - obj:
+                        id: status_pill_dot_yts
+                        x: 10
+                        y: 12
+                        width: 10
+                        height: 10
+                        radius: 5
+                        bg_color: "${c_accent}"
+                        border_width: 0
+                        pad_all: 0
+                    - label:
+                        id: status_pill_lbl_yts
+                        x: 26
+                        y: 9
+                        text: "OK"
+                        text_font: montserrat_14
+                        text_color: "${c_text}"
+
+        - obj:
+            id: yts_list_panel
+            x: 16
+            y: 68
+            width: "${jf_list_w}"
+            height: "${jf_panel_h}"
+            align: TOP_LEFT
+            bg_color: "${c_card_bg_alt}"
+            bg_opa: 95%
+            border_color: "${c_card_border_dim}"
+            border_width: 2
+            radius: ${card_radius}
+            pad_all: 8
+            widgets:
+              - label:
+                  align: TOP_LEFT
+                  x: 4
+                  y: 0
+                  text: "Newest on YTS"
+                  text_font: montserrat_18
+                  text_color: "${c_info_soft}"
+              - button:
+                  id: yts_sort_btn
+                  align: TOP_RIGHT
+                  x: 0
+                  y: -2
+                  width: 150
+                  height: 30
+                  bg_color: "${c_nav_btn}"
+                  radius: 10
+                  border_width: 0
+                  on_click:
+                    - script.execute: yts_toggle_sort
+                  widgets:
+                    - label:
+                        id: yts_sort_lbl
+                        align: CENTER
+                        text: "Sort: Latest"
+                        text_font: montserrat_14
+                        text_color: "${c_text}"
+              - button:
+                  id: yts_row_0
+                  align: TOP_LEFT
+                  x: 0
+                  y: 28
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 0 }
+                  widgets:
+                    - image: { id: yts_row_pic_0, align: LEFT_MID, x: 4, src: yts_row_img_0 }
+                    - label: { id: yts_row_lbl_0, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_0, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_1
+                  align: TOP_LEFT
+                  x: 0
+                  y: 80
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 1 }
+                  widgets:
+                    - image: { id: yts_row_pic_1, align: LEFT_MID, x: 4, src: yts_row_img_1 }
+                    - label: { id: yts_row_lbl_1, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_1, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_2
+                  align: TOP_LEFT
+                  x: 0
+                  y: 132
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 2 }
+                  widgets:
+                    - image: { id: yts_row_pic_2, align: LEFT_MID, x: 4, src: yts_row_img_2 }
+                    - label: { id: yts_row_lbl_2, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_2, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_3
+                  align: TOP_LEFT
+                  x: 0
+                  y: 184
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 3 }
+                  widgets:
+                    - image: { id: yts_row_pic_3, align: LEFT_MID, x: 4, src: yts_row_img_3 }
+                    - label: { id: yts_row_lbl_3, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_3, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_4
+                  align: TOP_LEFT
+                  x: 0
+                  y: 236
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 4 }
+                  widgets:
+                    - image: { id: yts_row_pic_4, align: LEFT_MID, x: 4, src: yts_row_img_4 }
+                    - label: { id: yts_row_lbl_4, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_4, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_5
+                  align: TOP_LEFT
+                  x: 0
+                  y: 288
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 5 }
+                  widgets:
+                    - image: { id: yts_row_pic_5, align: LEFT_MID, x: 4, src: yts_row_img_5 }
+                    - label: { id: yts_row_lbl_5, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_5, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_6
+                  align: TOP_LEFT
+                  x: 0
+                  y: 340
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 6 }
+                  widgets:
+                    - image: { id: yts_row_pic_6, align: LEFT_MID, x: 4, src: yts_row_img_6 }
+                    - label: { id: yts_row_lbl_6, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_6, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+              - button:
+                  id: yts_row_7
+                  align: TOP_LEFT
+                  x: 0
+                  y: 392
+                  width: "${jf_row_w}"
+                  height: 48
+                  bg_color: "${c_row_bg}"
+                  radius: 10
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  on_click:
+                    - script.execute: { id: yts_select_row, row: 7 }
+                  widgets:
+                    - image: { id: yts_row_pic_7, align: LEFT_MID, x: 4, src: yts_row_img_7 }
+                    - label: { id: yts_row_lbl_7, align: LEFT_MID, x: 46, text: "--", text_font: montserrat_16, text_color: "${c_text}" }
+                    - obj: { id: yts_row_dot_7, align: RIGHT_MID, x: -10, width: 12, height: 12, radius: 6, bg_color: "${c_text}", border_width: 0, pad_all: 0 }
+
+        - obj:
+            id: yts_detail_panel
+            x: "${jf_detail_x}"
+            y: 68
+            width: "${jf_detail_w}"
+            height: "${jf_panel_h}"
+            align: TOP_LEFT
+            bg_color: "${c_card_bg_alt}"
+            bg_opa: 95%
+            border_color: "${c_card_border_dim}"
+            border_width: 2
+            radius: ${card_radius}
+            pad_all: 10
+            widgets:
+              - obj:
+                  align: TOP_MID
+                  x: 0
+                  y: 0
+                  width: 280
+                  height: 400
+                  bg_color: 0x000000
+                  radius: 12
+                  border_width: 1
+                  border_color: "${c_card_border_dim}"
+                  pad_all: 0
+                  widgets:
+                    - image: { id: yts_poster_widget, align: CENTER, src: yts_poster }
+              - label:
+                  id: yts_detail_title
+                  align: TOP_MID
+                  y: 408
+                  width: "${jf_detail_title_w}"
+                  text: "Select a movie"
+                  text_font: montserrat_18
+                  text_color: "${c_text}"
+                  long_mode: WRAP
+                  text_align: CENTER
+
+        - label:
+            id: yts_quality_lbl
+            align: BOTTOM_LEFT
+            x: "${jf_detail_x}"
+            y: -58
+            text: "Quality: 1080p"
+            text_font: montserrat_16
+            text_color: "${c_footer_text}"
+
+        - button:
+            id: yts_download_btn
+            align: BOTTOM_LEFT
+            x: "${jf_detail_x}"
+            y: -14
+            width: "${jf_detail_title_w}"
+            height: 46
+            bg_color: "${c_success_bg}"
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: yts_download_selected
+            widgets:
+              - label:
+                  id: yts_download_lbl
+                  align: CENTER
+                  text: "Download"
+                  text_font: montserrat_18
+                  text_color: "${c_text}"
+
+        - button:
+            id: yts_prev_btn
+            align: BOTTOM_LEFT
+            x: 16
+            y: -14
+            width: 90
+            height: 46
+            bg_color: "${c_nav_btn}"
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: yts_page_prev
+            widgets:
+              - label: { align: CENTER, text: "<", text_font: montserrat_20, text_color: "${c_text}" }
+
+        - button:
+            id: yts_next_btn
+            align: BOTTOM_LEFT
+            x: 112
+            y: -14
+            width: 90
+            height: 46
+            bg_color: "${c_nav_btn}"
+            radius: 12
+            border_width: 0
+            on_click:
+              - script.execute: yts_page_next
+            widgets:
+              - label: { align: CENTER, text: ">", text_font: montserrat_20, text_color: "${c_text}" }
+
+        - label:
+            id: yts_page_lbl
+            align: BOTTOM_LEFT
+            x: 220
+            y: -8
+            text: "--"
+            text_font: montserrat_16
+            text_color: "${c_footer_text}"
+
+        - label:
+            id: yts_status_lbl
+            align: BOTTOM_LEFT
+            x: 220
+            y: -30
+            text: "Loading..."
+            text_font: montserrat_14
+            text_color: "${c_footer_text}"

@@ -97,11 +97,42 @@ JELLYFIN_URL         = os.getenv("JELLYFIN_URL", "").rstrip("/")
 JELLYFIN_KEY         = os.getenv("JELLYFIN_API_KEY", "")
 JELLYFIN_USER_ID     = os.getenv("JELLYFIN_USER_ID", "").strip()
 JELLYFIN_PLAY_CLIENT = os.getenv("JELLYFIN_PLAY_CLIENT", "").strip()
+# Browser-reachable Jellyfin base (for the "Watch on Jellyfin" link on the /yts
+# browser page) — NOT the docker-gateway URL the hub uses internally.
+JELLYFIN_PUBLIC_URL  = os.getenv("JELLYFIN_PUBLIC_URL", "http://192.168.55.59:8096").rstrip("/")
 FIRETV_ADB_CONTAINER = os.getenv("FIRETV_ADB_CONTAINER", "adb-server")
 FIRETV_ADB_DEVICE    = os.getenv("FIRETV_ADB_DEVICE", "192.168.55.77:5555")
 POSTER_MAX_W    = int(os.getenv("POSTER_MAX_W", "280"))
 POSTER_MAX_H    = int(os.getenv("POSTER_MAX_H", "400"))
 POSTER_QUALITY  = int(os.getenv("POSTER_QUALITY", "85"))
+
+# ── YTS browse + Radarr grab (Latest Movies page) ──────────────────────────────
+# The panel browses the YTS "latest movies" feed and, on Download, hands the
+# movie to Radarr by IMDb id. Radarr drives Prowlarr → qBittorrent → import into
+# the Jellyfin library (that is what later flips a movie's badge to "library").
+YTS_URL                   = os.getenv("YTS_URL", "https://movies-api.accel.li").rstrip("/")
+RADARR_URL                = os.getenv("RADARR_URL", "http://172.17.0.1:7878").rstrip("/")
+RADARR_API_KEY            = os.getenv("RADARR_API_KEY", "")
+RADARR_QUALITY_PROFILE_ID = int(os.getenv("RADARR_QUALITY_PROFILE_ID", "4"))  # 4 = HD-1080p
+RADARR_ROOT_FOLDER        = os.getenv("RADARR_ROOT_FOLDER", "/data/Movies")
+CROSSREF_TTL              = int(os.getenv("CROSSREF_TTL", "60"))  # seconds
+# qBittorrent — fallback for the rare movie Radarr/TMDb can't match (add the YTS
+# torrent straight to qBittorrent). host-local → docker gateway.
+QBIT_URL                  = os.getenv("QBIT_URL", "http://172.17.0.1:8080").rstrip("/")
+QBIT_USER                 = os.getenv("QBIT_USER", "")
+QBIT_PASS                 = os.getenv("QBIT_PASS", "")
+QBIT_QUALITY              = os.getenv("QBIT_QUALITY", "1080p")  # preferred YTS quality
+# YTS magnet trackers (standard public set the YTS site itself uses).
+_YTS_TRACKERS = [
+    "udp://open.demonii.com:1337/announce",
+    "udp://tracker.openbittorrent.com:80",
+    "udp://tracker.coppersurfer.tk:6969",
+    "udp://glotorrents.pw:6969/announce",
+    "udp://tracker.opentrackr.org:1337/announce",
+    "udp://torrent.gresille.org:80/announce",
+    "udp://p4p.arenabg.com:1337",
+    "udp://tracker.leechers-paradise.org:6969",
+]
 
 OLLAMA_URL      = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL    = os.getenv("OLLAMA_MODEL", "llama3.2")
@@ -437,6 +468,293 @@ async def fetch_poster(item_id: str) -> bytes | None:
                 continue
     log.warning("poster not found for %s", item_id)
     return None
+
+
+# ── YTS browse + Radarr grab ────────────────────────────────────────────────────
+
+# yts_id (str) -> medium_cover_image URL, populated by fetch_yts_movies so the
+# poster endpoint can re-encode without re-querying the list.
+_yts_poster_url: dict[str, str] = {}
+# yts_id (str) -> imdb_code, so /yts/download can resolve without a refetch.
+_yts_imdb: dict[str, str] = {}
+# yts_id (str) -> {title, year, torrents:[{quality, hash}]} for the qBittorrent fallback.
+_yts_meta: dict[str, dict] = {}
+
+# Cross-reference caches (what is already in Jellyfin / Radarr), refreshed lazily.
+_crossref_lock = asyncio.Lock()
+_crossref_ts: float = 0.0
+_jf_imdb_set: set[str] = set()                 # imdb codes present in Jellyfin
+_jf_item_by_imdb: dict[str, str] = {}          # imdb -> Jellyfin itemId (for watch links)
+_radarr_by_imdb: dict[str, dict] = {}          # imdb -> {"id", "hasFile"}
+_radarr_queue_ids: set[int] = set()            # radarr movie ids currently downloading
+
+
+def _radarr_headers() -> dict[str, str]:
+    return {"X-Api-Key": RADARR_API_KEY, "Accept": "application/json"}
+
+
+async def _refresh_crossref() -> None:
+    """Rebuild the Jellyfin/Radarr lookup caches (best-effort, ~CROSSREF_TTL)."""
+    global _crossref_ts, _jf_imdb_set, _jf_item_by_imdb, _radarr_by_imdb, _radarr_queue_ids
+    async with _crossref_lock:
+        import time as _time
+        if _time.time() - _crossref_ts < CROSSREF_TTL:
+            return
+        # Jellyfin: set of IMDb ids in the library + imdb -> itemId for watch links.
+        jf: set[str] = set()
+        jf_items: dict[str, str] = {}
+        try:
+            uid = await _get_jf_user_id()
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get(
+                    f"{JELLYFIN_URL}/Users/{uid}/Items",
+                    headers={"X-Emby-Token": JELLYFIN_KEY},
+                    params={"Recursive": "true", "IncludeItemTypes": "Movie",
+                            "Fields": "ProviderIds", "Limit": 100000})
+                r.raise_for_status()
+                for item in r.json().get("Items", []):
+                    imdb = (item.get("ProviderIds") or {}).get("Imdb", "")
+                    if imdb:
+                        code = imdb.strip().lower()
+                        jf.add(code)
+                        if item.get("Id"):
+                            jf_items[code] = item["Id"]
+        except Exception as e:
+            log.warning("crossref: Jellyfin library scan failed: %s", e)
+        # Radarr: imdb -> {id, hasFile} and the set of downloading movie ids.
+        rmap: dict[str, dict] = {}
+        queue: set[int] = set()
+        if RADARR_API_KEY:
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    r = await client.get(f"{RADARR_URL}/api/v3/movie", headers=_radarr_headers())
+                    r.raise_for_status()
+                    for m in r.json():
+                        code = (m.get("imdbId") or "").strip().lower()
+                        if code:
+                            rmap[code] = {"id": m.get("id"), "hasFile": bool(m.get("hasFile"))}
+                    rq = await client.get(f"{RADARR_URL}/api/v3/queue",
+                                          headers=_radarr_headers(),
+                                          params={"pageSize": 1000})
+                    if rq.is_success:
+                        for rec in rq.json().get("records", []):
+                            if rec.get("movieId"):
+                                queue.add(int(rec["movieId"]))
+            except Exception as e:
+                log.warning("crossref: Radarr scan failed: %s", e)
+        _jf_imdb_set, _jf_item_by_imdb, _radarr_by_imdb, _radarr_queue_ids = jf, jf_items, rmap, queue
+        _crossref_ts = _time.time()
+        log.info("crossref refreshed: jellyfin=%d radarr=%d queue=%d",
+                 len(jf), len(rmap), len(queue))
+
+
+def _movie_status(imdb: str) -> str:
+    code = (imdb or "").strip().lower()
+    if not code:
+        return "available"
+    rad = _radarr_by_imdb.get(code)
+    if code in _jf_imdb_set or (rad and rad.get("hasFile")):
+        return "library"
+    if rad and rad.get("id") in _radarr_queue_ids:
+        return "downloading"
+    return "available"
+
+
+def _watch_url(imdb: str, title: str) -> str:
+    """Browser link to watch an in-library movie on Jellyfin.
+
+    Exact details page when we know the Jellyfin itemId; otherwise a title
+    search (e.g. when the Jellyfin API key is unavailable).
+    """
+    item_id = _jf_item_by_imdb.get((imdb or "").strip().lower())
+    if item_id:
+        return f"{JELLYFIN_PUBLIC_URL}/web/#/details?id={item_id}"
+    return f"{JELLYFIN_PUBLIC_URL}/web/#/search.html?query={urllib.parse.quote(title or '')}"
+
+
+async def fetch_yts_movies(page: int, sort: str = "date_added", query: str = "") -> dict:
+    """YTS movies + a library/downloading/available status.
+
+    sort: "date_added" (newest added to YTS first) or "year" (newest release first).
+    query: optional free-text title search.
+    """
+    sort_by = "year" if sort == "year" else "date_added"
+    await _refresh_crossref()
+    params = {"page": max(1, page), "limit": 8, "sort_by": sort_by, "order_by": "desc"}
+    if query.strip():
+        params["query_term"] = query.strip()
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        r = await client.get(f"{YTS_URL}/api/v2/list_movies.json", params=params)
+        r.raise_for_status()
+        data = r.json().get("data", {})
+    movies = []
+    for m in data.get("movies", []) or []:
+        yid = str(m.get("id", ""))
+        imdb = (m.get("imdb_code") or "").strip()
+        if yid:
+            _yts_poster_url[yid] = m.get("medium_cover_image") or m.get("small_cover_image") or ""
+            _yts_imdb[yid] = imdb
+            _yts_meta[yid] = {
+                "title": (m.get("title_english") or m.get("title") or "").strip(),
+                "year": m.get("year") or 0,
+                "torrents": [{"quality": t.get("quality", ""), "hash": t.get("hash", "")}
+                             for t in (m.get("torrents") or []) if t.get("hash")],
+            }
+        title = (m.get("title_english") or m.get("title") or "Unknown").strip()
+        status = _movie_status(imdb)
+        movies.append({
+            "id": yid,
+            "title": title,
+            "year": m.get("year") or 0,
+            "rating": m.get("rating") or 0,
+            "imdb": imdb,
+            "status": status,
+            "watch_url": _watch_url(imdb, title) if status == "library" else "",
+        })
+    return {
+        "page": max(1, page),
+        "movie_count": int(data.get("movie_count", 0)),
+        "movies": movies,
+    }
+
+
+async def _yts_cover_url(yts_id: str) -> str:
+    url = _yts_poster_url.get(yts_id)
+    if url:
+        return url
+    # Fallback: ask YTS directly (cache miss after a restart or deep link).
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            r = await client.get(f"{YTS_URL}/api/v2/movie_details.json",
+                                 params={"movie_id": yts_id})
+            r.raise_for_status()
+            mv = r.json().get("data", {}).get("movie", {})
+            url = mv.get("medium_cover_image") or mv.get("large_cover_image") or ""
+            if url:
+                _yts_poster_url[yts_id] = url
+                _yts_imdb[yts_id] = (mv.get("imdb_code") or "").strip()
+                _yts_meta[yts_id] = {
+                    "title": (mv.get("title_english") or mv.get("title") or "").strip(),
+                    "year": mv.get("year") or 0,
+                    "torrents": [{"quality": t.get("quality", ""), "hash": t.get("hash", "")}
+                                 for t in (mv.get("torrents") or []) if t.get("hash")],
+                }
+    except Exception as e:
+        log.warning("yts cover lookup failed for %s: %s", yts_id, e)
+    return url or ""
+
+
+async def fetch_yts_poster(yts_id: str) -> bytes | None:
+    url = await _yts_cover_url(yts_id)
+    if not url:
+        return None
+    loop = asyncio.get_event_loop()
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            if r.content:
+                return await loop.run_in_executor(
+                    None, encode_sof0, r.content, POSTER_MAX_W, POSTER_MAX_H,
+                    POSTER_QUALITY, 2)
+    except Exception as e:
+        log.warning("yts poster fetch failed for %s: %s", yts_id, e)
+    return None
+
+
+async def _yts_imdb_code(yts_id: str) -> str:
+    code = _yts_imdb.get(yts_id)
+    if code:
+        return code
+    await _yts_cover_url(yts_id)  # side-effect: also fills _yts_imdb
+    return _yts_imdb.get(yts_id, "")
+
+
+async def qbit_add(yts_id: str) -> dict:
+    """Fallback: add the movie's YTS torrent straight to qBittorrent.
+
+    Used when Radarr/TMDb can't match the title. Builds a magnet from the
+    preferred-quality torrent hash and hands it to the qBittorrent WebUI.
+    """
+    meta = _yts_meta.get(yts_id)
+    if not meta:
+        await _yts_cover_url(yts_id)  # side-effect: populates _yts_meta
+        meta = _yts_meta.get(yts_id)
+    torrents = (meta or {}).get("torrents") or []
+    if not torrents:
+        return {"ok": False, "status": "error", "message": "no torrent available for movie"}
+    best = next((t for t in torrents if t["quality"] == QBIT_QUALITY), torrents[0])
+    name = f"{meta.get('title', '')} ({meta.get('year', '')}) [{best['quality']}]".strip()
+    trackers = "".join(f"&tr={urllib.parse.quote(tr)}" for tr in _YTS_TRACKERS)
+    magnet = f"magnet:?xt=urn:btih:{best['hash']}&dn={urllib.parse.quote(name)}{trackers}"
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            if QBIT_USER:
+                lr = await client.post(f"{QBIT_URL}/api/v2/auth/login",
+                                       data={"username": QBIT_USER, "password": QBIT_PASS},
+                                       headers={"Referer": QBIT_URL})
+                lr.raise_for_status()
+            ar = await client.post(f"{QBIT_URL}/api/v2/torrents/add",
+                                   data={"urls": magnet}, headers={"Referer": QBIT_URL})
+            if not ar.is_success:
+                log.error("qBittorrent add %d: %s", ar.status_code, ar.text)
+                return {"ok": False, "status": "error", "message": f"qbittorrent add failed ({ar.status_code})"}
+    except Exception as e:
+        log.error("qBittorrent add failed: %s", e)
+        return {"ok": False, "status": "error", "message": str(e)}
+    log.info("qBittorrent: added %s (%s) via magnet", yts_id, best["quality"])
+    return {"ok": True, "status": "qbittorrent"}
+
+
+async def radarr_add(yts_id: str) -> dict:
+    """Add the movie to Radarr by IMDb id and trigger a search.
+
+    Returns {ok, status} where status is library|downloading|exists|queued, or
+    falls back to qBittorrent (status "qbittorrent") when Radarr can't match it.
+    """
+    if not RADARR_API_KEY:
+        return await qbit_add(yts_id)
+    imdb = await _yts_imdb_code(yts_id)
+    if not imdb:
+        return await qbit_add(yts_id)
+    async with httpx.AsyncClient(timeout=20) as client:
+        lr = await client.get(f"{RADARR_URL}/api/v3/movie/lookup",
+                              headers=_radarr_headers(), params={"term": f"imdb:{imdb}"})
+        lr.raise_for_status()
+        found = lr.json()
+        movie = found[0] if isinstance(found, list) and found else (found if isinstance(found, dict) else None)
+        if not movie or not movie.get("tmdbId"):
+            # Radarr/TMDb can't match it — hand the YTS torrent to qBittorrent.
+            return await qbit_add(yts_id)
+
+        existing_id = movie.get("id") or 0
+        if existing_id:
+            # Already tracked by Radarr. If the file is present it's effectively
+            # in the library; otherwise (re)trigger a search.
+            if movie.get("hasFile"):
+                return {"ok": True, "status": "library"}
+            await client.post(f"{RADARR_URL}/api/v3/command", headers=_radarr_headers(),
+                              json={"name": "MoviesSearch", "movieIds": [existing_id]})
+            return {"ok": True, "status": "exists"}
+
+        # Not tracked yet — add it (monitored) and search immediately.
+        payload = dict(movie)
+        payload.update({
+            "qualityProfileId": RADARR_QUALITY_PROFILE_ID,
+            "rootFolderPath": RADARR_ROOT_FOLDER,
+            "monitored": True,
+            "minimumAvailability": "released",
+            "addOptions": {"searchForMovie": True},
+        })
+        ar = await client.post(f"{RADARR_URL}/api/v3/movie", headers=_radarr_headers(), json=payload)
+        if not ar.is_success:
+            log.error("Radarr add %d: %s", ar.status_code, ar.text)
+            return {"ok": False, "status": "error", "message": f"radarr add failed ({ar.status_code})"}
+    # Force the next browse refresh to reflect the new queue state.
+    global _crossref_ts
+    _crossref_ts = 0.0
+    log.info("Radarr: added %s (imdb %s), search triggered", yts_id, imdb)
+    return {"ok": True, "status": "queued"}
 
 
 # ── Tuya ──────────────────────────────────────────────────────────────────────
@@ -871,6 +1189,241 @@ async def poster(item_id: str):
         raise HTTPException(404, "Poster not found")
     return Response(content=jpeg, media_type="image/jpeg",
                     headers={"Cache-Control": "max-age=86400"})
+
+
+# ── YTS browse + Radarr grab (Latest Movies page) ──────────────────────────────
+
+_YTS_HTML = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latest Movies</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a1017; color: #e8eef5;
+         font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center;
+           gap: 16px; padding: 14px 22px; background: #0e1824; border-bottom: 1px solid #1e2c3c; }
+  header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  header .sp { flex: 1; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; color: #fff;
+           background: #27405c; padding: 8px 14px; }
+  button:hover { background: #335a7f; }
+  button:disabled { opacity: .4; cursor: default; }
+  #grid { display: grid; gap: 18px; padding: 22px;
+          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .card { background: #111c28; border: 1px solid #1e2c3c; border-radius: 12px; overflow: hidden;
+          display: flex; flex-direction: column; }
+  .card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #000; display: block; }
+  .card .body { padding: 10px 11px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .card .title { font-size: 14px; font-weight: 600; line-height: 1.25; }
+  .card .meta { font-size: 12px; color: #8aa0b6; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .s-library { background: #35c46a; } .s-downloading { background: #e8b23a; }
+  .s-available { background: #5c7488; }
+  .grab, .watch, .dling { margin-top: auto; }
+  .grab { background: #1f6d3c; }
+  .grab:hover { background: #268048; }
+  .grab.done { background: #27405c; }
+  .watch { background: #6b3fb0; }
+  .watch:hover { background: #7d4ec9; }
+  .dling { background: #7a5a16; }
+  footer { display: flex; justify-content: center; align-items: center; gap: 16px; padding: 10px 0 30px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+           background: #1b2a3a; border: 1px solid #2b4258; padding: 10px 18px; border-radius: 10px;
+           opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .search { position: relative; flex: 1; max-width: 420px; }
+  .search input { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid #27405c;
+                  background: #0a131c; color: #e8eef5; font: inherit; }
+  .search input:focus { outline: none; border-color: #4a76a8; }
+  .suggest { position: absolute; left: 0; right: 0; top: 44px; background: #0e1824;
+             border: 1px solid #27405c; border-radius: 8px; overflow: hidden; z-index: 10; display: none; }
+  .suggest.open { display: block; }
+  .suggest div { padding: 9px 12px; cursor: pointer; font-size: 14px; }
+  .suggest div:hover, .suggest div.active { background: #1b2f45; }
+  select { font: inherit; background: #27405c; color: #fff; border: 0; border-radius: 8px; padding: 8px 10px; }
+</style></head><body>
+<header>
+  <h1>Latest Movies</h1>
+  <div class="search">
+    <input id="q" type="text" placeholder="Search movies…" autocomplete="off">
+    <div id="suggest" class="suggest"></div>
+  </div>
+  <select id="sort" title="Sort order">
+    <option value="date_added">Latest added</option>
+    <option value="year">Release date</option>
+  </select>
+  <span class="sp"></span>
+  <button id="prev">&larr; Prev</button>
+  <span id="pagelbl">--</span>
+  <button id="next">Next &rarr;</button>
+</header>
+<div id="grid"></div>
+<footer>
+  <span style="color:#8aa0b6;font-size:13px">
+    <span class="dot s-library"></span> In library &nbsp;
+    <span class="dot s-downloading"></span> Downloading &nbsp;
+    <span class="dot s-available"></span> Available
+  </span>
+</footer>
+<div class="toast" id="toast"></div>
+<script>
+let page = 1, total = 0, sort = 'date_added', query = '';
+const grid = document.getElementById('grid');
+const toast = document.getElementById('toast');
+const qEl = document.getElementById('q');
+const suggEl = document.getElementById('suggest');
+function flash(msg) { toast.textContent = msg; toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500); }
+async function load() {
+  grid.innerHTML = '<p style="color:#8aa0b6;padding:10px">Loading…</p>';
+  try {
+    const r = await fetch('/yts/movies?page=' + page + '&sort=' + sort +
+                          '&query=' + encodeURIComponent(query));
+    const d = await r.json();
+    total = d.movie_count || 0;
+    render(d.movies || []);
+  } catch (e) { grid.innerHTML = '<p style="color:#e86a6a;padding:10px">Hub error: ' + e + '</p>'; }
+  document.getElementById('pagelbl').textContent =
+    total ? (((page-1)*8)+1) + '–' + Math.min(page*8, total) + ' of ' + total : '--';
+  document.getElementById('prev').disabled = page <= 1;
+  document.getElementById('next').disabled = page*8 >= total;
+}
+function render(movies) {
+  grid.innerHTML = '';
+  for (const m of movies) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    let btnHtml;
+    if (m.status === 'library')       btnHtml = '<button class="watch">Watch &#9654;</button>';
+    else if (m.status === 'downloading') btnHtml = '<button class="dling" disabled>Downloading…</button>';
+    else                              btnHtml = '<button class="grab" data-id="' + m.id + '">Download</button>';
+    const posterClick = (m.status === 'library' && m.watch_url) ? ' style="cursor:pointer"' : '';
+    card.innerHTML =
+      '<img loading="lazy" src="/yts/poster/' + m.id + '" alt=""' + posterClick + '>' +
+      '<div class="body">' +
+        '<div class="title">' + esc(m.title) + '</div>' +
+        '<div class="meta"><span class="dot s-' + m.status + '"></span>' +
+          (m.year || '') + (m.rating ? ' · ★ ' + m.rating : '') + '</div>' +
+        btnHtml +
+      '</div>';
+    if (m.status === 'library' && m.watch_url) {
+      const open = () => window.open(m.watch_url, '_blank', 'noopener');
+      card.querySelector('.watch').addEventListener('click', open);
+      card.querySelector('img').addEventListener('click', open);
+    } else if (m.status === 'available') {
+      card.querySelector('.grab').addEventListener('click', (e) => grab(e.target));
+    }
+    grid.appendChild(card);
+  }
+}
+async function grab(btn) {
+  btn.disabled = true; btn.textContent = 'Adding…';
+  try {
+    const r = await fetch('/yts/download/' + btn.dataset.id, { method: 'POST' });
+    const d = await r.json();
+    const map = { queued:'Queued in Radarr', exists:'Search triggered', library:'Already in library',
+                  qbittorrent:'Sent to qBittorrent' };
+    const label = map[d.status] || (d.ok ? 'Done' : 'Failed');
+    btn.textContent = d.ok ? label : 'Failed'; btn.classList.add('done');
+    flash(label);
+  } catch (e) { btn.textContent = 'Failed'; btn.disabled = false; flash('Request failed'); }
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+document.getElementById('prev').onclick = () => { if (page > 1) { page--; load(); } };
+document.getElementById('next').onclick = () => { if (page*8 < total) { page++; load(); } };
+document.getElementById('sort').onchange = (e) => { sort = e.target.value; page = 1; load(); };
+
+// ── Search + autosuggest ──
+let suggTimer = null, suggItems = [], suggActive = -1;
+function closeSugg() { suggEl.classList.remove('open'); suggActive = -1; }
+function runSearch(term) { query = term.trim(); page = 1; closeSugg(); load(); }
+function renderSugg() {
+  if (!suggItems.length) { closeSugg(); return; }
+  suggEl.innerHTML = suggItems.map((s, i) =>
+    '<div data-i="' + i + '"' + (i === suggActive ? ' class="active"' : '') + '>' +
+      esc(s.title) + (s.year ? ' (' + s.year + ')' : '') + '</div>').join('');
+  suggEl.classList.add('open');
+  suggEl.querySelectorAll('div').forEach(d =>
+    d.onclick = () => { qEl.value = suggItems[+d.dataset.i].title; runSearch(qEl.value); });
+}
+qEl.addEventListener('input', () => {
+  clearTimeout(suggTimer);
+  const term = qEl.value.trim();
+  if (!term) { closeSugg(); return; }
+  suggTimer = setTimeout(async () => {
+    try {
+      const r = await fetch('/yts/suggest?q=' + encodeURIComponent(term));
+      suggItems = (await r.json()).suggestions || []; suggActive = -1; renderSugg();
+    } catch (e) { closeSugg(); }
+  }, 250);
+});
+qEl.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (suggItems.length) { suggActive = (suggActive+1) % suggItems.length; renderSugg(); } }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); if (suggItems.length) { suggActive = (suggActive-1+suggItems.length) % suggItems.length; renderSugg(); } }
+  else if (e.key === 'Enter') { if (suggActive >= 0 && suggItems[suggActive]) qEl.value = suggItems[suggActive].title; runSearch(qEl.value); }
+  else if (e.key === 'Escape') { closeSugg(); }
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('.search')) closeSugg(); });
+load();
+</script></body></html>"""
+
+
+@app.get("/yts")
+async def yts_ui():
+    return Response(content=_YTS_HTML, media_type="text/html")
+
+
+@app.get("/yts/movies")
+async def yts_movies(page: int = Query(1, ge=1),
+                     sort: str = Query("date_added"),
+                     query: str = Query("")):
+    try:
+        return await fetch_yts_movies(page, sort, query)
+    except Exception as e:
+        raise HTTPException(503, str(e))
+
+
+@app.get("/yts/suggest")
+async def yts_suggest(q: str = Query("")):
+    """Lightweight title autosuggest for the browser search box."""
+    if not q.strip():
+        return {"suggestions": []}
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            r = await client.get(f"{YTS_URL}/api/v2/list_movies.json",
+                                 params={"query_term": q.strip(), "limit": 6,
+                                         "sort_by": "download_count", "order_by": "desc"})
+            r.raise_for_status()
+            movies = r.json().get("data", {}).get("movies", []) or []
+        return {"suggestions": [
+            {"id": str(m.get("id", "")),
+             "title": (m.get("title_english") or m.get("title") or "").strip(),
+             "year": m.get("year") or 0}
+            for m in movies]}
+    except Exception as e:
+        log.warning("yts suggest failed for %r: %s", q, e)
+        return {"suggestions": []}
+
+
+@app.get("/yts/poster/{yts_id}")
+async def yts_poster(yts_id: str):
+    jpeg = await fetch_yts_poster(yts_id)
+    if not jpeg:
+        raise HTTPException(404, "Poster not found")
+    return Response(content=jpeg, media_type="image/jpeg",
+                    headers={"Cache-Control": "max-age=86400"})
+
+
+@app.post("/yts/download/{yts_id}")
+async def yts_download(yts_id: str):
+    try:
+        return await radarr_add(yts_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, str(e))
 
 
 @app.post("/play/{item_id}")

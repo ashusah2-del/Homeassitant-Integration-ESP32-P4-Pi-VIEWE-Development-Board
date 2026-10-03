@@ -19,7 +19,8 @@ A custom Home Assistant control panel running on a **Guition ESP32-P4 + ESP32-C6
 | `esphome/packages/theme_palettes.yaml` | 5 runtime colour palettes (Midnight/Graphite/Warm Home/Nord/High Contrast) + `apply_panel_theme`. |
 | `esphome/packages/audio_voice_board.yaml` | I2S codec, microWakeWord ("Okay Nabu"), voice assistant pipeline. |
 | `esphome/packages/tuya_local.yaml` | Tuya LAN page + HTTP scripts. |
-| `esphome/packages/jellyfin_local.yaml` | Jellyfin browse page (posters, pagination, cast target selection). |
+| `esphome/packages/yts_movies.yaml` | **Latest Movies page.** Browses the YTS feed via panel-hub, status badge (green=in Jellyfin library / amber=downloading / grey=available), **Download** → Radarr (falls back to qBittorrent). Lazy-loads row posters. Replaced the Jellyfin browse page in the nav chain (removed for panel performance). |
+| `esphome/packages/jellyfin_local.yaml` | **RETIRED 2026-10-03** — Jellyfin browse/cast page. No longer `!include`d by either panel (removed to reclaim its poster-download/polling overhead; user did not use it). File kept for reference only. |
 | `home_assistant/packages/esp32p4_panel.yaml` | HA-side YAML: input_text/input_number helpers, automations (calendar refresh, Jellyfin play script). Drop into HA packages folder. |
 | `jellyfin-proxy/proxy.py` | Python service (port 8767). Exposes `/health`, `/movies`, `/poster/<id>`, `POST /play/<id>` for the panel. |
 | `hypon-proxy/proxy.py` | **RETIRED 2026-09-18** (service stopped + disabled on the Docker host). Replaced by the AppDaemon app `home_assistant/appdaemon/apps/hypon.py`, which runs on HA itself, logs into Hypontech Cloud, and writes the same 19 `sensor.hypon_*` entities directly (no proxy, no `rest:` sensor). Self-contained on HA — removed the Docker-host dependency. Kept here for reference only. |
@@ -29,10 +30,18 @@ A custom Home Assistant control panel running on a **Guition ESP32-P4 + ESP32-C6
 ### Page navigation
 
 ```
-slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ energy ◀─swipe─▶ cameras ◀─swipe─▶ tuya ◀─swipe─▶ jellyfin
+slideshow ─tap─▶ dashboard ◀─swipe─▶ tado ◀─swipe─▶ presence ◀─swipe─▶ energy ◀─swipe─▶ cameras ◀─swipe─▶ tuya ◀─swipe─▶ yts (Latest Movies)
    ▲                                                                                                                           │
    └───────────────────────────── 30 s idle timeout ──────────────────────────────────────────────────────────────────────────┘
 ```
+
+### panel-hub Latest Movies endpoints (port 8768)
+
+The `yts_movies.yaml` page and a standalone browser UI are served by `panel-hub/hub.py`:
+`GET /yts` (browser page — ad-free latest-movies grid for a PC), `GET /yts/movies?page=N`
+(list + per-movie status: library/downloading/available), `GET /yts/poster/<yts_id>`
+(baseline JPEG re-encode), `POST /yts/download/<yts_id>` (add to Radarr + search; falls back to
+qBittorrent if Radarr/TMDb can't match). Config (`RADARR_*`, `QBIT_*`, `YTS_URL`) in `panel-hub/hub.env`.
 
 ## Build + flash
 

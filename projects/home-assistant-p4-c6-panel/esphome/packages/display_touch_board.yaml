@@ -547,7 +547,7 @@ script:
           lv_obj_clear_flag(id(settings_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_clear_flag(id(layout_settings_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_clear_flag(id(diagnostics_page).obj, LV_OBJ_FLAG_SCROLLABLE);
-          lv_obj_clear_flag(id(jellyfin_page).obj, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_clear_flag(id(yts_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_clear_flag(id(ihost_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_clear_flag(id(tuya_page).obj, LV_OBJ_FLAG_SCROLLABLE);
           // Same bug, one level deeper: the individual dashboard/tado room
@@ -6166,7 +6166,7 @@ lvgl:
                       text_color: "${c_accent}"
                   - label: { id: diag_immich_lbl, x: 0, y: 34, width: "92%", text: "Immich: --", text_font: montserrat_16, text_color: "${c_text_2}" }
                   - label: { id: diag_tuya_lbl, x: 0, y: 62, width: "92%", text: "Tuya bridge: --", text_font: montserrat_16, text_color: "${c_text_2}" }
-                  - label: { id: diag_jf_lbl, x: 0, y: 90, width: "92%", text: "Jellyfin proxy: --", text_font: montserrat_16, text_color: "${c_text_2}" }
+                  - label: { id: diag_jf_lbl, x: 0, y: 90, width: "92%", text: "Movie hub: --", text_font: montserrat_16, text_color: "${c_text_2}" }
                   - label: { id: diag_ih_lbl, x: 0, y: 118, width: "92%", text: "iHost bridge: --", text_font: montserrat_16, text_color: "${c_text_2}" }
 
         - obj:

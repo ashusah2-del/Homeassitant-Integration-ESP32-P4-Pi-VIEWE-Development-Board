@@ -386,7 +386,7 @@ script:
           style_header(id(settings_header_bar));
           style_header(id(layout_hdr_bar));
           style_header(id(tuya_header_bar));
-          style_header(id(jf_header_bar));
+          style_header(id(yts_header_bar));
           style_header(id(diag_hdr_bar));
           style_header(id(ih_header_bar));
 
@@ -400,19 +400,16 @@ script:
           lv_obj_set_style_bg_color(id(camera_view_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(layout_settings_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(tuya_page).obj, lv_color_hex(t.page_bg), 0);
-          lv_obj_set_style_bg_color(id(jellyfin_page).obj, lv_color_hex(t.page_bg), 0);
+          lv_obj_set_style_bg_color(id(yts_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(diagnostics_page).obj, lv_color_hex(t.page_bg), 0);
-          style_card(id(jf_list_panel));
-          style_card(id(jf_detail_panel));
-          lv_obj_set_style_bg_color(id(jf_play_btn), lv_color_hex(t.success), 0);
-          lv_obj_set_style_bg_color(id(jf_cast_prev_btn), lv_color_hex(t.nav_btn_bg), 0);
-          lv_obj_set_style_bg_color(id(jf_cast_next_btn), lv_color_hex(t.nav_btn_bg), 0);
-          lv_obj_set_style_text_color(id(jf_cast_lbl), lv_color_hex(t.text_secondary), 0);
-          lv_obj_set_style_bg_color(id(jf_refresh_btn), lv_color_hex(t.nav_btn_bg), 0);
-          lv_obj_set_style_bg_color(id(jf_prev_btn), lv_color_hex(t.nav_btn_bg), 0);
-          lv_obj_set_style_bg_color(id(jf_next_btn), lv_color_hex(t.nav_btn_bg), 0);
-          lv_obj_set_style_text_color(id(jf_page_lbl), lv_color_hex(t.text_muted), 0);
-          lv_obj_set_style_text_color(id(jf_detail_title), lv_color_hex(t.text_primary), 0);
+          style_card(id(yts_list_panel));
+          style_card(id(yts_detail_panel));
+          lv_obj_set_style_bg_color(id(yts_download_btn), lv_color_hex(t.success), 0);
+          lv_obj_set_style_bg_color(id(yts_prev_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_bg_color(id(yts_next_btn), lv_color_hex(t.nav_btn_bg), 0);
+          lv_obj_set_style_text_color(id(yts_quality_lbl), lv_color_hex(t.text_secondary), 0);
+          lv_obj_set_style_text_color(id(yts_page_lbl), lv_color_hex(t.text_muted), 0);
+          lv_obj_set_style_text_color(id(yts_detail_title), lv_color_hex(t.text_primary), 0);
           lv_obj_set_style_bg_color(id(dash_page_scrim), lv_color_hex(t.page_scrim), 0);
 
           style_card(id(settings_left_panel));

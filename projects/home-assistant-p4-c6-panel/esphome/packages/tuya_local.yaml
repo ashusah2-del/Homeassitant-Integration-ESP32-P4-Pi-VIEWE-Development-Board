@@ -1216,7 +1216,7 @@ lvgl:
       on_swipe_right:
         - lvgl.page.show: camera_page
       on_swipe_left:
-        - lvgl.page.show: jellyfin_page
+        - lvgl.page.show: yts_page
       widgets:
 
         # ── Top bar ─────────────────────────────────────────────────────────────
@@ -1272,7 +1272,7 @@ lvgl:
                   radius: ${btn_radius}
                   border_width: 0
                   on_click:
-                    - lvgl.page.show: jellyfin_page
+                    - lvgl.page.show: yts_page
                   widgets:
                     - label: { align: CENTER, text: "", text_font: montserrat_22, text_color: "${c_text}" }
               - button:
