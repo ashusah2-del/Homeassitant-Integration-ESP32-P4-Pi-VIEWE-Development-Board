@@ -490,6 +490,66 @@ script:
                         if (!id(g_yts_bridge_ok)) return std::string("Movie hub offline");
                         return std::string("Select a movie first");
 
+  - id: yts_show_details
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(g_yts_selected_id).empty() && id(g_yts_bridge_ok);'
+          then:
+            - lambda: |-
+                lv_label_set_text(id(yts_info_title), "Loading...");
+                lv_label_set_text(id(yts_info_tags), "");
+                lv_label_set_text(id(yts_info_plot), "");
+                lv_obj_clear_flag(id(yts_info_overlay), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_move_foreground(id(yts_info_overlay));
+            - http_request.get:
+                url: !lambda 'return id(immich_base_url) + "/yts/details/" + id(g_yts_selected_id);'
+                capture_response: true
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) {
+                          lv_label_set_text(id(yts_info_plot), "Failed to load details.");
+                          return;
+                        }
+                        json::parse_json(body, [](JsonObject root) -> bool {
+                          const char *title = root["title"] | "Unknown";
+                          int year = root["year"] | 0;
+                          float rating = root["rating"] | 0.0f;
+                          int runtime = root["runtime"] | 0;
+                          const char *lang = root["language"] | "";
+                          const char *plot = root["plot"] | "";
+                          char tbuf[160];
+                          if (year > 0) snprintf(tbuf, sizeof(tbuf), "%s (%d)", title, year);
+                          else snprintf(tbuf, sizeof(tbuf), "%s", title);
+                          lv_label_set_text(id(yts_info_title), tbuf);
+                          std::string tags; char nb[32];
+                          if (rating > 0) { snprintf(nb, sizeof(nb), "Rating %.1f", rating); tags += nb; }
+                          if (runtime > 0) { snprintf(nb, sizeof(nb), "%d min", runtime); if(!tags.empty()) tags += "   |   "; tags += nb; }
+                          if (lang[0]) { if(!tags.empty()) tags += "   |   "; tags += "Lang "; tags += lang; }
+                          std::string g;
+                          for (JsonVariant v : root["genres"].as<JsonArray>()) {
+                            const char *gn = v.as<const char*>();
+                            if (gn && gn[0]) { if(!g.empty()) g += ", "; g += gn; }
+                          }
+                          if (!g.empty()) { if(!tags.empty()) tags += "   |   "; tags += g; }
+                          lv_label_set_text(id(yts_info_tags), tags.c_str());
+                          std::string cast;
+                          for (JsonVariant v : root["cast"].as<JsonArray>()) {
+                            const char *nm = v["name"] | "";
+                            if (nm[0]) { if(!cast.empty()) cast += ", "; cast += nm; }
+                          }
+                          std::string body_txt;
+                          if (!cast.empty()) { body_txt = "Cast: "; body_txt += cast; body_txt += "\n\n"; }
+                          body_txt += (plot[0] ? plot : "No plot available.");
+                          lv_label_set_text(id(yts_info_plot), body_txt.c_str());
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lambda: 'lv_label_set_text(id(yts_info_plot), "Failed to load details.");'
+
   - id: yts_toggle_sort
     mode: single
     then:
@@ -550,6 +610,7 @@ lvgl:
         - lambda: |-
             id(g_yts_page_active) = false;
             id(g_yts_busy) = false;
+            if (id(g_lvgl_ready)) lv_obj_add_flag(id(yts_info_overlay), LV_OBJ_FLAG_HIDDEN);
       on_swipe_right:
         - lvgl.page.show: tuya_page
       on_swipe_left:
@@ -832,6 +893,7 @@ lvgl:
             pad_all: 10
             widgets:
               - obj:
+                  id: yts_poster_frame
                   align: TOP_MID
                   x: 0
                   y: 0
@@ -842,6 +904,8 @@ lvgl:
                   border_width: 1
                   border_color: "${c_card_border_dim}"
                   pad_all: 0
+                  on_click:
+                    - script.execute: yts_show_details
                   widgets:
                     - image: { id: yts_poster_widget, align: CENTER, src: yts_poster }
               - label:
@@ -931,3 +995,71 @@ lvgl:
             text: "Loading..."
             text_font: montserrat_14
             text_color: "${c_footer_text}"
+
+        # Movie-details popup (tap a poster to open). Hidden until requested.
+        - obj:
+            id: yts_info_overlay
+            align: CENTER
+            width: 760
+            height: 470
+            bg_color: "${c_card_bg_alt}"
+            bg_opa: 100%
+            border_color: "${c_accent}"
+            border_width: 2
+            radius: 16
+            pad_all: 16
+            hidden: true
+            widgets:
+              - label:
+                  id: yts_info_title
+                  align: TOP_LEFT
+                  x: 2
+                  y: 0
+                  width: 660
+                  text: ""
+                  text_font: montserrat_22
+                  text_color: "${c_text}"
+                  long_mode: DOT
+              - label:
+                  id: yts_info_tags
+                  align: TOP_LEFT
+                  x: 2
+                  y: 40
+                  width: 720
+                  text: ""
+                  text_font: montserrat_16
+                  text_color: "${c_info_soft}"
+                  long_mode: WRAP
+              - obj:
+                  id: yts_info_plot_box
+                  align: TOP_LEFT
+                  x: 0
+                  y: 96
+                  width: 726
+                  height: 322
+                  bg_opa: 0
+                  border_width: 0
+                  pad_all: 0
+                  widgets:
+                    - label:
+                        id: yts_info_plot
+                        align: TOP_LEFT
+                        width: 706
+                        text: ""
+                        text_font: montserrat_16
+                        text_color: "${c_text}"
+                        long_mode: WRAP
+              - button:
+                  id: yts_info_close
+                  align: TOP_RIGHT
+                  x: 0
+                  y: -4
+                  width: 40
+                  height: 40
+                  radius: 20
+                  bg_color: "${c_nav_btn}"
+                  border_width: 0
+                  on_click:
+                    - lvgl.widget.hide: yts_info_overlay
+                  widgets:
+                    - label: { align: CENTER, text: "X", text_font: montserrat_20, text_color: "${c_text}" }

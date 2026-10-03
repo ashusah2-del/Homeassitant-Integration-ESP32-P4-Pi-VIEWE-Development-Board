@@ -662,6 +662,38 @@ async def fetch_yts_poster(yts_id: str) -> bytes | None:
     return None
 
 
+async def fetch_yts_details(yts_id: str) -> dict:
+    """Rich details for the movie-info popup (plot, language, genres, runtime)."""
+    await _refresh_crossref()
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        r = await client.get(f"{YTS_URL}/api/v2/movie_details.json",
+                             params={"movie_id": yts_id, "with_cast": "true"})
+        r.raise_for_status()
+        mv = r.json().get("data", {}).get("movie", {}) or {}
+    imdb = (mv.get("imdb_code") or "").strip()
+    title = (mv.get("title_english") or mv.get("title") or "Unknown").strip()
+    plot = (mv.get("description_full") or mv.get("synopsis") or mv.get("summary") or "").strip()
+    status = _movie_status(imdb)
+    cast = [{"name": (c.get("name") or "").strip(),
+             "character": (c.get("character_name") or "").strip()}
+            for c in (mv.get("cast") or []) if (c.get("name") or "").strip()][:6]
+    return {
+        "id": str(mv.get("id", yts_id)),
+        "title": title,
+        "year": mv.get("year") or 0,
+        "rating": mv.get("rating") or 0,
+        "runtime": mv.get("runtime") or 0,
+        "language": (mv.get("language") or "").strip(),
+        "genres": mv.get("genres") or [],
+        "mpa_rating": (mv.get("mpa_rating") or "").strip(),
+        "plot": plot,
+        "cast": cast,
+        "imdb": imdb,
+        "status": status,
+        "watch_url": _watch_url(imdb, title) if status == "library" else "",
+    }
+
+
 async def _yts_imdb_code(yts_id: str) -> str:
     code = _yts_imdb.get(yts_id)
     if code:
@@ -1228,6 +1260,28 @@ _YTS_HTML = """<!doctype html>
   .watch { background: #6b3fb0; }
   .watch:hover { background: #7d4ec9; }
   .dling { background: #7a5a16; }
+  .card img { cursor: pointer; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none;
+           align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+  .modal.open { display: flex; }
+  .sheet { position: relative; background: #0e1824; border: 1px solid #27405c; border-radius: 14px;
+           max-width: 720px; width: 100%; max-height: 86vh; overflow: auto; }
+  .close { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%;
+           background: #1b2a3a; font-size: 20px; line-height: 1; padding: 0; z-index: 2; }
+  .close:hover { background: #26405c; }
+  .sheet-body { display: flex; gap: 18px; padding: 20px; }
+  .sheet-body > img { width: 200px; aspect-ratio: 2/3; object-fit: cover; border-radius: 10px;
+                      background: #000; flex: none; }
+  .info { flex: 1; min-width: 0; }
+  .info h2 { margin: 2px 40px 10px 0; font-size: 20px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tags span { background: #1b2a3a; border: 1px solid #27405c; border-radius: 20px;
+               padding: 3px 10px; font-size: 12px; color: #a9c0d6; }
+  .info p { line-height: 1.5; color: #cbd8e5; font-size: 14px; margin: 0; }
+  .cast { margin-top: 12px !important; color: #a9c0d6 !important; font-size: 13px !important; }
+  .cast b { color: #cbd8e5; font-weight: 600; }
+  #maction { margin-top: 14px; }
+  @media (max-width: 520px) { .sheet-body { flex-direction: column; } .sheet-body > img { width: 140px; } }
   footer { display: flex; justify-content: center; align-items: center; gap: 16px; padding: 10px 0 30px; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
            background: #1b2a3a; border: 1px solid #2b4258; padding: 10px 18px; border-radius: 10px;
@@ -1267,6 +1321,21 @@ _YTS_HTML = """<!doctype html>
     <span class="dot s-available"></span> Available
   </span>
 </footer>
+<div class="modal" id="modal">
+  <div class="sheet">
+    <button class="close" id="mclose" title="Close">&times;</button>
+    <div class="sheet-body">
+      <img id="mposter" alt="">
+      <div class="info">
+        <h2 id="mtitle"></h2>
+        <div class="tags" id="mtags"></div>
+        <p id="mplot"></p>
+        <p id="mcast" class="cast"></p>
+        <div id="maction"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 let page = 1, total = 0, sort = 'date_added', query = '';
@@ -1308,12 +1377,14 @@ function render(movies) {
           (m.year || '') + (m.rating ? ' · ★ ' + m.rating : '') + '</div>' +
         btnHtml +
       '</div>';
+    const img = card.querySelector('img');
     if (m.status === 'library' && m.watch_url) {
       const open = () => window.open(m.watch_url, '_blank', 'noopener');
       card.querySelector('.watch').addEventListener('click', open);
-      card.querySelector('img').addEventListener('click', open);
-    } else if (m.status === 'available') {
-      card.querySelector('.grab').addEventListener('click', (e) => grab(e.target));
+      img.addEventListener('click', open);           // in-library poster → Jellyfin
+    } else {
+      img.addEventListener('click', () => openDetails(m.id));  // else → details popup
+      if (m.status === 'available') card.querySelector('.grab').addEventListener('click', (e) => grab(e.target));
     }
     grid.appendChild(card);
   }
@@ -1331,6 +1402,49 @@ async function grab(btn) {
   } catch (e) { btn.textContent = 'Failed'; btn.disabled = false; flash('Request failed'); }
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// ── Details popup ──
+const modal = document.getElementById('modal');
+function closeModal() { modal.classList.remove('open'); }
+async function openDetails(id) {
+  document.getElementById('mposter').src = '/yts/poster/' + id;
+  document.getElementById('mtitle').textContent = 'Loading…';
+  document.getElementById('mtags').innerHTML = '';
+  document.getElementById('mplot').textContent = '';
+  document.getElementById('mcast').innerHTML = '';
+  document.getElementById('maction').innerHTML = '';
+  modal.classList.add('open');
+  try {
+    const d = await (await fetch('/yts/details/' + id)).json();
+    document.getElementById('mtitle').textContent = d.title + (d.year ? ' (' + d.year + ')' : '');
+    const tags = [];
+    if (d.rating) tags.push('★ ' + d.rating);
+    if (d.runtime) tags.push(d.runtime + ' min');
+    if (d.language) tags.push(String(d.language).toUpperCase());
+    if (d.mpa_rating) tags.push(d.mpa_rating);
+    (d.genres || []).forEach(g => tags.push(g));
+    document.getElementById('mtags').innerHTML = tags.map(t => '<span>' + esc(t) + '</span>').join('');
+    document.getElementById('mplot').textContent = d.plot || 'No plot available.';
+    const cast = (d.cast || []).filter(c => c.name);
+    document.getElementById('mcast').innerHTML = cast.length
+      ? '<b>Cast:</b> ' + cast.map(c => esc(c.name) + (c.character ? ' <i style="color:#7f93a8">as ' + esc(c.character) + '</i>' : '')).join(', ')
+      : '';
+    const act = document.getElementById('maction');
+    if (d.status === 'available') {
+      act.innerHTML = '<button class="grab" data-id="' + id + '">Download</button>';
+      act.querySelector('.grab').addEventListener('click', (e) => grab(e.target));
+    } else if (d.status === 'downloading') {
+      act.innerHTML = '<button class="dling" disabled>Downloading…</button>';
+    } else if (d.status === 'library') {
+      act.innerHTML = '<button class="watch">Watch &#9654;</button>';
+      if (d.watch_url) act.querySelector('.watch').addEventListener('click', () => window.open(d.watch_url, '_blank', 'noopener'));
+    }
+  } catch (e) { document.getElementById('mplot').textContent = 'Failed to load details.'; }
+}
+document.getElementById('mclose').onclick = closeModal;
+modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
 document.getElementById('prev').onclick = () => { if (page > 1) { page--; load(); } };
 document.getElementById('next').onclick = () => { if (page*8 < total) { page++; load(); } };
 document.getElementById('sort').onchange = (e) => { sort = e.target.value; page = 1; load(); };
@@ -1405,6 +1519,14 @@ async def yts_suggest(q: str = Query("")):
     except Exception as e:
         log.warning("yts suggest failed for %r: %s", q, e)
         return {"suggestions": []}
+
+
+@app.get("/yts/details/{yts_id}")
+async def yts_details(yts_id: str):
+    try:
+        return await fetch_yts_details(yts_id)
+    except Exception as e:
+        raise HTTPException(503, str(e))
 
 
 @app.get("/yts/poster/{yts_id}")
