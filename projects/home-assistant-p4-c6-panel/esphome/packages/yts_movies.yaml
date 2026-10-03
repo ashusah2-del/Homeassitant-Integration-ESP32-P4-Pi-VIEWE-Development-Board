@@ -328,6 +328,10 @@ script:
                            id(immich_base_url).c_str(), id(g_yts_page), s);
                   return std::string(url);
                 capture_response: true
+                # /yts/movies JSON (~1-2KB for 8 movies) exceeds the 1024-byte
+                # http_request default, which truncates the body → parse fails →
+                # no movies. Give it room.
+                max_response_buffer_size: 4096
                 on_response:
                   then:
                     - lambda: |-
@@ -506,6 +510,7 @@ script:
             - http_request.get:
                 url: !lambda 'return id(immich_base_url) + "/yts/details/" + id(g_yts_selected_id);'
                 capture_response: true
+                max_response_buffer_size: 8192   # plot + cast can be several KB
                 on_response:
                   then:
                     - lambda: |-

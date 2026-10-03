@@ -619,15 +619,17 @@ def _watch_url(imdb: str, title: str) -> str:
     return f"{JELLYFIN_PUBLIC_URL}/web/#/search.html?query={urllib.parse.quote(title or '')}"
 
 
-async def fetch_yts_movies(page: int, sort: str = "date_added", query: str = "") -> dict:
+async def fetch_yts_movies(page: int, sort: str = "date_added", query: str = "", limit: int = 8) -> dict:
     """YTS movies + a library/downloading/available status.
 
     sort: "date_added" (newest added to YTS first) or "year" (newest release first).
     query: optional free-text title search.
+    limit: page size (panel uses 8 for its 2x4 list; browser uses 10 w/ infinite scroll).
     """
     sort_by = "year" if sort == "year" else "date_added"
     await _refresh_crossref()
-    params = {"page": max(1, page), "limit": 8, "sort_by": sort_by, "order_by": "desc"}
+    params = {"page": max(1, page), "limit": max(1, min(limit, 50)),
+              "sort_by": sort_by, "order_by": "desc"}
     if query.strip():
         params["query_term"] = query.strip()
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
@@ -1360,11 +1362,10 @@ _YTS_HTML = """<!doctype html>
     <option value="year">Release date</option>
   </select>
   <span class="sp"></span>
-  <button id="prev">&larr; Prev</button>
-  <span id="pagelbl">--</span>
-  <button id="next">Next &rarr;</button>
+  <span id="countlbl" style="color:#8aa0b6;font-size:13px">--</span>
 </header>
 <div id="grid"></div>
+<div style="text-align:center;padding:4px 0 10px"><button id="more">Load more</button></div>
 <footer>
   <span style="color:#8aa0b6;font-size:13px">
     <span class="dot s-library"></span> In library &nbsp;
@@ -1389,29 +1390,38 @@ _YTS_HTML = """<!doctype html>
 </div>
 <div class="toast" id="toast"></div>
 <script>
-let page = 1, total = 0, sort = 'date_added', query = '';
+const LIMIT = 10;
+let page = 1, total = 0, sort = 'date_added', query = '', loading = false, done = false;
 const grid = document.getElementById('grid');
 const toast = document.getElementById('toast');
 const qEl = document.getElementById('q');
 const suggEl = document.getElementById('suggest');
+const countEl = document.getElementById('countlbl');
+const moreBtn = document.getElementById('more');
 function flash(msg) { toast.textContent = msg; toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500); }
-async function load() {
-  grid.innerHTML = '<p style="color:#8aa0b6;padding:10px">Loading…</p>';
+async function reload() { page = 1; done = false; loading = false; grid.innerHTML = ''; await loadMore(); }
+async function loadMore() {
+  if (loading || done) return;
+  loading = true; moreBtn.textContent = 'Loading…';
+  if (page === 1) grid.innerHTML = '<p style="color:#8aa0b6;padding:10px">Loading…</p>';
   try {
-    const r = await fetch('/yts/movies?page=' + page + '&sort=' + sort +
-                          '&query=' + encodeURIComponent(query));
+    const r = await fetch('/yts/movies?limit=' + LIMIT + '&page=' + page +
+                          '&sort=' + sort + '&query=' + encodeURIComponent(query));
     const d = await r.json();
     total = d.movie_count || 0;
-    render(d.movies || []);
-  } catch (e) { grid.innerHTML = '<p style="color:#e86a6a;padding:10px">Hub error: ' + e + '</p>'; }
-  document.getElementById('pagelbl').textContent =
-    total ? (((page-1)*8)+1) + '–' + Math.min(page*8, total) + ' of ' + total : '--';
-  document.getElementById('prev').disabled = page <= 1;
-  document.getElementById('next').disabled = page*8 >= total;
+    if (page === 1) grid.innerHTML = '';
+    const batch = d.movies || [];
+    render(batch);
+    page++;
+    const shown = grid.querySelectorAll('.card').length;
+    if (shown >= total || !batch.length) done = true;
+    countEl.textContent = total ? shown + ' of ' + total : '0';
+  } catch (e) { if (page === 1) grid.innerHTML = '<p style="color:#e86a6a;padding:10px">Hub error: ' + e + '</p>'; }
+  loading = false; moreBtn.textContent = 'Load more';
+  moreBtn.style.display = done ? 'none' : '';
 }
 function render(movies) {
-  grid.innerHTML = '';
   for (const m of movies) {
     const card = document.createElement('div');
     card.className = 'card';
@@ -1496,14 +1506,16 @@ document.getElementById('mclose').onclick = closeModal;
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
-document.getElementById('prev').onclick = () => { if (page > 1) { page--; load(); } };
-document.getElementById('next').onclick = () => { if (page*8 < total) { page++; load(); } };
-document.getElementById('sort').onchange = (e) => { sort = e.target.value; page = 1; load(); };
+moreBtn.onclick = () => loadMore();
+document.getElementById('sort').onchange = (e) => { sort = e.target.value; reload(); };
+window.addEventListener('scroll', () => {
+  if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) loadMore();
+});
 
 // ── Search + autosuggest ──
 let suggTimer = null, suggItems = [], suggActive = -1;
 function closeSugg() { suggEl.classList.remove('open'); suggActive = -1; }
-function runSearch(term) { query = term.trim(); page = 1; closeSugg(); load(); }
+function runSearch(term) { query = term.trim(); closeSugg(); reload(); }
 function renderSugg() {
   if (!suggItems.length) { closeSugg(); return; }
   suggEl.innerHTML = suggItems.map((s, i) =>
@@ -1531,7 +1543,7 @@ qEl.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') { closeSugg(); }
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('.search')) closeSugg(); });
-load();
+reload();
 </script></body></html>"""
 
 
@@ -1543,9 +1555,10 @@ async def yts_ui():
 @app.get("/yts/movies")
 async def yts_movies(page: int = Query(1, ge=1),
                      sort: str = Query("date_added"),
-                     query: str = Query("")):
+                     query: str = Query(""),
+                     limit: int = Query(8, ge=1, le=50)):
     try:
-        return await fetch_yts_movies(page, sort, query)
+        return await fetch_yts_movies(page, sort, query, limit)
     except Exception as e:
         raise HTTPException(503, str(e))
 
