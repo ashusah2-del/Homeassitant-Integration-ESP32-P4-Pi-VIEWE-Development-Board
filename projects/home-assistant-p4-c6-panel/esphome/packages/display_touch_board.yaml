@@ -212,6 +212,10 @@ globals:
   # input_number.panel_calendar_opacity and is editable on the settings
   # page. restore_value: yes so a tuning sticks across reboots.
   - { id: g_calendar_opa_pct, type: int, restore_value: yes, initial_value: '70' }
+  # Date/time clock pill brightness — independent of the calendar opacity and
+  # split into background vs text so each can be tuned separately (settings page).
+  - { id: g_clock_bg_opa_pct,   type: int, restore_value: yes, initial_value: '50' }
+  - { id: g_clock_text_opa_pct, type: int, restore_value: yes, initial_value: '100' }
   # Calendar rendering style: 0=Ribbon 1=Agenda 2=Compact 3=Timeline. Mirrors
   # HA's input_number.panel_calendar_style helper and is editable on the
   # settings page. restore_value: yes so the choice sticks across reboots.
@@ -692,10 +696,9 @@ script:
           if (pct > 100) pct = 100;
           uint32_t opa = (uint32_t)((pct * 255) / 100);
           lv_obj_set_style_opa(id(calendar_panel), opa, 0);
-          lv_obj_set_style_opa(id(clock_pill_obj), opa, 0);
-          lv_obj_set_style_opa(id(slideshow_clock), opa, 0);
-          lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
           lv_obj_set_style_opa(id(weather_widget), LV_OPA_COVER, 0);
+      # Clock-pill opacity is restored from its own globals here (independent of
+      # the calendar opacity above).
       - script.execute: apply_slideshow_layout_visibility
       - script.execute: apply_panel_theme
 
@@ -716,6 +719,19 @@ script:
           set_hidden(id(va_state_pill), !id(g_layout_wake_visible));
           set_hidden(id(slideshow_layout_btn),
             !id(g_layout_bubble_visible) || id(g_layout_edit_mode));
+
+          // Clock pill brightness: background and text are independent, and NOT
+          // tied to the calendar opacity (see g_clock_*_opa_pct).
+          {
+            int cb = id(g_clock_bg_opa_pct);   if (cb < 0) cb = 0; if (cb > 100) cb = 100;
+            int ct = id(g_clock_text_opa_pct); if (ct < 0) ct = 0; if (ct > 100) ct = 100;
+            lv_obj_set_style_opa(id(clock_pill_obj), LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_opa(id(clock_pill_obj), (uint32_t)((cb * 255) / 100), 0);
+            lv_obj_set_style_opa(id(slideshow_clock), LV_OPA_COVER, 0);
+            lv_obj_set_style_opa(id(slideshow_date_lbl), LV_OPA_COVER, 0);
+            lv_obj_set_style_text_opa(id(slideshow_clock), (uint32_t)((ct * 255) / 100), 0);
+            lv_obj_set_style_text_opa(id(slideshow_date_lbl), (uint32_t)((ct * 255) / 100), 0);
+          }
 
           lv_label_set_text(id(layout_calendar_toggle_lbl), id(g_layout_calendar_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_weather_toggle_lbl), id(g_layout_weather_visible) ? "Hide" : "Show");
@@ -5224,10 +5240,7 @@ lvgl:
                                 id(g_calendar_opa_pct) = v;
                                 if (id(g_lvgl_ready)) {
                                   uint32_t opa = (uint32_t)((v * 255) / 100);
-                                  lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
-                                  lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
-                                  lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
-                                  lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+                                  lv_obj_set_style_opa(id(calendar_panel), opa, 0);
                                 }
                                 char b[12];
                                 snprintf(b, sizeof(b), "%d %%", v);
@@ -5263,10 +5276,7 @@ lvgl:
                                 id(g_calendar_opa_pct) = v;
                                 if (id(g_lvgl_ready)) {
                                   uint32_t opa = (uint32_t)((v * 255) / 100);
-                                  lv_obj_set_style_opa(id(calendar_panel),     opa, 0);
-                                  lv_obj_set_style_opa(id(clock_pill_obj),     opa, 0);
-                                  lv_obj_set_style_opa(id(slideshow_clock),    opa, 0);
-                                  lv_obj_set_style_opa(id(slideshow_date_lbl), opa, 0);
+                                  lv_obj_set_style_opa(id(calendar_panel), opa, 0);
                                 }
                                 char b[12];
                                 snprintf(b, sizeof(b), "%d %%", v);
@@ -5454,6 +5464,114 @@ lvgl:
                                 data:
                                   entity_id: input_number.panel_calendar_style
                                   value: !lambda 'return id(g_calendar_style);'
+
+                      # ── Clock pill background opacity spinner ──────────
+                      - label:
+                          x: 0
+                          y: 792
+                          text: "Clock pill background:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 820
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "-"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_clock_bg_opa_pct) - 10;
+                                if (v < 0) v = 0;
+                                id(g_clock_bg_opa_pct) = v;
+                                char b[12]; snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_clockbg_val), b);
+                            - script.execute: apply_slideshow_layout_visibility
+                      - label:
+                          id: settings_clockbg_val
+                          x: 70
+                          y: 828
+                          width: 120
+                          text: "50 %"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                      - button:
+                          x: 200
+                          y: 820
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "+"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_clock_bg_opa_pct) + 10;
+                                if (v > 100) v = 100;
+                                id(g_clock_bg_opa_pct) = v;
+                                char b[12]; snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_clockbg_val), b);
+                            - script.execute: apply_slideshow_layout_visibility
+
+                      # ── Clock pill text opacity spinner ────────────────
+                      - label:
+                          x: 0
+                          y: 882
+                          text: "Clock pill text:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 910
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "-"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_clock_text_opa_pct) - 10;
+                                if (v < 0) v = 0;
+                                id(g_clock_text_opa_pct) = v;
+                                char b[12]; snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_clocktxt_val), b);
+                            - script.execute: apply_slideshow_layout_visibility
+                      - label:
+                          id: settings_clocktxt_val
+                          x: 70
+                          y: 918
+                          width: 120
+                          text: "100 %"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                      - button:
+                          x: 200
+                          y: 910
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "+"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_clock_text_opa_pct) + 10;
+                                if (v > 100) v = 100;
+                                id(g_clock_text_opa_pct) = v;
+                                char b[12]; snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_clocktxt_val), b);
+                            - script.execute: apply_slideshow_layout_visibility
 
                 # ── Backlight + setup guide (right half) ─────────────────
                 - obj:
