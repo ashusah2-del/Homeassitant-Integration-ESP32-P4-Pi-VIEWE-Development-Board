@@ -402,14 +402,12 @@ script:
           lv_obj_set_style_bg_color(id(tuya_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(yts_page).obj, lv_color_hex(t.page_bg), 0);
           lv_obj_set_style_bg_color(id(diagnostics_page).obj, lv_color_hex(t.page_bg), 0);
-          style_card(id(yts_list_panel));
-          style_card(id(yts_detail_panel));
-          lv_obj_set_style_bg_color(id(yts_download_btn), lv_color_hex(t.success), 0);
+          style_card(id(yts_info_overlay));
+          lv_obj_set_style_bg_color(id(yts_dl_btn), lv_color_hex(t.success), 0);
           lv_obj_set_style_bg_color(id(yts_prev_btn), lv_color_hex(t.nav_btn_bg), 0);
           lv_obj_set_style_bg_color(id(yts_next_btn), lv_color_hex(t.nav_btn_bg), 0);
-          lv_obj_set_style_text_color(id(yts_quality_lbl), lv_color_hex(t.text_secondary), 0);
           lv_obj_set_style_text_color(id(yts_page_lbl), lv_color_hex(t.text_muted), 0);
-          lv_obj_set_style_text_color(id(yts_detail_title), lv_color_hex(t.text_primary), 0);
+          lv_obj_set_style_text_color(id(yts_info_title), lv_color_hex(t.text_primary), 0);
           lv_obj_set_style_bg_color(id(dash_page_scrim), lv_color_hex(t.page_scrim), 0);
 
           style_card(id(settings_left_panel));
