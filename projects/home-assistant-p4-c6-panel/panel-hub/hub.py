@@ -100,6 +100,9 @@ JELLYFIN_PLAY_CLIENT = os.getenv("JELLYFIN_PLAY_CLIENT", "").strip()
 # Browser-reachable Jellyfin base (for the "Watch on Jellyfin" link on the /yts
 # browser page) — NOT the docker-gateway URL the hub uses internally.
 JELLYFIN_PUBLIC_URL  = os.getenv("JELLYFIN_PUBLIC_URL", "http://192.168.55.59:8096").rstrip("/")
+# This Jellyfin (12.x) authenticates API keys via the MediaBrowser Authorization
+# header; the older X-Emby-Token header is rejected (401).
+JELLYFIN_AUTH = {"Authorization": f'MediaBrowser Token="{JELLYFIN_KEY}"'}
 FIRETV_ADB_CONTAINER = os.getenv("FIRETV_ADB_CONTAINER", "adb-server")
 FIRETV_ADB_DEVICE    = os.getenv("FIRETV_ADB_DEVICE", "192.168.55.77:5555")
 POSTER_MAX_W    = int(os.getenv("POSTER_MAX_W", "280"))
@@ -412,7 +415,7 @@ async def _get_jf_user_id() -> str:
         return _jf_user_id
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.get(f"{JELLYFIN_URL}/Users",
-                              headers={"X-Emby-Token": JELLYFIN_KEY})
+                              headers=JELLYFIN_AUTH)
         r.raise_for_status()
         users = r.json()
     if not users:
@@ -431,7 +434,7 @@ async def fetch_movies(start: int, limit: int) -> dict:
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.get(
             f"{JELLYFIN_URL}/Users/{uid}/Items",
-            headers={"X-Emby-Token": JELLYFIN_KEY},
+            headers=JELLYFIN_AUTH,
             params={
                 "Recursive": "true", "IncludeItemTypes": "Movie",
                 "SortBy": "PremiereDate", "SortOrder": "Descending",
@@ -456,7 +459,7 @@ async def fetch_poster(item_id: str) -> bytes | None:
             try:
                 r = await client.get(
                     f"{JELLYFIN_URL}/Items/{urllib.parse.quote(item_id)}/Images/{img_type}",
-                    headers={"X-Emby-Token": JELLYFIN_KEY, "Accept": "image/jpeg"},
+                    headers={**JELLYFIN_AUTH, "Accept": "image/jpeg"},
                     params={"maxHeight": POSTER_MAX_H, "maxWidth": POSTER_MAX_W,
                             "quality": POSTER_QUALITY, "format": "jpg"})
                 r.raise_for_status()
@@ -508,7 +511,7 @@ async def _refresh_crossref() -> None:
             async with httpx.AsyncClient(timeout=15) as client:
                 r = await client.get(
                     f"{JELLYFIN_URL}/Users/{uid}/Items",
-                    headers={"X-Emby-Token": JELLYFIN_KEY},
+                    headers=JELLYFIN_AUTH,
                     params={"Recursive": "true", "IncludeItemTypes": "Movie",
                             "Fields": "ProviderIds", "Limit": 100000})
                 r.raise_for_status()
@@ -1558,7 +1561,7 @@ async def play(item_id: str):
     for attempt in range(5):
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(f"{JELLYFIN_URL}/Sessions",
-                                  headers={"X-Emby-Token": JELLYFIN_KEY})
+                                  headers=JELLYFIN_AUTH)
             r.raise_for_status()
             sessions = r.json()
         target = next((s for s in sessions if needle in
@@ -1579,7 +1582,7 @@ async def play(item_id: str):
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 f"{JELLYFIN_URL}/Sessions/{target['Id']}/Playing",
-                headers={"X-Emby-Token": JELLYFIN_KEY},
+                headers=JELLYFIN_AUTH,
                 params=params)
             if not r.is_success:
                 log.error("Jellyfin play %d: %s", r.status_code, r.text)
@@ -1618,7 +1621,7 @@ async def jellyfin_cast(item_id: str):
         try:
             async with httpx.AsyncClient(timeout=8) as client:
                 r = await client.get(f"{JELLYFIN_URL}/Sessions",
-                                      headers={"X-Emby-Token": JELLYFIN_KEY})
+                                      headers=JELLYFIN_AUTH)
                 r.raise_for_status()
                 sessions = r.json()
             target = next((s for s in sessions if needle in
@@ -1644,7 +1647,7 @@ async def jellyfin_cast(item_id: str):
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 f"{JELLYFIN_URL}/Sessions/{target['Id']}/Playing",
-                headers={"X-Emby-Token": JELLYFIN_KEY},
+                headers=JELLYFIN_AUTH,
                 params=params)
             if not r.is_success:
                 log.error("Jellyfin cast Sessions/Playing %d: %s", r.status_code, r.text)
