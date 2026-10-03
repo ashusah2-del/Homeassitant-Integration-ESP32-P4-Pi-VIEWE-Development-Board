@@ -490,6 +490,10 @@ _jf_imdb_set: set[str] = set()                 # imdb codes present in Jellyfin
 _jf_item_by_imdb: dict[str, str] = {}          # imdb -> Jellyfin itemId (for watch links)
 _radarr_by_imdb: dict[str, dict] = {}          # imdb -> {"id", "hasFile"}
 _radarr_queue_ids: set[int] = set()            # radarr movie ids currently downloading
+# Per-title search fallback cache: imdb -> Jellyfin itemId ("" = confirmed absent).
+# This Jellyfin fork omits some libraries from the bulk Items enumeration but
+# still returns them via SearchTerm, so we confirm "available" movies by search.
+_jf_search_cache: dict[str, str] = {}
 
 
 def _radarr_headers() -> dict[str, str]:
@@ -503,6 +507,7 @@ async def _refresh_crossref() -> None:
         import time as _time
         if _time.time() - _crossref_ts < CROSSREF_TTL:
             return
+        _jf_search_cache.clear()
         # Jellyfin: set of IMDb ids in the library + imdb -> itemId for watch links.
         jf: set[str] = set()
         jf_items: dict[str, str] = {}
@@ -563,6 +568,45 @@ def _movie_status(imdb: str) -> str:
     return "available"
 
 
+async def _jf_find_by_imdb(imdb: str, title: str) -> str:
+    """Confirm a movie is in Jellyfin by title search, matching on IMDb id.
+
+    Returns the Jellyfin itemId, or "" if not present. Covers movies the bulk
+    library enumeration misses (this fork hides some libraries from Items but
+    not from SearchTerm). Cached per imdb until the next crossref refresh.
+    """
+    code = (imdb or "").strip().lower()
+    if not code or not title:
+        return ""
+    if code in _jf_search_cache:
+        return _jf_search_cache[code]
+    # Search by the first two words of the title, not the whole title: YTS and
+    # Jellyfin often disagree on the tail (e.g. "Iron Man Three" vs "Iron Man 3"),
+    # and Jellyfin search won't bridge "Three"→"3". The franchise prefix returns
+    # the sequels; the exact IMDb match below keeps it from false-positiving.
+    term = " ".join(title.split()[:2]) or title
+    item_id = ""
+    try:
+        uid = await _get_jf_user_id()
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{JELLYFIN_URL}/Users/{uid}/Items",
+                headers=JELLYFIN_AUTH,
+                params={"SearchTerm": term, "Recursive": "true",
+                        "IncludeItemTypes": "Movie", "Fields": "ProviderIds", "Limit": 50})
+            r.raise_for_status()
+            for it in r.json().get("Items", []):
+                if (it.get("ProviderIds") or {}).get("Imdb", "").strip().lower() == code:
+                    item_id = it.get("Id", "") or ""
+                    break
+    except Exception as e:
+        log.debug("jf search %r/%s failed: %s", term, code, e)
+    _jf_search_cache[code] = item_id
+    if item_id:
+        _jf_item_by_imdb[code] = item_id
+    return item_id
+
+
 def _watch_url(imdb: str, title: str) -> str:
     """Browser link to watch an in-library movie on Jellyfin.
 
@@ -605,6 +649,8 @@ async def fetch_yts_movies(page: int, sort: str = "date_added", query: str = "")
             }
         title = (m.get("title_english") or m.get("title") or "Unknown").strip()
         status = _movie_status(imdb)
+        if status == "available" and imdb and await _jf_find_by_imdb(imdb, title):
+            status = "library"
         movies.append({
             "id": yid,
             "title": title,
@@ -677,6 +723,8 @@ async def fetch_yts_details(yts_id: str) -> dict:
     title = (mv.get("title_english") or mv.get("title") or "Unknown").strip()
     plot = (mv.get("description_full") or mv.get("synopsis") or mv.get("summary") or "").strip()
     status = _movie_status(imdb)
+    if status == "available" and imdb and await _jf_find_by_imdb(imdb, title):
+        status = "library"
     cast = [{"name": (c.get("name") or "").strip(),
              "character": (c.get("character_name") or "").strip()}
             for c in (mv.get("cast") or []) if (c.get("name") or "").strip()][:6]
