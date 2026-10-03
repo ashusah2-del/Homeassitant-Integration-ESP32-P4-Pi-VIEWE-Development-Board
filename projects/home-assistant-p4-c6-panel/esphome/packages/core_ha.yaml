@@ -531,14 +531,12 @@ text_sensor:
             if (v < 0) v = 0;
             if (v > 100) v = 100;
             id(g_calendar_opa_pct) = v;
-            if (id(g_lvgl_ready)) {
-              // Calendar only — the clock pill has its own independent
-              // background/text opacity (g_clock_*_opa_pct).
-              lv_obj_set_style_opa(id(calendar_panel), (uint32_t)((v * 255) / 100), 0);
-            }
+            // Calendar background only; text has its own control. Applied via
+            // apply_calendar_opacity below. (Clock pill is fully independent.)
             char b[12];
             snprintf(b, sizeof(b), "%d %%", v);
             lv_label_set_text(id(settings_calopa_val), b);
+        - script.execute: apply_calendar_opacity
 
   # Calendar rendering style, paired with HA helper
   # input_number.panel_calendar_style (recommended range 0–3 step 1

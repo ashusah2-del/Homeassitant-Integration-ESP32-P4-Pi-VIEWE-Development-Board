@@ -216,6 +216,8 @@ globals:
   # split into background vs text so each can be tuned separately (settings page).
   - { id: g_clock_bg_opa_pct,   type: int, restore_value: yes, initial_value: '50' }
   - { id: g_clock_text_opa_pct, type: int, restore_value: yes, initial_value: '100' }
+  # Calendar text opacity, independent of the calendar background (g_calendar_opa_pct).
+  - { id: g_calendar_text_opa_pct, type: int, restore_value: yes, initial_value: '100' }
   # Calendar rendering style: 0=Ribbon 1=Agenda 2=Compact 3=Timeline. Mirrors
   # HA's input_number.panel_calendar_style helper and is editable on the
   # settings page. restore_value: yes so the choice sticks across reboots.
@@ -691,16 +693,26 @@ script:
           lv_obj_set_style_border_width(id(clock_pill_obj), 0, 0);
           lv_obj_set_style_bg_opa(id(clock_pill_obj), LV_OPA_50, 0);
           lv_obj_set_style_border_width(id(va_state_pill), 1, 0);
-          int pct = id(g_calendar_opa_pct);
-          if (pct < 0) pct = 0;
-          if (pct > 100) pct = 100;
-          uint32_t opa = (uint32_t)((pct * 255) / 100);
-          lv_obj_set_style_opa(id(calendar_panel), opa, 0);
           lv_obj_set_style_opa(id(weather_widget), LV_OPA_COVER, 0);
-      # Clock-pill opacity is restored from its own globals here (independent of
-      # the calendar opacity above).
+      # Calendar + clock-pill opacity are restored from their own globals by
+      # apply_slideshow_layout_visibility (which calls apply_calendar_opacity).
       - script.execute: apply_slideshow_layout_visibility
       - script.execute: apply_panel_theme
+
+  # Calendar overlay brightness — background (bg + border) and text are
+  # independent (g_calendar_opa_pct / g_calendar_text_opa_pct), mirroring the
+  # clock pill. Uses bg_opa/border_opa/text_opa, not whole-widget opa.
+  - id: apply_calendar_opacity
+    mode: single
+    then:
+      - lambda: |-
+          if (!id(g_lvgl_ready)) return;
+          int bg = id(g_calendar_opa_pct);      if (bg < 0) bg = 0; if (bg > 100) bg = 100;
+          int tx = id(g_calendar_text_opa_pct); if (tx < 0) tx = 0; if (tx > 100) tx = 100;
+          lv_obj_set_style_opa(id(calendar_panel), LV_OPA_COVER, 0);
+          lv_obj_set_style_bg_opa(id(calendar_panel), (uint32_t)((bg * 255) / 100), 0);
+          lv_obj_set_style_border_opa(id(calendar_panel), (uint32_t)((bg * 255) / 100), 0);
+          lv_obj_set_style_text_opa(id(calendar_panel), (uint32_t)((tx * 255) / 100), 0);
 
   - id: apply_slideshow_layout_visibility
     mode: restart
@@ -738,6 +750,7 @@ script:
           lv_label_set_text(id(layout_clock_toggle_lbl), id(g_layout_clock_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_wake_toggle_lbl), id(g_layout_wake_visible) ? "Hide" : "Show");
           lv_label_set_text(id(layout_bubble_toggle_lbl), id(g_layout_bubble_visible) ? "Hide" : "Show");
+      - script.execute: apply_calendar_opacity
 
   # Renders the current "page" of calendar events into whichever of the 4
   # style subtrees (cal_rows_box/cal_agenda_box/cal_compact_box/
@@ -1242,12 +1255,7 @@ script:
             lambda: 'return id(g_transition_effect) >= 1 && id(g_transition_effect) <= 4;'
           then:
             - delay: 1600ms
-            - lambda: |-
-                if (!id(g_lvgl_ready)) return;
-                int pct = id(g_calendar_opa_pct);
-                if (pct < 0) pct = 0;
-                if (pct > 100) pct = 100;
-                lv_obj_set_style_opa(id(calendar_panel), (uint32_t)((pct * 255) / 100), 0);
+            - script.execute: apply_calendar_opacity
 
   # Shows the next embedded stock image (cycles through 2 pre-downloaded images).
   # No internet required — images are stored in device flash at build time.
@@ -5219,7 +5227,7 @@ lvgl:
                       - label:
                           x: 0
                           y: 466
-                          text: "Calendar overlay opacity:"
+                          text: "Calendar background:"
                           text_font: montserrat_16
                           text_color: "${c_text_muted}"
                       - button:
@@ -5238,13 +5246,10 @@ lvgl:
                                 int v = id(g_calendar_opa_pct) - 5;
                                 if (v < 0) v = 0;
                                 id(g_calendar_opa_pct) = v;
-                                if (id(g_lvgl_ready)) {
-                                  uint32_t opa = (uint32_t)((v * 255) / 100);
-                                  lv_obj_set_style_opa(id(calendar_panel), opa, 0);
-                                }
                                 char b[12];
                                 snprintf(b, sizeof(b), "%d %%", v);
                                 lv_label_set_text(id(settings_calopa_val), b);
+                            - script.execute: apply_calendar_opacity
                             - homeassistant.service:
                                 service: input_number.set_value
                                 data:
@@ -5274,13 +5279,10 @@ lvgl:
                                 int v = id(g_calendar_opa_pct) + 5;
                                 if (v > 100) v = 100;
                                 id(g_calendar_opa_pct) = v;
-                                if (id(g_lvgl_ready)) {
-                                  uint32_t opa = (uint32_t)((v * 255) / 100);
-                                  lv_obj_set_style_opa(id(calendar_panel), opa, 0);
-                                }
                                 char b[12];
                                 snprintf(b, sizeof(b), "%d %%", v);
                                 lv_label_set_text(id(settings_calopa_val), b);
+                            - script.execute: apply_calendar_opacity
                             - homeassistant.service:
                                 service: input_number.set_value
                                 data:
@@ -5572,6 +5574,60 @@ lvgl:
                                 char b[12]; snprintf(b, sizeof(b), "%d %%", v);
                                 lv_label_set_text(id(settings_clocktxt_val), b);
                             - script.execute: apply_slideshow_layout_visibility
+
+                      # ── Calendar text opacity spinner ──────────────────
+                      - label:
+                          x: 0
+                          y: 972
+                          text: "Calendar text:"
+                          text_font: montserrat_16
+                          text_color: "${c_text_muted}"
+                      - button:
+                          x: 0
+                          y: 1000
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "-"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_calendar_text_opa_pct) - 10;
+                                if (v < 0) v = 0;
+                                id(g_calendar_text_opa_pct) = v;
+                                char b[12]; snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_caltxt_val), b);
+                            - script.execute: apply_calendar_opacity
+                      - label:
+                          id: settings_caltxt_val
+                          x: 70
+                          y: 1008
+                          width: 120
+                          text: "100 %"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                      - button:
+                          x: 200
+                          y: 1000
+                          width: 56
+                          height: 44
+                          radius: 22
+                          bg_color: "${c_nav_btn}"
+                          border_width: 0
+                          text: "+"
+                          text_font: montserrat_24
+                          text_color: "${c_text}"
+                          on_click:
+                            - lambda: |-
+                                int v = id(g_calendar_text_opa_pct) + 10;
+                                if (v > 100) v = 100;
+                                id(g_calendar_text_opa_pct) = v;
+                                char b[12]; snprintf(b, sizeof(b), "%d %%", v);
+                                lv_label_set_text(id(settings_caltxt_val), b);
+                            - script.execute: apply_calendar_opacity
 
                 # ── Backlight + setup guide (right half) ─────────────────
                 - obj:
